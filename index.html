@@ -16,10 +16,10 @@ html, body {
 #splash {
   position: fixed;           /* cover full screen */
   inset: 0;                  /* top, bottom, left, right = 0 */
-  background: #a9a9a9;       /* darker grey (#a9a9a9 = darkgrey) */
+  background: #a0a0a2;       /* darker grey (#a9a9a9 = darkgrey) */
   display: flex;             /* flex centering */
   justify-content: center;   /* horizontal center */
-  align-items: center;       /* vertical center */
+  align-items: flex-start;       /* vertical center */
   z-index: 99999;            /* top layer */
 }
 
@@ -27,7 +27,7 @@ html, body {
   width: 600px;              /* adjust size */
   max-width: 90%;
   animation: popIn 1.2s ease;
-  filter: drop-shadow(0 12px 30px rgba(0,0,0,0.7)); /* make image pop */
+  /* filter: drop-shadow(0 12px 30px rgba(0,0,0,0.7)); /* make image pop */
 }
 
 @keyframes popIn {
@@ -197,7 +197,7 @@ ul li { color: var(--text); }
 
 <!-- SPLASH SCREEN -->
 <div id="splash">
-  <img src="https://gcdnb.pbrd.co/images/Odx6zppPNgX6.jpg?o=1" alt="NovaFix Splash">
+  <img src="https://gcdnb.pbrd.co/images/bVMPNbUhM3ZZ.jpg?o=1" alt="NovaFix Splash">
 </div>
 
 <header>
@@ -574,3 +574,4 @@ newDailyChallenge();
 
 </body>
 </html>
+
