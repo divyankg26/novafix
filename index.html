@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>🌿 WellNest – Wellness Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+:root {
+  --primary: #2e7d32;
+  --accent: #81c784;
+  --bg: #eef5f9;
+  --glass: rgba(255,255,255,0.9);
+  --text: #222;
+  --headerText: white;
+  --bulletText: white;
+}
+body.dark {
+  --primary: #81c784;
+  --accent: #2e7d32;
+  --bg: #121212;
+  --glass: rgba(30,30,30,0.85);
+  --text: #eee;
+  --headerText: black;
+  --bulletText: black;
+}
+body { margin:0; font-family:'Segoe UI',sans-serif; background:var(--bg); color:var(--text); transition:0.3s; }
+header { padding:30px; text-align:center; background:linear-gradient(135deg,var(--primary),var(--accent)); display:flex; flex-direction:column; align-items:center; }
+header h1 { margin:0 0 6px; color:var(--headerText); }
+header p { margin:0; color:var(--bulletText); }
+header button { margin-top:10px; padding:6px 12px; border:none; border-radius:8px; cursor:pointer; background:var(--accent); color:#fff; font-weight:bold; }
+
+.dashboard { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); grid-auto-rows:380px; gap:24px; padding:24px; }
+
+.card { background:var(--glass); backdrop-filter:blur(10px); border-radius:20px; padding:20px; box-shadow:0 14px 34px rgba(0,0,0,0.12); display:flex; flex-direction:column; justify-content:space-between; transition:0.3s; overflow:hidden; }
+.card:hover { transform:translateY(-5px); box-shadow:0 18px 40px rgba(0,0,0,0.15); }
+
+.card h2 { margin:0; font-size:1.2em; color:var(--primary); }
+.input-group { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+.input-group input, .input-group select { flex:1; margin-top:0; padding:10px; border-radius:10px; border:1px solid #ccc; font-size:0.95em; background:var(--bg); color:var(--text); }
+.input-group button { flex:none; padding:10px 16px; border-radius:10px; border:none; background:var(--primary); color:white; cursor:pointer; margin-top:8px; }
+
+.chat { flex-grow:1; overflow-y:auto; background:var(--bg); padding:10px; border-radius:10px; font-size:0.95em; border:1px solid #ccc; color:var(--text); }
+
+.small { font-size:0.95em; }
+ul { padding-left:16px; margin:4px 0; color:var(--text); }
+
+#moodLogs { max-height:120px; border:1px solid #ccc; padding:8px; border-radius:8px; background:var(--bg); color:var(--text); overflow-y:auto; transition:0.3s; }
+#moodLogs::-webkit-scrollbar { width:6px; }
+#moodLogs::-webkit-scrollbar-thumb { background-color: var(--primary); border-radius:3px; }
+#moodLogs::-webkit-scrollbar-track { background-color: var(--glass); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🌿 WellNest</h1>
+  <p>Mind • Body • Money • Music • Productivity</p>
+  <button onclick="toggleTheme()">🌙 Toggle Dark/Light</button>
+</header>
+
+<div class="dashboard">
+
+<!-- AI COMPANION -->
+<div class="card">
+<h2>🤖 AI Companion</h2>
+<div class="chat" id="chat"></div>
+<div class="input-group">
+  <input id="aiInput" placeholder="Talk to AI">
+  <button onclick="aiChat()">Talk</button>
+</div>
+</div>
+
+<!-- REMINDERS -->
+<div class="card">
+<h2>⏰ Reminders</h2>
+<div class="input-group">
+  <input id="reminderText" placeholder="Reminder text">
+  <input type="number" id="reminderMinutes" placeholder="Minutes" style="max-width:120px;">
+  <button onclick="addReminder()">Set Reminder</button>
+</div>
+<ul id="reminders" class="small"></ul>
+</div>
+
+<!-- PRODUCTIVITY -->
+<div class="card">
+<h2>📊 Productivity</h2>
+<div class="input-group">
+  <input id="task" placeholder="Today's main task">
+  <button onclick="addTask()">Add</button>
+</div>
+<ul id="taskList" class="small"></ul>
+</div>
+
+<!-- GROCERY FINANCING -->
+<div class="card">
+<h2>🧾 Grocery Financing</h2>
+<div class="input-group">
+  <input type="number" id="gCost" placeholder="Monthly grocery ₹">
+  <input type="number" id="gMonths" placeholder="Planning months" style="max-width:120px;">
+  <input type="number" id="buffer" placeholder="Safety buffer %" style="max-width:120px;">
+  <button onclick="calculateFinance()">Plan</button>
+</div>
+<p id="financeResult" class="small"></p>
+</div>
+
+<!-- MOOD TRACKER -->
+<div class="card">
+<h2>🧘 Mood Tracker</h2>
+<div class="input-group">
+  <select id="mood">
+    <option>😊 Happy</option>
+    <option>😐 Neutral</option>
+    <option>😔 Low</option>
+  </select>
+  <button onclick="saveMood()">Save</button>
+</div>
+<p id="moodResult" class="small"></p>
+<div id="moodLogs"></div>
+</div>
+
+<!-- WATER -->
+<div class="card">
+<h2>💧 Water Intake</h2>
+<div class="input-group">
+  <input type="number" id="water" placeholder="Glasses today">
+  <button onclick="saveWater()">Track</button>
+</div>
+<p id="waterResult" class="small"></p>
+</div>
+
+<!-- SLEEP -->
+<div class="card">
+<h2>💤 Sleep Tracker</h2>
+<div class="input-group">
+  <input type="number" id="sleep" placeholder="Hours slept">
+  <button onclick="saveSleep()">Save</button>
+</div>
+<p id="sleepResult" class="small"></p>
+</div>
+
+<!-- MUSIC -->
+<div class="card">
+<h2>🎵 Wellness Music</h2>
+<p class="small">Calm & focus-enhancing playlist</p>
+<iframe style="border-radius:14px" src="https://open.spotify.com/embed/playlist/0Gwjm4uWLCSE7ZIiY6dK2X?utm_source=generator" width="100%" height="190" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>
+</div>
+
+</div>
+
+<script>
+// THEME
+function toggleTheme(){document.body.classList.toggle("dark");}
+
+// AI
+const moodHistory=[], waterHistory=[], sleepHistory=[];
+function aiChat(){
+  const input=document.getElementById("aiInput").value.trim();
+  if(!input) return;
+  const msg=input.toLowerCase();
+  let response="";
+  const leafLogo="🌿";
+
+  if(msg.match(/hi|hello|hey/)) response=`I am WellNest AI ${leafLogo}`;
+  else if(msg.match(/who are you/)) response=`I am WellNest AI ${leafLogo}, your wellness companion.`;
+  else if(msg.match(/analyze|conclude|report/)){
+    if(moodHistory.length===0 && waterHistory.length===0 && sleepHistory.length===0){
+      response="No data recorded yet to analyze.";
+    } else {
+      response="Here is your latest wellness data analysis:<br>";
+      if(sleepHistory.length) response+=`Sleep: Last ${sleepHistory[sleepHistory.length-1]} hrs<br>`;
+      if(waterHistory.length) response+=`Water: Last ${waterHistory[waterHistory.length-1]} glasses<br>`;
+      if(moodHistory.length){
+        const lastMood=moodHistory[moodHistory.length-1];
+        response+=`Mood: Last ${lastMood.value} at ${lastMood.time}<br>`;
+      }
+      response+="Tip: Keep a consistent routine, stay hydrated, and track mood for better insight.";
+    }
+  } else {
+    response="I'm analyzing your input. Tell me more about your energy, mood, or wellness concern.";
+  }
+
+  const chat=document.getElementById("chat");
+  chat.innerHTML+=`<p><b>You:</b> ${input}</p><p><b>AI:</b><br>${response}</p>`;
+  chat.scrollTop=chat.scrollHeight;
+  document.getElementById("aiInput").value="";
+}
+
+// REMINDERS
+function addReminder(){
+  const text=document.getElementById("reminderText").value.trim();
+  const minutes=parseFloat(document.getElementById("reminderMinutes").value);
+  if(!text||isNaN(minutes)||minutes<=0){alert("Enter reminder text and valid minutes."); return;}
+  const ul=document.getElementById("reminders");
+  const li=document.createElement("li");
+  li.style.color=varTextColor();
+  ul.appendChild(li);
+
+  let timeLeft=minutes*60;
+  const interval=setInterval(()=>{
+    if(timeLeft<=0){
+      clearInterval(interval);
+      li.textContent=`${text} - Time's up!`;
+      const audio=new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
+      audio.volume=1;
+      audio.play();
+      return;
+    }
+    const mins=Math.floor(timeLeft/60), secs=timeLeft%60;
+    li.textContent=`${text} - ${mins}m ${secs}s remaining`;
+    timeLeft--;
+  },1000);
+
+  document.getElementById("reminderText").value="";
+  document.getElementById("reminderMinutes").value="";
+}
+
+// TASKS
+function addTask(){
+  const task=document.getElementById("task").value.trim();
+  if(!task) return;
+  const ul=document.getElementById("taskList");
+  const li=document.createElement("li");
+  li.style.color=varTextColor();
+  li.textContent="✔ "+task;
+  ul.appendChild(li);
+  document.getElementById("task").value="";
+}
+
+// GROCERY FINANCE
+function calculateFinance(){
+  const cost=parseFloat(document.getElementById("gCost").value);
+  const months=parseFloat(document.getElementById("gMonths").value);
+  const buffer=parseFloat(document.getElementById("buffer").value)||0;
+  if(isNaN(cost)||isNaN(months)||months<=0){alert("Enter valid values."); return;}
+  const total=cost*months, final=total*(1+buffer/100);
+  document.getElementById("financeResult").innerHTML=`Total: ₹${final.toFixed(0)}<br>Monthly: ₹${(final/months).toFixed(0)}`;
+}
+
+// MOOD / WATER / SLEEP
+function saveMood(){
+  const mood=document.getElementById("mood").value;
+  const now=new Date();
+  const timestamp=`${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`;
+  document.getElementById("moodResult").innerText=`Mood saved: ${mood}`;
+  moodHistory.push({value:mood,time:timestamp});
+  const ul=document.getElementById("moodLogs");
+  const entry=document.createElement("div");
+  entry.textContent=`${timestamp} - ${mood}`;
+  ul.appendChild(entry);
+}
+
+function saveWater(){
+  const water=document.getElementById("water").value;
+  document.getElementById("waterResult").innerText=`${water} glasses 💧`;
+  waterHistory.push(water);
+}
+
+function saveSleep(){
+  const sleep=document.getElementById("sleep").value;
+  document.getElementById("sleepResult").innerText=`${sleep} hrs 💤`;
+  sleepHistory.push(sleep);
+}
+
+// Helper for task/reminder text color
+function varTextColor(){ return getComputedStyle(document.body).getPropertyValue('--text'); }
+</script>
+
+</body>
+</html>
