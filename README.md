@@ -1,7 +1,7 @@
-# wellnest
-🌿 WellNest – Wellness app (view only). Code protected.
+# novafix
+🌿 NovaFix – Wellness app (view only). Code protected.
 
-Copyright (c) 2026 Wellnest
+Copyright (c) 2026 NovaFix
 
 All rights reserved. 
 
