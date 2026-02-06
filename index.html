@@ -36,18 +36,22 @@ header button { margin-top:10px; padding:6px 12px; border:none; border-radius:8p
 
 .card h2 { margin:0; font-size:1.2em; color:var(--primary); }
 .input-group { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
-.input-group input, .input-group select { flex:1; margin-top:0; padding:10px; border-radius:10px; border:1px solid #ccc; font-size:0.95em; background:var(--bg); color:var(--text); }
-.input-group button { flex:none; padding:10px 16px; border-radius:10px; border:none; background:var(--primary); color:white; cursor:pointer; margin-top:8px; }
+.input-group input, .input-group select, .input-group button, .input-group textarea { flex:1; margin-top:0; padding:10px; border-radius:10px; border:1px solid #ccc; font-size:0.95em; background:var(--bg); color:var(--text); transition:0.3s; font-family:'Segoe UI',sans-serif; }
+.input-group button { flex:none; padding:10px 16px; border:none; background:var(--primary); color:white; cursor:pointer; font-weight:bold; }
+.input-group button:hover { opacity:0.9; }
+textarea { resize:none; }
+textarea:focus { outline:none; border-color: var(--primary); }
 
 .chat { flex-grow:1; overflow-y:auto; background:var(--bg); padding:10px; border-radius:10px; font-size:0.95em; border:1px solid #ccc; color:var(--text); }
 
 .small { font-size:0.95em; }
-ul { padding-left:16px; margin:4px 0; color:var(--text); }
+ul { padding-left:16px; margin:4px 0; }
+ul li { color: var(--text); }
 
-#moodLogs { max-height:120px; border:1px solid #ccc; padding:8px; border-radius:8px; background:var(--bg); color:var(--text); overflow-y:auto; transition:0.3s; }
-#moodLogs::-webkit-scrollbar { width:6px; }
-#moodLogs::-webkit-scrollbar-thumb { background-color: var(--primary); border-radius:3px; }
-#moodLogs::-webkit-scrollbar-track { background-color: var(--glass); }
+#moodLogs, #gratitudeLogs { max-height:120px; border:1px solid #ccc; padding:8px; border-radius:8px; background:var(--bg); color:var(--text); overflow-y:auto; transition:0.3s; }
+#moodLogs::-webkit-scrollbar, #gratitudeLogs::-webkit-scrollbar { width:6px; }
+#moodLogs::-webkit-scrollbar-thumb, #gratitudeLogs::-webkit-scrollbar-thumb { background-color: var(--primary); border-radius:3px; }
+#moodLogs::-webkit-scrollbar-track, #gratitudeLogs::-webkit-scrollbar-track { background-color: var(--glass); }
 </style>
 </head>
 <body>
@@ -60,90 +64,130 @@ ul { padding-left:16px; margin:4px 0; color:var(--text); }
 
 <div class="dashboard">
 
-<!-- AI COMPANION -->
-<div class="card">
-<h2>🤖 AI Companion</h2>
-<div class="chat" id="chat"></div>
-<div class="input-group">
-  <input id="aiInput" placeholder="Talk to AI">
-  <button onclick="aiChat()">Talk</button>
-</div>
-</div>
+  <!-- AI COMPANION -->
+  <div class="card">
+    <h2>🤖 AI Companion</h2>
+    <div class="chat" id="chat"></div>
+    <div class="input-group">
+      <input id="aiInput" placeholder="Talk to AI">
+      <button onclick="aiChat()">Talk</button>
+    </div>
+  </div>
 
-<!-- REMINDERS -->
-<div class="card">
-<h2>⏰ Reminders</h2>
-<div class="input-group">
-  <input id="reminderText" placeholder="Reminder text">
-  <input type="number" id="reminderMinutes" placeholder="Minutes" style="max-width:120px;">
-  <button onclick="addReminder()">Set Reminder</button>
-</div>
-<ul id="reminders" class="small"></ul>
-</div>
+  <!-- REMINDERS -->
+  <div class="card">
+    <h2>⏰ Reminders</h2>
+    <div class="input-group">
+      <input id="reminderText" placeholder="Reminder text">
+      <input type="number" id="reminderMinutes" placeholder="Minutes" style="max-width:120px;">
+      <button onclick="addReminder()">Set Reminder</button>
+    </div>
+    <ul id="reminders" class="small"></ul>
+  </div>
 
-<!-- PRODUCTIVITY -->
-<div class="card">
-<h2>📊 Productivity</h2>
-<div class="input-group">
-  <input id="task" placeholder="Today's main task">
-  <button onclick="addTask()">Add</button>
-</div>
-<ul id="taskList" class="small"></ul>
-</div>
+  <!-- PRODUCTIVITY -->
+  <div class="card">
+    <h2>📊 Productivity</h2>
+    <div class="input-group">
+      <input id="task" placeholder="Today's main task">
+      <button onclick="addTask()">Add</button>
+    </div>
+    <ul id="taskList" class="small"></ul>
+  </div>
 
-<!-- GROCERY FINANCING -->
-<div class="card">
-<h2>🧾 Grocery Financing</h2>
-<div class="input-group">
-  <input type="number" id="gCost" placeholder="Monthly grocery ₹">
-  <input type="number" id="gMonths" placeholder="Planning months" style="max-width:120px;">
-  <input type="number" id="buffer" placeholder="Safety buffer %" style="max-width:120px;">
-  <button onclick="calculateFinance()">Plan</button>
-</div>
-<p id="financeResult" class="small"></p>
-</div>
+  <!-- GROCERY FINANCING -->
+  <div class="card">
+    <h2>🧾 Grocery Financing</h2>
+    <div class="input-group">
+      <input type="number" id="gCost" placeholder="Monthly grocery ₹">
+      <input type="number" id="gMonths" placeholder="Planning months" style="max-width:120px;">
+      <input type="number" id="buffer" placeholder="Safety buffer %" style="max-width:120px;">
+      <button onclick="calculateFinance()">Plan</button>
+    </div>
+    <p id="financeResult" class="small"></p>
+  </div>
 
-<!-- MOOD TRACKER -->
-<div class="card">
-<h2>🧘 Mood Tracker</h2>
-<div class="input-group">
-  <select id="mood">
-    <option>😊 Happy</option>
-    <option>😐 Neutral</option>
-    <option>😔 Low</option>
-  </select>
-  <button onclick="saveMood()">Save</button>
-</div>
-<p id="moodResult" class="small"></p>
-<div id="moodLogs"></div>
-</div>
+  <!-- MOOD TRACKER -->
+  <div class="card">
+    <h2>🧘 Mood Tracker</h2>
+    <div class="input-group">
+      <select id="mood">
+        <option>😊 Happy</option>
+        <option>😐 Neutral</option>
+        <option>😔 Low</option>
+      </select>
+      <button onclick="saveMood()">Save</button>
+    </div>
+    <p id="moodResult" class="small"></p>
+    <div id="moodLogs"></div>
+  </div>
 
-<!-- WATER -->
-<div class="card">
-<h2>💧 Water Intake</h2>
-<div class="input-group">
-  <input type="number" id="water" placeholder="Glasses today">
-  <button onclick="saveWater()">Track</button>
-</div>
-<p id="waterResult" class="small"></p>
-</div>
+  <!-- WATER -->
+  <div class="card">
+    <h2>💧 Water Intake</h2>
+    <div class="input-group">
+      <input type="number" id="water" placeholder="Glasses today">
+      <button onclick="saveWater()">Track</button>
+    </div>
+    <p id="waterResult" class="small"></p>
+  </div>
 
-<!-- SLEEP -->
-<div class="card">
-<h2>💤 Sleep Tracker</h2>
-<div class="input-group">
-  <input type="number" id="sleep" placeholder="Hours slept">
-  <button onclick="saveSleep()">Save</button>
-</div>
-<p id="sleepResult" class="small"></p>
-</div>
+  <!-- SLEEP -->
+  <div class="card">
+    <h2>💤 Sleep Tracker</h2>
+    <div class="input-group">
+      <input type="number" id="sleep" placeholder="Hours slept">
+      <button onclick="saveSleep()">Save</button>
+    </div>
+    <p id="sleepResult" class="small"></p>
+  </div>
 
-<!-- MUSIC -->
-<div class="card">
-<h2>🎵 Wellness Music</h2>
-<p class="small">Calm & focus-enhancing playlist</p>
-<iframe style="border-radius:14px" src="https://open.spotify.com/embed/playlist/0Gwjm4uWLCSE7ZIiY6dK2X?utm_source=generator" width="100%" height="190" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>
-</div>
+  <!-- MUSIC -->
+  <div class="card">
+    <h2>🎵 Wellness Music</h2>
+    <p class="small">Calm & focus-enhancing playlist</p>
+    <iframe style="border-radius:14px" src="https://open.spotify.com/embed/playlist/0Gwjm4uWLCSE7ZIiY6dK2X?utm_source=generator" width="100%" height="190" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>
+  </div>
+
+  <!-- TIME TRAVELLER MIRROR -->
+  <div class="card">
+    <h2>🪞 Time Traveller Mirror</h2>
+    <p class="small">See how your choices affect your wellness journey</p>
+    <div class="input-group">
+      <input id="futureTask" placeholder="Enter a task/goal">
+      <button onclick="timeTraveller()">Check</button>
+    </div>
+    <div id="timeMirror" class="small"></div>
+  </div>
+
+  <!-- MOTIVATIONAL QUOTES -->
+  <div class="card">
+    <h2>💡 Motivational Quotes</h2>
+    <p id="quoteDisplay" class="small"></p>
+    <div class="input-group">
+      <button onclick="newQuote()">Inspire Me</button>
+    </div>
+  </div>
+
+  <!-- GRATITUDE JOURNAL -->
+  <div class="card">
+    <h2>🙏 Gratitude Journal</h2>
+    <textarea id="gratitudeInput" placeholder="What are you grateful for today?" rows="3"></textarea>
+    <div class="input-group">
+      <button onclick="saveGratitude()">Save Entry</button>
+    </div>
+    <div id="gratitudeLogs"></div>
+  </div>
+
+  <!-- DAILY CHALLENGE -->
+  <div class="card">
+    <h2>🏆 Daily Challenge</h2>
+    <p id="dailyChallenge" class="small"></p>
+    <div class="input-group">
+      <button onclick="completeChallenge()">Mark Complete ✅</button>
+    </div>
+    <p id="challengeResult" class="small"></p>
+  </div>
 
 </div>
 
@@ -192,11 +236,10 @@ function addReminder(){
   if(!text||isNaN(minutes)||minutes<=0){alert("Enter reminder text and valid minutes."); return;}
   const ul=document.getElementById("reminders");
   const li=document.createElement("li");
-  li.style.color=varTextColor();
   ul.appendChild(li);
 
   let timeLeft=minutes*60;
-  const interval=setInterval(()=>{
+  const interval=setInterval(()=> {
     if(timeLeft<=0){
       clearInterval(interval);
       li.textContent=`${text} - Time's up!`;
@@ -220,7 +263,6 @@ function addTask(){
   if(!task) return;
   const ul=document.getElementById("taskList");
   const li=document.createElement("li");
-  li.style.color=varTextColor();
   li.textContent="✔ "+task;
   ul.appendChild(li);
   document.getElementById("task").value="";
@@ -261,9 +303,69 @@ function saveSleep(){
   sleepHistory.push(sleep);
 }
 
-// Helper for task/reminder text color
-function varTextColor(){ return getComputedStyle(document.body).getPropertyValue('--text'); }
+// TIME TRAVELLER MIRROR
+function timeTraveller() {
+  const task = document.getElementById("futureTask").value.trim();
+  if (!task) return alert("Enter a task or goal.");
+  const mirror = document.getElementById("timeMirror");
+  const didIt = `✨ Future if you do it: You feel accomplished and energized after completing "${task}". 💪`;
+  const didntDo = `💤 Future if you skip it: You feel regret and a missed opportunity after ignoring "${task}". 😔`;
+  mirror.innerHTML = `<p>${didIt}</p><p>${didntDo}</p>`;
+  document.getElementById("futureTask").value = "";
+}
+
+// MOTIVATIONAL QUOTES
+const quotes = [
+  "🌱 'The journey of a thousand miles begins with one step.' – Lao Tzu",
+  "💪 'Your body can stand almost anything. It’s your mind that you have to convince.'",
+  "☀️ 'Every morning we are born again. What we do today matters most.' – Buddha",
+  "🌟 'Success is the sum of small efforts repeated day in and day out.' – Robert Collier",
+  "🧘 'Happiness is not something ready-made. It comes from your own actions.' – Dalai Lama",
+  "🔥 'Don’t watch the clock; do what it does. Keep going.' – Sam Levenson"
+];
+function newQuote() {
+  const q = quotes[Math.floor(Math.random() * quotes.length)];
+  document.getElementById("quoteDisplay").innerText = q;
+}
+newQuote();
+
+// GRATITUDE JOURNAL
+function saveGratitude() {
+  const input = document.getElementById("gratitudeInput").value.trim();
+  if (!input) return;
+  const now = new Date();
+  const timestamp = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()} ${now.getHours()}:${now.getMinutes()}`;
+  const log = document.createElement("div");
+  log.textContent = `${timestamp} - ${input}`;
+  document.getElementById("gratitudeLogs").appendChild(log);
+  document.getElementById("gratitudeInput").value = "";
+}
+
+// DAILY CHALLENGE
+const dailyChallenges = [
+  "Drink 8 glasses of water today 💧",
+  "Meditate for 10 minutes 🧘",
+  "Take a 20-minute walk 🚶",
+  "Write down 3 things you are grateful for 🙏",
+  "Complete your main task before noon ✔️",
+  "Avoid social media for 1 hour 📵",
+  "Do 10 push-ups or stretches 💪"
+];
+
+let currentChallengeIndex = Math.floor(Math.random()*dailyChallenges.length);
+document.getElementById("dailyChallenge").innerText = dailyChallenges[currentChallengeIndex];
+
+function completeChallenge(){
+  // Show completed message
+  document.getElementById("challengeResult").innerText = "✅ Challenge completed! Good job! 🎉";
+  
+  // Pick a new random challenge
+  const newIndex = Math.floor(Math.random() * dailyChallenges.length);
+  currentChallengeIndex = newIndex;
+  document.getElementById("dailyChallenge").innerText = dailyChallenges[newIndex];
+}
 </script>
 
 </body>
 </html>
+
