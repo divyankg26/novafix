@@ -349,6 +349,25 @@ setTimeout(() => {
   },1000);
 },3000);
 
+// ---------- COLOR WAVES ----------
+const waves = [
+  ["#2196f3","#ff9800"],
+  ["#9c27b0","#03a9f4"],
+  ["#ff5722","#4caf50"],
+  ["#3f51b5","#e91e63"],
+  ["#009688","#ffc107"]
+];
+let w = 0;
+function updateWave(){
+  document.documentElement.style.setProperty("--waveA", waves[w][0]);
+  document.documentElement.style.setProperty("--waveB", waves[w][1]);
+  document.documentElement.style.setProperty("--primary", waves[w][0]);
+  document.documentElement.style.setProperty("--accent", waves[w][1]);
+  w = (w + 1) % waves.length;
+}
+updateWave();
+setInterval(updateWave, 8000);
+
 // ---------- SIGN-IN / SIGN-UP ----------
 let authMode="signin";
 function toggleAuth(){
