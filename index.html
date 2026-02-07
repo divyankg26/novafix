@@ -496,8 +496,14 @@ function addTask(){
 
 // Finance
 function calculateFinance(){
-  const total=gCost.value*gMonths.value*(1+buffer.value/100);
-  financeResult.innerText=`Total ₹${total.toFixed(0)}`;
+  const cost = parseFloat(gCost.value) || 0;
+  const months = parseFloat(gMonths.value) || 1;
+  const buf = parseFloat(buffer.value) || 0;
+
+  const total = cost * months * (1 + buf/100);
+  const monthly = total / months;
+
+  financeResult.innerText = `Total: ₹${total.toFixed(0)} | Monthly: ₹${monthly.toFixed(0)}`;
 }
 
 // Mood
