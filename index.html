@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>NovaFix-Dashboard</title>
+<title>NovaFix - Sign In</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
@@ -111,6 +111,76 @@ body{
   background: rgba(255,255,255,0.28) !important;
 }
 .modal-content p {margin-top: 10px; font-size: 14px; cursor: pointer;}
+
+#importTransferModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.78);
+  justify-content:center;
+  align-items:center;
+  z-index:10035;
+  padding:16px;
+}
+
+.import-transfer-card{
+  width:min(420px, calc(100vw - 24px));
+  max-width:100%;
+  box-sizing:border-box;
+  background:rgba(255,255,255,.16);
+  border:1px solid rgba(255,255,255,.26);
+  border-radius:16px;
+  padding:16px;
+  backdrop-filter:blur(14px);
+  box-shadow:0 14px 34px rgba(0,0,0,.35);
+}
+
+.import-transfer-card h3{
+  margin:0 0 8px;
+  color:#fff;
+}
+
+.import-transfer-note{
+  margin:0 0 10px;
+  font-size:12px;
+  line-height:1.4;
+  opacity:.92;
+}
+
+.import-transfer-card input{
+  width:100%;
+  max-width:100%;
+  box-sizing:border-box;
+  margin:8px 0;
+  padding:10px;
+  border-radius:10px;
+  border:none;
+  background:rgba(255,255,255,.22);
+  color:#fff;
+  font-size:14px;
+}
+
+.import-transfer-error{
+  display:none;
+  margin:6px 0 0;
+  color:#ffb3b3;
+  font-size:12px;
+  line-height:1.35;
+}
+
+.import-transfer-actions{
+  display:flex;
+  gap:8px;
+  margin-top:10px;
+}
+
+.import-transfer-actions button{
+  flex:1;
+}
+
+.import-transfer-cancel{
+  background:rgba(255,255,255,.24) !important;
+}
 
 
 #welcomeGuideModal{
@@ -238,9 +308,10 @@ header{
   padding:30px;
   background:var(--glass);
   backdrop-filter:blur(14px);
-  border-radius:0 0 20px 20px;
+  border-radius:20px;
   box-shadow:0 12px 30px rgba(0,0,0,.3);
   position:relative;
+  margin:10px 10px 0;
 }
 header h1{
   margin:0;
@@ -258,13 +329,16 @@ header p{margin:8px 0 0;opacity:.94}
   position:absolute;
   right:20px;
   top:30px;
-  padding:8px 14px;
-  border:none;
+  padding:8px 12px;
+  border:1px solid rgba(255,255,255,.28);
   border-radius:12px;
   cursor:pointer;
-  background: linear-gradient(135deg,var(--accent),var(--primary));
+  background:rgba(255,255,255,.18);
   color:#fff;
-  font-weight:bold;
+  font-weight:700;
+  font-size:13px;
+  line-height:1.25;
+  box-shadow:none;
   display:none;
 }
 
@@ -357,6 +431,14 @@ header p{margin:8px 0 0;opacity:.94}
   text-align:center;
 }
 
+#exportDataBtn:disabled{
+  background:rgba(160,160,160,.45) !important;
+  color:rgba(255,255,255,.82);
+  cursor:not-allowed;
+  box-shadow:none;
+  filter:grayscale(.25);
+}
+
 .account-transfer-box .export-note{
   margin-top:8px;
   text-align:center;
@@ -412,6 +494,18 @@ header p{margin:8px 0 0;opacity:.94}
   font-weight:700;
 }
 
+.wellness-music-card{
+  justify-content:flex-start;
+}
+
+.wellness-music-card iframe{
+  display:block;
+  align-self:center;
+  width:min(100%, 420px);
+  margin-top:auto;
+  margin-bottom:auto;
+}
+
 .input-group{
   display:flex;
   column-gap:8px;
@@ -426,6 +520,20 @@ header p{margin:8px 0 0;opacity:.94}
 
 .card .input-group :is(input,select,textarea,button) + :is(input,select,textarea,button){
   margin-top:0;
+}
+
+#task,
+#taskAddBtn,
+#aiInput,
+#aiTalkBtn{
+  width:100%;
+  flex:1 1 100%;
+  display:block;
+}
+
+#taskAddBtn,
+#aiTalkBtn{
+  text-align:center;
 }
 
 input,select,textarea,button{
@@ -675,10 +783,21 @@ textarea:focus-visible{
 .ai-header-row h2{margin:0}
 
 .ai-clear-btn{
-  padding:10px;
+  padding:8px 12px;
   border-radius:12px;
-  font-size:14px;
-  line-height:1.35;
+  border:1px solid rgba(255,255,255,.28);
+  background:rgba(255,255,255,.18);
+  font-size:13px;
+  font-weight:700;
+  line-height:1.25;
+  box-shadow:none;
+}
+
+.ai-clear-btn:disabled{
+  background:rgba(160,160,160,.35);
+  color:rgba(255,255,255,.8);
+  cursor:not-allowed;
+  filter:grayscale(.2);
 }
 
 .chat-message{
@@ -1026,6 +1145,10 @@ textarea:focus-visible{
 
 .startup-list li{margin:5px 0}
 
+#startupDailyPlanList li{margin:8px 0}
+
+#startupPlanResetCountdown{margin:12px 0 6px}
+
 .startup-list.compact li{margin:4px 0}
 
 .startup-actions-two{
@@ -1283,6 +1406,13 @@ textarea:focus-visible{
     padding:20px 12px 18px;
   }
 
+  button{
+    font-size:13px;
+    padding:8px;
+    border-radius:10px;
+    line-height:1.25;
+  }
+
   header h1{
     font-size:26px;
   }
@@ -1399,15 +1529,28 @@ textarea:focus-visible{
   <button id="signOutBtn" onclick="signOutUser()">Sign Out</button>
   <div class="account-transfer-box">
     <div class="export-actions">
-      <button onclick="exportAllData()">Export My Data</button>
+      <button id="exportDataBtn" onclick="exportAllData()">Export My Data</button>
       <button onclick="startImportData()">Import Data</button>
     </div>
-    <p class="export-note">Download your full NovaFix data as JSON for transfering accounts</p>
-    <input id="importFileInput" type="file" accept="application/json,.json" style="display:none" onchange="importDataFileChange(event)">
+    <p class="export-note">Store one secure Firebase snapshot and import from another account via email + password.</p>
   </div>
 </div>
 
 <div id="accountOverlay" onclick="closeAccountPanel()"></div>
+
+<div id="importTransferModal" onclick="closeImportTransferModal(event)">
+  <div class="import-transfer-card" onclick="event.stopPropagation()">
+    <h3>Import From Another Account</h3>
+    <p class="import-transfer-note">Enter source account credentials. This will replace your current data with that account’s latest Firebase snapshot. The source account will see a security warning on next login.</p>
+    <input id="importSourceEmail" type="email" placeholder="Source account email">
+    <input id="importSourcePassword" type="password" placeholder="Source account password">
+    <p id="importTransferError" class="import-transfer-error"></p>
+    <div class="import-transfer-actions">
+      <button id="importTransferCancelBtn" class="import-transfer-cancel" onclick="closeImportTransferModal()">Cancel</button>
+      <button id="importTransferConfirmBtn" onclick="submitImportTransfer()">Import</button>
+    </div>
+  </div>
+</div>
 
 <div id="crashAlertBanner" class="crash-banner">
   <div class="crash-banner-row">
@@ -1425,7 +1568,7 @@ textarea:focus-visible{
 <div class="card scroll-card">
 <div class="ai-header-row">
 <h2>🤖 AI Companion</h2>
-<button class="ai-clear-btn" onclick="clearAiChats()">Clear</button>
+<button id="aiClearBtn" class="ai-clear-btn" onclick="clearAiChats()">Clear</button>
 </div>
 <p class="micro-tip">Tip: Ask short, clear prompts for better advice.</p>
 <div class="chat" id="chat"></div>
@@ -1511,7 +1654,7 @@ textarea:focus-visible{
 </div>
 
 <!-- Wellness Music -->
-<div class="card">
+<div class="card wellness-music-card">
 <h2>🎵 Wellness Music</h2>
 <iframe style="border-radius:14px" src="https://open.spotify.com/embed/playlist/0Gwjm4uWLCSE7ZIiY6dK2X" width="100%" height="190"></iframe>
 </div>
@@ -1590,6 +1733,12 @@ textarea:focus-visible{
 <p class="weekly-section-title">🎯 Top 3 Next-Week Actions</p>
 <ul id="weeklyActions" class="weekly-list"></ul>
 
+<p class="weekly-section-title">📊 Weekly Goal Scorecard</p>
+<ul id="weeklyGoalScorecard" class="weekly-list"></ul>
+
+<p class="weekly-section-title">🏅 Progress Milestones</p>
+<ul id="progressMilestones" class="weekly-list"></ul>
+
 <div class="weekly-target-box">
   <p id="weeklyTargetsDisplay" class="weekly-target-text">Targets: Water -, Sleep -, Tasks -</p>
   <button class="weekly-target-btn" onclick="setNextWeekTargets()">Set Next Week Targets</button>
@@ -1666,6 +1815,7 @@ textarea:focus-visible{
   <button id="startupRefreshPlanBtn" onclick="refreshStartupPlan()">Generate Plan</button>
   <button id="startupApplyPlanBtn" onclick="applyStartupPlanAsTasks()">Apply as Tasks</button>
 </div>
+<p id="startupPlanResetCountdown" class="insight-reset-note"></p>
 <p id="startupPlanMeta" class="startup-mini">Plan updates automatically when your logs change.</p>
 </div>
 
@@ -1678,6 +1828,7 @@ textarea:focus-visible{
   <button onclick="copyStartupWeeklyReport()">Copy Report</button>
 </div>
 <ul id="startupWeeklyReportText" class="startup-list compact"><li>No report generated yet.</li></ul>
+<small id="startupReportResetCountdown" class="insight-reset-note"></small>
 </div>
 
 <!-- Behavior Memory Graph -->
@@ -1694,7 +1845,7 @@ textarea:focus-visible{
 
 <script type="module">
   // 🔥 Firebase Imports
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeFirestore, persistentLocalCache, getFirestore, collection, addDoc, getDocs, serverTimestamp, deleteDoc, doc, updateDoc, setDoc, getDoc, runTransaction } 
 from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { 
@@ -1738,6 +1889,21 @@ googleProvider.setCustomParameters({
   prompt: "select_account"
 });
 
+const TRANSFER_APP_NAME = "novafix-transfer";
+let transferAuth = null;
+let transferDb = null;
+const IMPORT_SECURITY_ALERT_TYPE = "source_snapshot_imported";
+
+function getTransferClients() {
+  let transferApp = getApps().find((entry) => entry.name === TRANSFER_APP_NAME);
+  if (!transferApp) {
+    transferApp = initializeApp(firebaseConfig, TRANSFER_APP_NAME);
+  }
+  if (!transferAuth) transferAuth = getAuth(transferApp);
+  if (!transferDb) transferDb = getFirestore(transferApp);
+  return { transferAuth, transferDb };
+}
+
 // ---------- DOM REFERENCES ----------
 const emailInput = document.getElementById("emailInput");
 const passwordInput = document.getElementById("passwordInput");
@@ -1750,6 +1916,13 @@ const dashboard = document.querySelector(".dashboard");
 const accountBtn = document.getElementById("accountBtn");
 const accountOverlay = document.getElementById("accountOverlay");
 const accountPanel = document.getElementById("accountPanel");
+const importTransferModal = document.getElementById("importTransferModal");
+const importSourceEmailInput = document.getElementById("importSourceEmail");
+const importSourcePasswordInput = document.getElementById("importSourcePassword");
+const importTransferError = document.getElementById("importTransferError");
+const importTransferConfirmBtn = document.getElementById("importTransferConfirmBtn");
+const importTransferCancelBtn = document.getElementById("importTransferCancelBtn");
+const exportDataBtn = document.getElementById("exportDataBtn");
 const welcomeGuideModal = document.getElementById("welcomeGuideModal");
 const guideStepCounter = document.getElementById("guideStepCounter");
 const guideStepTitle = document.getElementById("guideStepTitle");
@@ -1768,6 +1941,8 @@ const weeklyRange = document.getElementById("weeklyRange");
 const weeklyImproved = document.getElementById("weeklyImproved");
 const weeklyDropped = document.getElementById("weeklyDropped");
 const weeklyActions = document.getElementById("weeklyActions");
+const weeklyGoalScorecard = document.getElementById("weeklyGoalScorecard");
+const progressMilestones = document.getElementById("progressMilestones");
 const weeklyTargetsDisplay = document.getElementById("weeklyTargetsDisplay");
 const questXpEl = document.getElementById("questXp");
 const questStreakEl = document.getElementById("questStreak");
@@ -1790,6 +1965,7 @@ const signOutBtn = document.getElementById("signOutBtn");
 const chat = document.getElementById("chat");
 const aiInput = document.getElementById("aiInput");
 const aiTalkBtn = document.getElementById("aiTalkBtn");
+const aiClearBtn = document.getElementById("aiClearBtn");
 const aiLimitError = document.getElementById("aiLimitError");
 const reminderText = document.getElementById("reminderText");
 const reminderMinutes = document.getElementById("reminderMinutes");
@@ -1828,7 +2004,6 @@ const gratitudeLogs = document.getElementById("gratitudeLogs");
 const dailyChallengeElement = document.getElementById("dailyChallenge");
 const challengeResultElement = document.getElementById("challengeResult");
 const challengeCompleteBtn = document.getElementById("challengeCompleteBtn");
-const importFileInput = document.getElementById("importFileInput");
 const wellnessScoreEl = document.getElementById("wellnessScore");
 const wellnessStatusEl = document.getElementById("wellnessStatus");
 const wellnessReassuranceEl = document.getElementById("wellnessReassurance");
@@ -1854,6 +2029,8 @@ const startupRefreshPlanBtn = document.getElementById("startupRefreshPlanBtn");
 const startupWeeklyReportText = document.getElementById("startupWeeklyReportText");
 const startupGenerateReportBtn = document.getElementById("startupGenerateReportBtn");
 const startupBehaviorMemory = document.getElementById("startupBehaviorMemory");
+const startupPlanResetCountdown = document.getElementById("startupPlanResetCountdown");
+const startupReportResetCountdown = document.getElementById("startupReportResetCountdown");
 
 // ---------- SPLASH + AUTH CHECK ----------
 document.body.style.overflow = "hidden";
@@ -2098,6 +2275,7 @@ try {
         }
 
         dashboard.style.display = "grid";
+        setPageTitle("dashboard");
         accountBtn.style.display = "block";
         closeAccountPanel();
         updateAccountPanel(user);
@@ -2105,6 +2283,7 @@ try {
         setInitialLoadingStates();
         updateClearDataButtonState();
         await syncServerClock(user.uid);
+        await refreshExportCooldownState(user.uid);
         await loadPersistedBarGraphs(user.uid);
         loadDailyChallenge(user.uid);
         loadDailyUsage(user.uid);
@@ -2121,10 +2300,12 @@ try {
         loadWaterData(user.uid);
         loadSleepData(user.uid);
         loadGratitude(user.uid);
+        showPendingImportSecurityWarnings(user.uid);
         startDailyChallengeWatcher();
         scheduleDailyChallengeReset(user.uid);
         scheduleDailyQuestReset(user.uid);
         startWeeklyGraphResetCountdown();
+        startStartupResetCountdown();
         scheduleWeeklyGraphReset(user.uid);
         scheduleWaterGoalReset(user.uid);
         await maybeShowWelcomeGuide(user.uid);
@@ -2134,14 +2315,18 @@ try {
         clearDailyQuestResetSchedule();
         clearWeeklyGraphResetSchedule();
         stopWeeklyGraphResetCountdown();
+        stopStartupResetCountdown();
+        startExportCooldown(0);
         clearWaterGoalResetSchedule();
         closeAccountPanel();
         updateAccountPanel(null);
         signInModal.style.display = "flex";
+        setPageTitle("signin");
         dashboard.style.display = "none";
         accountBtn.style.display = "none";
         moodLogs.innerHTML = "";
         chat.innerHTML = "";
+        setAiClearButtonState(false);
         taskList.innerHTML = "";
         reminders.innerHTML = "";
         gratitudeLogs.innerHTML = "";
@@ -2181,6 +2366,8 @@ try {
         if (weeklyImproved) weeklyImproved.innerHTML = "";
         if (weeklyDropped) weeklyDropped.innerHTML = "";
         if (weeklyActions) weeklyActions.innerHTML = "";
+        if (weeklyGoalScorecard) weeklyGoalScorecard.innerHTML = "";
+        if (progressMilestones) progressMilestones.innerHTML = "";
         if (questXpEl) questXpEl.innerText = "XP 0/100";
         if (questStreakEl) questStreakEl.innerText = "Streak 0 🔥";
         if (questProgressFill) questProgressFill.style.width = "0%";
@@ -2229,8 +2416,11 @@ try {
   setTimeout(() => {
     hideSplash();
     signInModal.style.display = "flex";
+    setPageTitle("signin");
     dashboard.style.display = "none";
     accountBtn.style.display = "none";
+    setAiClearButtonState(false);
+    startExportCooldown(0);
     closeAccountPanel();
     updateAccountPanel(null);
   }, 1000);
@@ -2374,6 +2564,20 @@ setTimeout(rotateWave, WAVE_HOLD_MS);
 
 // ---------- SIGN-IN / SIGN-UP ----------
 let authMode="signin";
+
+function setPageTitle(view = "signin") {
+  if (view === "dashboard") {
+    document.title = "NovaFix - Dashboard";
+    return;
+  }
+  if (view === "signup") {
+    document.title = "NovaFix - Sign Up";
+    return;
+  }
+  document.title = "NovaFix - Sign In";
+}
+
+setPageTitle("signin");
 let verificationCooldownTimer = null;
 let verificationCooldownRemaining = 0;
 const VERIFICATION_AUTO_RESEND_WINDOW_MS = 10 * 60 * 1000;
@@ -2518,6 +2722,48 @@ async function sendPasswordResetReliable(email) {
   }
 }
 
+async function queueSourceImportSecurityAlert(sourceUserId, destinationUserEmail, dbInstance = db) {
+  const sourceUid = String(sourceUserId || "").trim();
+  if (!sourceUid || !dbInstance) return { ok: false, skipped: true };
+
+  try {
+    await addDoc(collection(dbInstance, "users", sourceUid, "securityAlerts"), {
+      type: IMPORT_SECURITY_ALERT_TYPE,
+      destinationEmail: String(destinationUserEmail || "").trim().toLowerCase() || null,
+      seen: false,
+      createdAt: serverTimestamp()
+    });
+    return { ok: true };
+  } catch (err) {
+    console.error("Failed to queue source import security alert:", err);
+    return { ok: false, error: err };
+  }
+}
+
+async function showPendingImportSecurityWarnings(userId) {
+  const uid = String(userId || "").trim();
+  if (!uid) return;
+
+  try {
+    const snapshot = await getDocs(collection(db, "users", uid, "securityAlerts"));
+    const pending = snapshot.docs.filter((docSnap) => {
+      const data = docSnap.data() || {};
+      return data.type === IMPORT_SECURITY_ALERT_TYPE && !data.seen;
+    });
+
+    if (!pending.length) return;
+
+    alert("⚠️ Security warning: your data snapshot was imported into another account. If this wasn't you, change your password from Account → Change Password.");
+
+    await Promise.all(pending.map((docSnap) => updateDoc(docSnap.ref, {
+      seen: true,
+      seenAt: serverTimestamp()
+    })));
+  } catch (err) {
+    console.warn("Could not load import security warnings:", err);
+  }
+}
+
 function renderWelcomeGuideStep() {
   if (!welcomeGuideModal || !guideStepCounter || !guideStepTitle || !guideStepText || !guideStepTip || !guideDots || !guideNextBtn) return;
   const total = WELCOME_GUIDE_STEPS.length;
@@ -2632,12 +2878,14 @@ function toggleAuth(){
     googleAuthButton.innerText = "Sign Up with Google";
     toggleText.innerText="Already have an account? Sign In";
     usernameInput.style.display = "block";
+    setPageTitle("signup");
   } else {
     title.innerText="Welcome to NovaFix 🌟";
     button.innerText="Sign In";
     googleAuthButton.innerText = "Sign In with Google";
     toggleText.innerText="Don't have an account? Sign Up";
     usernameInput.style.display = "none";
+    setPageTitle("signin");
   }
   setResendVerificationButtonState();
 }
@@ -2722,6 +2970,7 @@ async function handleAuth() {
       googleAuthButton.innerText = "Sign In with Google";
       toggleText.innerText = "Don't have an account? Sign Up";
       usernameInput.style.display = "none";
+      setPageTitle("signin");
 
       error.style.display = "block";
       error.style.color = verifyResult.ok ? "#7CFFB2" : "#ff6b6b";
@@ -2899,6 +3148,7 @@ let challengeWatcherInterval=null;
 let dailyChallengeResetTimeoutId = null;
 let weeklyGraphResetTimeoutId = null;
 let weeklyGraphCountdownIntervalId = null;
+let startupResetCountdownIntervalId = null;
 let insightsPersistTimer=null;
 let waterGoalResetTimeoutId = null;
 let insightMetricIndex = 0;
@@ -2928,7 +3178,7 @@ const WATER_MAX_GLASSES_PER_ENTRY = 10;
 const REMINDER_MAX_MINUTES = 1440;
 const REMINDER_MAX_TEXT_LENGTH = 140;
 const SLEEP_DAILY_LIMIT = 8;
-const STARTUP_PLAN_DAILY_LIMIT = 2;
+const STARTUP_PLAN_DAILY_LIMIT = 1;
 const STARTUP_REPORT_WEEKLY_LIMIT = 1;
 const MAX_REMINDER_ENTRIES = 500;
 const MAX_TASK_ENTRIES = 1500;
@@ -2965,6 +3215,9 @@ let moodSubmitting = false;
 let waterSubmitting = false;
 let sleepSubmitting = false;
 let gratitudeSubmitting = false;
+let importTransferSubmitting = false;
+let exportCooldownUntilMs = 0;
+let exportCooldownIntervalId = null;
 
 function getDefaultStartupFeatureState() {
   return {};
@@ -3211,7 +3464,8 @@ function notifyFirestoreError(err) {
 }
 
 function dateToKey(dateValue) {
-  const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+  const date = toDateSafe(dateValue);
+  if (!date) return null;
   if (Number.isNaN(date.getTime())) return null;
   const year = date.getUTCFullYear();
   const month = String(date.getUTCMonth() + 1).padStart(2, "0");
@@ -3790,6 +4044,73 @@ function renderWeeklyTargets() {
   weeklyTargetsDisplay.innerText = `Targets: Water ${weeklyTargets.waterGoal || "-"} glasses/day • Sleep ${weeklyTargets.sleepTarget || "-"} hrs • Tasks ${weeklyTargets.taskTarget || "-"}/day`;
 }
 
+function buildWeekDayKeys(startDate, totalDays = 7) {
+  const keys = [];
+  const cursor = new Date(startDate);
+  cursor.setUTCHours(0, 0, 0, 0);
+  for (let index = 0; index < totalDays; index += 1) {
+    const dayKey = dateToKey(cursor);
+    if (dayKey) keys.push(dayKey);
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return keys;
+}
+
+function renderWeeklyGoalScorecard(currentStart, currentEnd) {
+  if (!weeklyGoalScorecard) return;
+
+  const dayKeys = buildWeekDayKeys(currentStart, 7);
+  if (!dayKeys.length) {
+    setListItems(weeklyGoalScorecard, [], "No scorecard data yet.");
+    return;
+  }
+
+  const waterByDay = new Map();
+  waterHistory.forEach((entry, index) => {
+    const waterDate = waterDates[index];
+    if (!isInRange(waterDate, currentStart, currentEnd)) return;
+    const dayKey = dateToKey(waterDate);
+    if (!dayKey) return;
+    waterByDay.set(dayKey, (waterByDay.get(dayKey) || 0) + (Number(entry) || 0));
+  });
+
+  const sleepByDay = new Map();
+  sleepHistory.forEach((entry, index) => {
+    const sleepDate = sleepDates[index];
+    if (!isInRange(sleepDate, currentStart, currentEnd)) return;
+    const dayKey = dateToKey(sleepDate);
+    if (!dayKey) return;
+    sleepByDay.set(dayKey, Number(entry) || 0);
+  });
+
+  const tasksDoneByDay = new Map();
+  taskEntries.forEach((entry) => {
+    const taskDate = toDateSafe(entry.time);
+    if (!isInRange(taskDate, currentStart, currentEnd)) return;
+    if (!entry.completed) return;
+    const dayKey = dateToKey(taskDate);
+    if (!dayKey) return;
+    tasksDoneByDay.set(dayKey, (tasksDoneByDay.get(dayKey) || 0) + 1);
+  });
+
+  const waterTarget = Math.max(1, Number(weeklyTargets.waterGoal) || 8);
+  const sleepTarget = Math.max(1, Number(weeklyTargets.sleepTarget) || 8);
+  const taskTarget = Math.max(1, Number(weeklyTargets.taskTarget) || 5);
+
+  const hydrationHits = dayKeys.filter((key) => (Number(waterByDay.get(key)) || 0) >= waterTarget).length;
+  const sleepHits = dayKeys.filter((key) => (Number(sleepByDay.get(key)) || 0) >= sleepTarget).length;
+  const taskHits = dayKeys.filter((key) => (Number(tasksDoneByDay.get(key)) || 0) >= taskTarget).length;
+
+  const totalDays = dayKeys.length;
+  const scoreItems = [
+    `Hydration: ${hydrationHits}/${totalDays} days (${Math.round((hydrationHits / totalDays) * 100)}%) • target ${waterTarget} glasses/day`,
+    `Sleep: ${sleepHits}/${totalDays} days (${Math.round((sleepHits / totalDays) * 100)}%) • target ${sleepTarget}h/day`,
+    `Tasks: ${taskHits}/${totalDays} days (${Math.round((taskHits / totalDays) * 100)}%) • target ${taskTarget} done/day`
+  ];
+
+  setListItems(weeklyGoalScorecard, scoreItems, "No scorecard data yet.");
+}
+
 function updateWeeklyReview() {
   const user = auth.currentUser;
   if (!user) return;
@@ -3827,6 +4148,7 @@ function updateWeeklyReview() {
   setListItems(weeklyImproved, improved, "No major gains yet — consistency this week will unlock visible progress.");
   setListItems(weeklyDropped, dropped, "No clear drops this week — maintain the trend.");
   setListItems(weeklyActions, actions.slice(0, 3), "Set one small target and repeat it daily.");
+  renderWeeklyGoalScorecard(currentStart, currentEnd);
   renderWeeklyTargets();
 }
 
@@ -4996,6 +5318,32 @@ function updateWeeklyGraphResetCountdownNote() {
   insightWeeklyResetCountdown.innerText = `Weekly bar graph reset in ${formatWeeklyResetCountdown(remaining)} (server time)`;
 }
 
+function updateStartupResetCountdownNotes() {
+  if (startupPlanResetCountdown) {
+    const dailyRemaining = getMillisecondsUntilNextMidnight();
+    startupPlanResetCountdown.innerText = `Daily planner reset in ${formatCountdownClock(dailyRemaining)} (server time)`;
+  }
+  if (startupReportResetCountdown) {
+    const weeklyRemaining = getMillisecondsUntilNextSundayMidnight();
+    startupReportResetCountdown.innerText = `Weekly report reset in ${formatWeeklyResetCountdown(weeklyRemaining)} (server time)`;
+  }
+}
+
+function startStartupResetCountdown() {
+  stopStartupResetCountdown();
+  updateStartupResetCountdownNotes();
+  startupResetCountdownIntervalId = setInterval(updateStartupResetCountdownNotes, 1000);
+}
+
+function stopStartupResetCountdown() {
+  if (startupResetCountdownIntervalId) {
+    clearInterval(startupResetCountdownIntervalId);
+    startupResetCountdownIntervalId = null;
+  }
+  if (startupPlanResetCountdown) startupPlanResetCountdown.innerText = "";
+  if (startupReportResetCountdown) startupReportResetCountdown.innerText = "";
+}
+
 function startWeeklyGraphResetCountdown() {
   stopWeeklyGraphResetCountdown();
   updateWeeklyGraphResetCountdownNote();
@@ -5276,6 +5624,39 @@ function updateCrashPreventionUI() {
   }
 }
 
+function renderProgressMilestones() {
+  if (!progressMilestones) return;
+
+  const currentScore = Number((wellnessScoreEl?.innerText || "0/100").split("/")[0]) || 0;
+  const completedTasks = taskEntries.filter((entry) => !!entry.completed).length;
+  const moodStreak = calcStreak(moodDates);
+  const waterStreak = calcStreak(waterDates);
+  const gratitudeStreak = calcStreak(gratitudeEntries.map((entry) => entry.time));
+  const challengeStreak = calcStreak(challengeDates);
+
+  const unlocked = [];
+  if (moodStreak >= 3) unlocked.push(`✅ Mood Streak unlocked (${moodStreak} days).`);
+  if (waterStreak >= 3) unlocked.push(`✅ Hydration Streak unlocked (${waterStreak} days).`);
+  if (gratitudeStreak >= 3) unlocked.push(`✅ Gratitude Streak unlocked (${gratitudeStreak} days).`);
+  if (challengeStreak >= 3) unlocked.push(`✅ Challenge Streak unlocked (${challengeStreak} days).`);
+  if (completedTasks >= 25) unlocked.push(`✅ Productivity Milestone unlocked (${completedTasks} tasks completed).`);
+  if (currentScore >= 80) unlocked.push(`✅ Wellness Milestone unlocked (score ${currentScore}/100).`);
+
+  if (unlocked.length) {
+    setListItems(progressMilestones, unlocked.slice(0, 5), "");
+    return;
+  }
+
+  const upcoming = [
+    `Next: Mood streak ${Math.max(0, 3 - moodStreak)} more day(s) to unlock.`,
+    `Next: Hydration streak ${Math.max(0, 3 - waterStreak)} more day(s) to unlock.`,
+    `Next: Complete ${Math.max(0, 25 - completedTasks)} more tasks for productivity milestone.`,
+    `Next: Reach wellness score +${Math.max(0, 80 - currentScore)} to unlock wellness milestone.`
+  ];
+
+  setListItems(progressMilestones, upcoming, "No milestones yet — start with one log today.");
+}
+
 async function runCrashRescueFlow(options = {}) {
   const showAlert = options.showAlert !== false;
   const user = auth.currentUser;
@@ -5399,6 +5780,7 @@ function updateInsights() {
   updateCrashPreventionUI();
   updateBurnoutRadarUI();
   updateWeeklyReview();
+  renderProgressMilestones();
 
   const weekStartKey = weekRange.weekStartKey;
   const weekEndKey = weekRange.weekEndKey;
@@ -6653,6 +7035,28 @@ async function buildSmartAiResponse(input, user) {
   };
 }
 
+function buildWhySuggestionLine(isHtml = true) {
+  const snapshot = aiSessionState.lastSnapshot || getWellnessSnapshot();
+  const trend = buildTrendSignals();
+  const reasons = [];
+
+  const waterGap = Math.max(0, (Number(snapshot.todayGoal) || 0) - (Number(snapshot.waterToday) || 0));
+  if (waterGap > 0) reasons.push(`${waterGap} glass hydration gap`);
+  if ((Number(snapshot.sleepToday) || 0) > 0 && (Number(snapshot.sleepToday) || 0) < 7) reasons.push("sleep below 7h");
+  if (Number(snapshot.pendingTasks) > 0) reasons.push(`${Number(snapshot.pendingTasks)} pending task${Number(snapshot.pendingTasks) === 1 ? "" : "s"}`);
+  if (!snapshot.gratitudeToday) reasons.push("gratitude not logged today");
+  if (trend.moodDelta < 0) reasons.push("mood trend dipped");
+  if (trend.taskDelta < 0) reasons.push("task trend softened");
+
+  const shortReasons = reasons.slice(0, 3);
+  if (!shortReasons.length) shortReasons.push("you’re in momentum mode — this keeps consistency high");
+
+  if (isHtml) {
+    return `<br><br><b>Why this suggestion</b>: ${shortReasons.join(" • ")}`;
+  }
+  return `\n\nWhy this suggestion: ${shortReasons.join(" • ")}`;
+}
+
 function setChatText(textNode, text, isHtml) {
   if (isHtml) textNode.innerHTML = text;
   else textNode.textContent = text;
@@ -6679,6 +7083,7 @@ function renderChatMessage(role, messageText, isHtml, chatId, fieldName) {
   }
 
   chat.appendChild(row);
+  setAiClearButtonState(true);
   updateAiLimitUI();
   chat.scrollTop = chat.scrollHeight;
 }
@@ -6751,6 +7156,13 @@ function renderChatPair(entry) {
   renderChatMessage("ai", entry.aiResponse || "", !!entry.aiResponseIsHtml, entry.id, "aiResponse");
 }
 
+function setAiClearButtonState(hasChats) {
+  if (!aiClearBtn) return;
+  const canClear = !!hasChats && !pendingAiClearOperation;
+  aiClearBtn.disabled = !canClear;
+  aiClearBtn.title = canClear ? "" : "No AI chats to clear";
+}
+
 async function loadAiChats(userId) {
   chat.innerHTML = "";
   aiRecentPrompts.length = 0;
@@ -6777,9 +7189,11 @@ async function loadAiChats(userId) {
     if (!docs.length) {
       setEmptyState(chat, "No AI chats yet — ask one question to get started.");
     }
+    setAiClearButtonState(docs.length > 0);
     updateAiLimitUI();
     updateClearDataButtonState();
   } catch (err) {
+    setAiClearButtonState(false);
     notifyFirestoreError(err);
   }
 }
@@ -6805,6 +7219,12 @@ async function storeAiChat(userId, userMessage, aiResponse, aiResponseIsHtml) {
 async function clearAiChats() {
   const user = auth.currentUser;
   if (!user) return;
+
+  if (aiClearBtn?.disabled) {
+    showToast("There was nothing to clear.");
+    return;
+  }
+
   if (!confirm("Clear all AI conversations?")) return;
 
   try {
@@ -6812,6 +7232,7 @@ async function clearAiChats() {
     if (!snapshot.docs.length) {
       setEmptyState(chat, "No AI chats yet — ask one question to get started.");
       showToast("There was nothing to clear.");
+      setAiClearButtonState(false);
       updateClearDataButtonState();
       return;
     }
@@ -6830,6 +7251,7 @@ async function clearAiChats() {
     aiSessionState.lastUserMessage = "";
     aiSessionState.conversationSummary = "";
     aiSessionState.topicHistory.length = 0;
+    setAiClearButtonState(false);
 
     const finalizeDelete = async () => {
       try {
@@ -6839,6 +7261,7 @@ async function clearAiChats() {
       }
       pendingAiClearOperation = null;
       scheduleEmptyState(chat, ".chat-message", "No AI chats yet — ask one question to get started.");
+      setAiClearButtonState(false);
       updateClearDataButtonState();
     };
 
@@ -6857,6 +7280,7 @@ async function clearAiChats() {
       }
     });
   } catch (err) {
+    setAiClearButtonState(chat?.querySelectorAll?.(".chat-message")?.length > 0);
     notifyFirestoreError(err);
   }
 }
@@ -6887,8 +7311,15 @@ async function aiChat(){
 
     try {
       const smart = await buildSmartAiResponse(input, user);
-      const response = smart.response;
+      let response = smart.response;
       const responseIsHtml = smart.isHtml;
+      const shouldAttachWhy =
+        !!aiSessionState.lastSnapshot
+        && aiSessionState.lastIntent !== "why"
+        && !/I can also run:/i.test(String(response || ""));
+      if (shouldAttachWhy) {
+        response = `${response}${buildWhySuggestionLine(responseIsHtml)}`;
+      }
       rememberPrompt(input);
 
       const chatId = await storeAiChat(user.uid, input, response, responseIsHtml);
@@ -7986,72 +8417,269 @@ async function saveGratitude(){
   }
 }
 
-async function exportAllData() {
-  const user = auth.currentUser;
-  if (!user) {
-    alert("Please sign in first.");
+const EXPORT_SNAPSHOT_DOC_ID = "dataSnapshot";
+const EXPORT_SNAPSHOT_CHUNK_SIZE = 700000;
+const EXPORT_COOLDOWN_MS = 5 * 60 * 1000;
+const EXPORT_TARGET_COLLECTIONS = ["moods", "tasks", "waterIntake", "sleepLogs", "gratitudeLogs", "aiChats", "challengeHistory", "rescueEvents", "reminders"];
+
+function getOptionalTimestampMs(value) {
+  if (!value) return null;
+
+  if (value instanceof Date) {
+    const ms = value.getTime();
+    return Number.isFinite(ms) ? ms : null;
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    const asDate = new Date(value);
+    const ms = asDate.getTime();
+    return Number.isFinite(ms) ? ms : null;
+  }
+
+  if (typeof value === "object") {
+    if (typeof value.toMillis === "function") {
+      const ms = value.toMillis();
+      return Number.isFinite(ms) ? ms : null;
+    }
+    if (typeof value.seconds === "number") {
+      return (value.seconds * 1000) + Math.floor((value.nanoseconds || 0) / 1e6);
+    }
+    if (typeof value._seconds === "number") {
+      return (value._seconds * 1000) + Math.floor((value._nanoseconds || 0) / 1e6);
+    }
+  }
+
+  return null;
+}
+
+function applyExportCooldownUI(remainingMs) {
+  if (!exportDataBtn) return;
+  const safeRemaining = Math.max(0, Number(remainingMs) || 0);
+  const coolingDown = safeRemaining > 0;
+  exportDataBtn.disabled = coolingDown;
+  exportDataBtn.innerText = coolingDown
+    ? `Export in ${formatCountdownClock(safeRemaining)}`
+    : "Export My Data";
+  exportDataBtn.title = coolingDown
+    ? "Export cooldown active"
+    : "";
+}
+
+function stopExportCooldownTicker() {
+  if (exportCooldownIntervalId) {
+    clearInterval(exportCooldownIntervalId);
+    exportCooldownIntervalId = null;
+  }
+}
+
+function updateExportCooldownTicker() {
+  const remaining = exportCooldownUntilMs - getServerNowDate().getTime();
+  if (remaining <= 0) {
+    exportCooldownUntilMs = 0;
+    stopExportCooldownTicker();
+    applyExportCooldownUI(0);
+    return;
+  }
+  applyExportCooldownUI(remaining);
+}
+
+function startExportCooldown(remainingMs) {
+  const safeRemaining = Math.max(0, Number(remainingMs) || 0);
+  if (safeRemaining <= 0) {
+    exportCooldownUntilMs = 0;
+    stopExportCooldownTicker();
+    applyExportCooldownUI(0);
+    return;
+  }
+
+  exportCooldownUntilMs = getServerNowDate().getTime() + safeRemaining;
+  updateExportCooldownTicker();
+  if (!exportCooldownIntervalId) {
+    exportCooldownIntervalId = setInterval(updateExportCooldownTicker, 1000);
+  }
+}
+
+async function refreshExportCooldownState(userId) {
+  if (!userId) {
+    startExportCooldown(0);
     return;
   }
 
   try {
-    const waterSettingsSnap = await getDoc(doc(db, "users", user.uid, "settings", "water"));
-    const dailyChallengeSnap = await getDoc(doc(db, "users", user.uid, "settings", "dailyChallenge"));
-    const weeklyTargetsSnap = await getDoc(doc(db, "users", user.uid, "settings", "weeklyTargets"));
-    const habitQuestSnap = await getDoc(doc(db, "users", user.uid, "settings", "habitQuest"));
-    const insightsSnap = await getDoc(doc(db, "users", user.uid, "insights", "current"));
-    const insightsBarGraphsSnap = await getDoc(doc(db, "users", user.uid, "insights", "barGraphs"));
-    const [
-      moodsSnap,
-      tasksSnap,
-      waterSnap,
-      sleepSnap,
-      gratitudeSnap,
-      aiSnap,
-      challengeHistorySnap,
-      rescueEventsSnap
-    ] = await Promise.all([
-      getDocs(collection(db, "users", user.uid, "moods")),
-      getDocs(collection(db, "users", user.uid, "tasks")),
-      getDocs(collection(db, "users", user.uid, "waterIntake")),
-      getDocs(collection(db, "users", user.uid, "sleepLogs")),
-      getDocs(collection(db, "users", user.uid, "gratitudeLogs")),
-      getDocs(collection(db, "users", user.uid, "aiChats")),
-      getDocs(collection(db, "users", user.uid, "challengeHistory")),
-      getDocs(collection(db, "users", user.uid, "rescueEvents"))
-    ]);
+    const snapshotMetaRef = doc(db, "users", userId, "settings", EXPORT_SNAPSHOT_DOC_ID);
+    const snapshotMeta = await getDoc(snapshotMetaRef);
+    if (!snapshotMeta.exists()) {
+      startExportCooldown(0);
+      return;
+    }
 
-    const toExport = {
-      exportedAt: getServerNowDate().toISOString(),
-      user: {
-        uid: user.uid,
-        email: user.email || null,
-        name: user.displayName || null
-      },
-      waterSettings: waterSettingsSnap.exists() ? waterSettingsSnap.data() : null,
-      dailyChallengeSettings: dailyChallengeSnap.exists() ? dailyChallengeSnap.data() : null,
-      weeklyTargets: weeklyTargetsSnap.exists() ? weeklyTargetsSnap.data() : null,
-      habitQuest: habitQuestSnap.exists() ? habitQuestSnap.data() : null,
-      insightsCurrent: insightsSnap.exists() ? insightsSnap.data() : null,
-      insightsBarGraphs: insightsBarGraphsSnap.exists() ? insightsBarGraphsSnap.data() : null,
-      moods: moodsSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })),
-      tasks: tasksSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })),
-      waterIntake: waterSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })),
-      sleepLogs: sleepSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })),
-      gratitudeLogs: gratitudeSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })),
-      aiChats: aiSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })),
-      challengeHistory: challengeHistorySnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })),
-      rescueEvents: rescueEventsSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-    };
+    const meta = snapshotMeta.data() || {};
+    const lastExportMs = getOptionalTimestampMs(meta.exportedAt) ?? getOptionalTimestampMs(meta.updatedAt);
+    if (!lastExportMs) {
+      startExportCooldown(0);
+      return;
+    }
 
-    const blob = new Blob([JSON.stringify(toExport, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `novafix-export-${getServerNowDate().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    const elapsed = getServerNowDate().getTime() - lastExportMs;
+    const remaining = EXPORT_COOLDOWN_MS - elapsed;
+    startExportCooldown(remaining);
+  } catch (_) {
+    startExportCooldown(0);
+  }
+}
+
+function toSnapshotRows(snapshot) {
+  return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+}
+
+function splitSnapshotChunks(serialized) {
+  const chunks = [];
+  for (let index = 0; index < serialized.length; index += EXPORT_SNAPSHOT_CHUNK_SIZE) {
+    chunks.push(serialized.slice(index, index + EXPORT_SNAPSHOT_CHUNK_SIZE));
+  }
+  return chunks.length ? chunks : ["{}"];
+}
+
+async function buildExportPayloadForUser(userId, userMeta = {}, dbInstance = db) {
+  const waterSettingsSnap = await getDoc(doc(dbInstance, "users", userId, "settings", "water"));
+  const dailyChallengeSnap = await getDoc(doc(dbInstance, "users", userId, "settings", "dailyChallenge"));
+  const weeklyTargetsSnap = await getDoc(doc(dbInstance, "users", userId, "settings", "weeklyTargets"));
+  const habitQuestSnap = await getDoc(doc(dbInstance, "users", userId, "settings", "habitQuest"));
+  const insightsSnap = await getDoc(doc(dbInstance, "users", userId, "insights", "current"));
+  const insightsBarGraphsSnap = await getDoc(doc(dbInstance, "users", userId, "insights", "barGraphs"));
+
+  const [
+    moodsSnap,
+    tasksSnap,
+    waterSnap,
+    sleepSnap,
+    gratitudeSnap,
+    aiSnap,
+    challengeHistorySnap,
+    rescueEventsSnap,
+    remindersSnap
+  ] = await Promise.all([
+    getDocs(collection(dbInstance, "users", userId, "moods")),
+    getDocs(collection(dbInstance, "users", userId, "tasks")),
+    getDocs(collection(dbInstance, "users", userId, "waterIntake")),
+    getDocs(collection(dbInstance, "users", userId, "sleepLogs")),
+    getDocs(collection(dbInstance, "users", userId, "gratitudeLogs")),
+    getDocs(collection(dbInstance, "users", userId, "aiChats")),
+    getDocs(collection(dbInstance, "users", userId, "challengeHistory")),
+    getDocs(collection(dbInstance, "users", userId, "rescueEvents")),
+    getDocs(collection(dbInstance, "users", userId, "reminders"))
+  ]);
+
+  return {
+    exportedAt: getServerNowDate().toISOString(),
+    user: {
+      uid: userMeta.uid || userId,
+      email: userMeta.email || null,
+      name: userMeta.name || null
+    },
+    waterSettings: waterSettingsSnap.exists() ? waterSettingsSnap.data() : null,
+    dailyChallengeSettings: dailyChallengeSnap.exists() ? dailyChallengeSnap.data() : null,
+    weeklyTargets: weeklyTargetsSnap.exists() ? weeklyTargetsSnap.data() : null,
+    habitQuest: habitQuestSnap.exists() ? habitQuestSnap.data() : null,
+    insightsCurrent: insightsSnap.exists() ? insightsSnap.data() : null,
+    insightsBarGraphs: insightsBarGraphsSnap.exists() ? insightsBarGraphsSnap.data() : null,
+    moods: toSnapshotRows(moodsSnap),
+    tasks: toSnapshotRows(tasksSnap),
+    waterIntake: toSnapshotRows(waterSnap),
+    sleepLogs: toSnapshotRows(sleepSnap),
+    gratitudeLogs: toSnapshotRows(gratitudeSnap),
+    aiChats: toSnapshotRows(aiSnap),
+    challengeHistory: toSnapshotRows(challengeHistorySnap),
+    rescueEvents: toSnapshotRows(rescueEventsSnap),
+    reminders: toSnapshotRows(remindersSnap)
+  };
+}
+
+async function replaceUserSnapshotInFirebase(userId, payload, dbInstance = db) {
+  const snapshotDocRef = doc(dbInstance, "users", userId, "settings", EXPORT_SNAPSHOT_DOC_ID);
+  const chunksRef = collection(snapshotDocRef, "chunks");
+
+  const existingChunkSnap = await getDocs(chunksRef);
+  await Promise.all(existingChunkSnap.docs.map((docSnap) => deleteDoc(docSnap.ref)));
+
+  const serialized = JSON.stringify(payload || {});
+  const chunks = splitSnapshotChunks(serialized);
+
+  await Promise.all(chunks.map((chunk, index) => setDoc(doc(chunksRef, String(index).padStart(4, "0")), {
+    index,
+    chunk,
+    updatedAt: serverTimestamp()
+  }, { merge: true })));
+
+  await setDoc(snapshotDocRef, {
+    schemaVersion: 1,
+    chunkCount: chunks.length,
+    exportedAt: payload?.exportedAt || getServerNowDate().toISOString(),
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+}
+
+async function readUserSnapshotFromFirebase(userId, dbInstance = db) {
+  const snapshotDocRef = doc(dbInstance, "users", userId, "settings", EXPORT_SNAPSHOT_DOC_ID);
+  const snapshotMeta = await getDoc(snapshotDocRef);
+  if (!snapshotMeta.exists()) return null;
+
+  const chunksSnap = await getDocs(collection(snapshotDocRef, "chunks"));
+  if (!chunksSnap.size) {
+    const legacyPayload = snapshotMeta.data()?.payload;
+    return legacyPayload && typeof legacyPayload === "object" ? legacyPayload : null;
+  }
+
+  const ordered = chunksSnap.docs
+    .map((docSnap) => ({
+      index: Number(docSnap.data()?.index) || 0,
+      chunk: String(docSnap.data()?.chunk || "")
+    }))
+    .sort((a, b) => a.index - b.index);
+
+  const serialized = ordered.map((item) => item.chunk).join("");
+  if (!serialized.trim()) return null;
+  return JSON.parse(serialized);
+}
+
+async function exportAllData() {
+  const user = auth.currentUser;
+  if (!user) {
+    showToast("Please sign in first.");
+    return;
+  }
+
+  try {
+    const localRemaining = exportCooldownUntilMs - getServerNowDate().getTime();
+    if (localRemaining > 0) {
+      showToast(`Export cooldown active. Try again in ${formatCountdownClock(localRemaining)}.`);
+      return;
+    }
+
+    const snapshotMetaRef = doc(db, "users", user.uid, "settings", EXPORT_SNAPSHOT_DOC_ID);
+    const snapshotMeta = await getDoc(snapshotMetaRef);
+    if (snapshotMeta.exists()) {
+      const meta = snapshotMeta.data() || {};
+      const lastExportMs = getOptionalTimestampMs(meta.exportedAt) ?? getOptionalTimestampMs(meta.updatedAt);
+      if (lastExportMs) {
+        const elapsed = getServerNowDate().getTime() - lastExportMs;
+        const remaining = EXPORT_COOLDOWN_MS - elapsed;
+        if (remaining > 0) {
+          startExportCooldown(remaining);
+          showToast(`Export cooldown active. Try again in ${formatCountdownClock(remaining)}.`);
+          return;
+        }
+      }
+    }
+
+    const payload = await buildExportPayloadForUser(user.uid, {
+      uid: user.uid,
+      email: user.email || null,
+      name: user.displayName || null
+    }, db);
+    await replaceUserSnapshotInFirebase(user.uid, payload, db);
+    startExportCooldown(EXPORT_COOLDOWN_MS);
+    showToast("Export snapshot saved to Firebase. Previous snapshot replaced.");
   } catch (err) {
     notifyFirestoreError(err);
   }
@@ -8079,13 +8707,132 @@ function normalizeExportTime(value) {
   return getServerNowDate();
 }
 
+function setImportTransferError(message = "") {
+  if (!importTransferError) return;
+  importTransferError.innerText = message || "";
+  importTransferError.style.display = message ? "block" : "none";
+}
+
+function setImportTransferBusy(isBusy) {
+  importTransferSubmitting = !!isBusy;
+  if (importTransferConfirmBtn) {
+    importTransferConfirmBtn.disabled = !!isBusy;
+    importTransferConfirmBtn.innerText = isBusy ? "Importing..." : "Import";
+  }
+  if (importTransferCancelBtn) {
+    importTransferCancelBtn.disabled = !!isBusy;
+  }
+  if (importSourceEmailInput) importSourceEmailInput.disabled = !!isBusy;
+  if (importSourcePasswordInput) importSourcePasswordInput.disabled = !!isBusy;
+}
+
+function closeImportTransferModal(event, force = false) {
+  if (event?.target && event.target !== importTransferModal) return;
+  if (importTransferSubmitting && !force) return;
+  if (importTransferModal) importTransferModal.style.display = "none";
+  setImportTransferError("");
+}
+
 function startImportData() {
-  const user = auth.currentUser;
-  if (!user) {
+  const destinationUser = auth.currentUser;
+  if (!destinationUser) {
     showToast("Please sign in first.");
     return;
   }
-  if (importFileInput) importFileInput.click();
+  if (importTransferModal) importTransferModal.style.display = "flex";
+  setImportTransferBusy(false);
+  setImportTransferError("");
+  if (importSourceEmailInput) {
+    importSourceEmailInput.value = "";
+    importSourceEmailInput.focus();
+  }
+  if (importSourcePasswordInput) importSourcePasswordInput.value = "";
+}
+
+async function submitImportTransfer() {
+  if (importTransferSubmitting) return;
+
+  const destinationUser = auth.currentUser;
+  if (!destinationUser) {
+    setImportTransferError("Please sign in first.");
+    return;
+  }
+
+  const sourceEmail = String(importSourceEmailInput?.value || "").trim();
+  const sourcePassword = String(importSourcePasswordInput?.value || "");
+  if (!sourceEmail) {
+    setImportTransferError("Source email is required.");
+    return;
+  }
+  if (!sourcePassword) {
+    setImportTransferError("Source password is required.");
+    return;
+  }
+
+  const confirmed = confirm(`Warning: current data will be replaced with snapshot from ${sourceEmail}. Continue?`);
+  if (!confirmed) return;
+
+  setImportTransferBusy(true);
+  setImportTransferError("");
+
+  let payload = null;
+  let sourceUserId = "";
+  let stage = "auth";
+  const { transferAuth, transferDb } = getTransferClients();
+
+  try {
+    await signInWithEmailAndPassword(transferAuth, sourceEmail, sourcePassword);
+    const sourceUser = transferAuth.currentUser;
+    if (!sourceUser) {
+      setImportTransferError("Could not authenticate source account.");
+      return;
+    }
+    sourceUserId = String(sourceUser.uid || "").trim();
+
+    payload = await readUserSnapshotFromFirebase(sourceUser.uid, transferDb);
+    if (!payload) {
+      setImportTransferError("No export snapshot found in source account. Export there first.");
+      return;
+    }
+    stage = "import";
+    const importSummary = await applyImportPayloadToCurrentUser(destinationUser, payload);
+    const alertResult = await queueSourceImportSecurityAlert(sourceUserId, destinationUser.email || "", transferDb);
+    closeImportTransferModal(null, true);
+    if (!alertResult?.ok) {
+      showToast("Import complete. Source account warning could not be saved.");
+    } else if (!importSummary.hasCoreData) {
+      showToast("Import completed. Source account will see a security warning on next login.");
+    } else {
+      showToast("Data import complete. Source account will see a security warning on next login.");
+    }
+  } catch (err) {
+    if (stage === "auth") {
+      const code = String(err?.code || "");
+      if (
+        code === "auth/invalid-credential"
+        || code === "auth/user-not-found"
+        || code === "auth/wrong-password"
+        || code === "auth/invalid-email"
+      ) {
+        setImportTransferError("Incorrect email or password.");
+        if (importSourcePasswordInput) importSourcePasswordInput.value = "";
+      } else {
+        setImportTransferError("Could not verify source account. Please try again.");
+        notifyFirestoreError(err);
+      }
+    } else {
+      setImportTransferError("Import failed. Please try again.");
+      notifyFirestoreError(err);
+    }
+  } finally {
+    try {
+      if (transferAuth.currentUser) await signOut(transferAuth);
+    } catch (_) {}
+    setImportTransferBusy(false);
+    if (stage === "auth" && importTransferModal?.style?.display === "flex" && importSourcePasswordInput) {
+      importSourcePasswordInput.focus();
+    }
+  }
 }
 
 async function clearUserCollection(userId, collectionName) {
@@ -8093,167 +8840,168 @@ async function clearUserCollection(userId, collectionName) {
   await Promise.all(snapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
 }
 
-async function importDataFileChange(event) {
-  const user = auth.currentUser;
-  const selectedFile = event?.target?.files?.[0];
-
-  if (!user || !selectedFile) return;
-
-  const confirmed = confirm("Warning: current data will be destroyed and new data will be imported. Continue?");
-  if (!confirmed) {
-    event.target.value = "";
-    return;
+async function applyImportPayloadToCurrentUser(user, payload) {
+  if (!user || !payload || typeof payload !== "object") {
+    return { hasCoreData: false };
   }
 
-  try {
-    const rawText = await selectedFile.text();
-    const payload = JSON.parse(rawText);
+  await Promise.all(EXPORT_TARGET_COLLECTIONS.map((name) => clearUserCollection(user.uid, name)));
+  await deleteDoc(doc(db, "users", user.uid, "settings", "water")).catch(() => {});
+  await deleteDoc(doc(db, "users", user.uid, "settings", "dailyChallenge")).catch(() => {});
+  await deleteDoc(doc(db, "users", user.uid, "settings", "weeklyTargets")).catch(() => {});
+  await deleteDoc(doc(db, "users", user.uid, "settings", "habitQuest")).catch(() => {});
+  await deleteDoc(doc(db, "users", user.uid, "insights", "current")).catch(() => {});
+  await deleteDoc(doc(db, "users", user.uid, "insights", "barGraphs")).catch(() => {});
+  persistedBarGraphs = null;
 
-    const targetCollections = ["moods", "tasks", "waterIntake", "sleepLogs", "gratitudeLogs", "aiChats", "challengeHistory", "rescueEvents"];
-    await Promise.all(targetCollections.map((name) => clearUserCollection(user.uid, name)));
-    await deleteDoc(doc(db, "users", user.uid, "settings", "water")).catch(() => {});
-    await deleteDoc(doc(db, "users", user.uid, "settings", "dailyChallenge")).catch(() => {});
-    await deleteDoc(doc(db, "users", user.uid, "settings", "weeklyTargets")).catch(() => {});
-    await deleteDoc(doc(db, "users", user.uid, "settings", "habitQuest")).catch(() => {});
-    await deleteDoc(doc(db, "users", user.uid, "insights", "current")).catch(() => {});
-    await deleteDoc(doc(db, "users", user.uid, "insights", "barGraphs")).catch(() => {});
-    persistedBarGraphs = null;
+  const moods = Array.isArray(payload.moods) ? payload.moods : [];
+  const tasks = Array.isArray(payload.tasks) ? payload.tasks : [];
+  const waterIntake = Array.isArray(payload.waterIntake) ? payload.waterIntake : [];
+  const sleepLogs = Array.isArray(payload.sleepLogs) ? payload.sleepLogs : [];
+  const gratitudeLogs = Array.isArray(payload.gratitudeLogs) ? payload.gratitudeLogs : [];
+  const aiChats = Array.isArray(payload.aiChats) ? payload.aiChats : [];
+  const challengeHistory = Array.isArray(payload.challengeHistory) ? payload.challengeHistory : [];
+  const rescueEventsPayload = Array.isArray(payload.rescueEvents) ? payload.rescueEvents : [];
+  const remindersPayload = Array.isArray(payload.reminders) ? payload.reminders : [];
 
-    const moods = Array.isArray(payload.moods) ? payload.moods : [];
-    const tasks = Array.isArray(payload.tasks) ? payload.tasks : [];
-    const waterIntake = Array.isArray(payload.waterIntake) ? payload.waterIntake : [];
-    const sleepLogs = Array.isArray(payload.sleepLogs) ? payload.sleepLogs : [];
-    const gratitudeLogs = Array.isArray(payload.gratitudeLogs) ? payload.gratitudeLogs : [];
-    const aiChats = Array.isArray(payload.aiChats) ? payload.aiChats : [];
-    const challengeHistory = Array.isArray(payload.challengeHistory) ? payload.challengeHistory : [];
-    const rescueEventsPayload = Array.isArray(payload.rescueEvents) ? payload.rescueEvents : [];
+  await Promise.all(moods.map((entry) => addDoc(collection(db, "users", user.uid, "moods"), {
+    mood: entry.mood || "",
+    uid: user.uid,
+    email: user.email || null,
+    time: normalizeExportTime(entry.time)
+  })));
 
-    await Promise.all(moods.map((entry) => addDoc(collection(db, "users", user.uid, "moods"), {
-      mood: entry.mood || "",
-      uid: user.uid,
-      email: user.email || null,
-      time: normalizeExportTime(entry.time)
-    })));
+  await Promise.all(tasks.map((entry) => addDoc(collection(db, "users", user.uid, "tasks"), {
+    text: entry.text || "",
+    completed: !!entry.completed,
+    completedAt: entry.completedAt ? normalizeExportTime(entry.completedAt) : null,
+    time: normalizeExportTime(entry.time)
+  })));
 
-    await Promise.all(tasks.map((entry) => addDoc(collection(db, "users", user.uid, "tasks"), {
-      text: entry.text || "",
+  await Promise.all(waterIntake.map((entry) => addDoc(collection(db, "users", user.uid, "waterIntake"), {
+    glasses: Number(entry.glasses) || 0,
+    time: normalizeExportTime(entry.time)
+  })));
+
+  await Promise.all(sleepLogs.map((entry) => addDoc(collection(db, "users", user.uid, "sleepLogs"), {
+    hours: Number(entry.hours) || 0,
+    time: normalizeExportTime(entry.time)
+  })));
+
+  await Promise.all(gratitudeLogs.map((entry) => addDoc(collection(db, "users", user.uid, "gratitudeLogs"), {
+    text: entry.text || "",
+    time: normalizeExportTime(entry.time)
+  })));
+
+  await Promise.all(aiChats.map((entry) => addDoc(collection(db, "users", user.uid, "aiChats"), {
+    userMessage: entry.userMessage || "",
+    aiResponse: entry.aiResponse || "",
+    aiResponseIsHtml: !!entry.aiResponseIsHtml,
+    createdAt: normalizeExportTime(entry.createdAt)
+  })));
+
+  await Promise.all(challengeHistory.map((entry) => {
+    const dateKey = entry.dateKey || (typeof entry.id === "string" ? entry.id : "");
+    if (!dateKey) return Promise.resolve();
+    return setDoc(doc(db, "users", user.uid, "challengeHistory", dateKey), {
       completed: !!entry.completed,
-      time: normalizeExportTime(entry.time)
-    })));
+      challenge: entry.challenge || "",
+      dateKey,
+      updatedAt: normalizeExportTime(entry.updatedAt || entry.time)
+    }, { merge: true });
+  }));
 
-    await Promise.all(waterIntake.map((entry) => addDoc(collection(db, "users", user.uid, "waterIntake"), {
-      glasses: Number(entry.glasses) || 0,
-      time: normalizeExportTime(entry.time)
-    })));
+  await Promise.all(rescueEventsPayload.map((entry) => addDoc(collection(db, "users", user.uid, "rescueEvents"), {
+    level: entry.level || "",
+    reason: entry.reason || "",
+    time: normalizeExportTime(entry.time || entry.createdAt || entry.updatedAt)
+  })));
 
-    await Promise.all(sleepLogs.map((entry) => addDoc(collection(db, "users", user.uid, "sleepLogs"), {
-      hours: Number(entry.hours) || 0,
-      time: normalizeExportTime(entry.time)
-    })));
-
-    await Promise.all(gratitudeLogs.map((entry) => addDoc(collection(db, "users", user.uid, "gratitudeLogs"), {
+  await Promise.all(remindersPayload.map((entry) => {
+    const minutes = Math.max(0, Number(entry.minutes) || 0);
+    const targetAtMs = Number(entry.targetAtMs) || (getServerNowDate().getTime() + (minutes * 60000));
+    return addDoc(collection(db, "users", user.uid, "reminders"), {
       text: entry.text || "",
-      time: normalizeExportTime(entry.time)
-    })));
+      minutes,
+      targetAtMs,
+      createdAt: normalizeExportTime(entry.createdAt || entry.time),
+      completed: !!entry.completed,
+      completedAt: entry.completedAt ? normalizeExportTime(entry.completedAt) : null
+    });
+  }));
 
-    await Promise.all(aiChats.map((entry) => addDoc(collection(db, "users", user.uid, "aiChats"), {
-      userMessage: entry.userMessage || "",
-      aiResponse: entry.aiResponse || "",
-      aiResponseIsHtml: !!entry.aiResponseIsHtml,
-      createdAt: normalizeExportTime(entry.createdAt)
-    })));
-
-    await Promise.all(challengeHistory.map((entry) => {
-      const dateKey = entry.dateKey || (typeof entry.id === "string" ? entry.id : "");
-      if (!dateKey) return Promise.resolve();
-      return setDoc(doc(db, "users", user.uid, "challengeHistory", dateKey), {
-        completed: !!entry.completed,
-        challenge: entry.challenge || "",
-        dateKey,
-        updatedAt: normalizeExportTime(entry.updatedAt || entry.time)
-      }, { merge: true });
-    }));
-
-    await Promise.all(rescueEventsPayload.map((entry) => addDoc(collection(db, "users", user.uid, "rescueEvents"), {
-      level: entry.level || "",
-      reason: entry.reason || "",
-      time: normalizeExportTime(entry.time || entry.createdAt || entry.updatedAt)
-    })));
-
-    if (payload.waterSettings && typeof payload.waterSettings.goal !== "undefined") {
-      await setDoc(doc(db, "users", user.uid, "settings", "water"), {
-        goal: Number(payload.waterSettings.goal) || 0
-      }, { merge: true });
-    }
-
-    if (payload.dailyChallengeSettings) {
-      await setDoc(doc(db, "users", user.uid, "settings", "dailyChallenge"), {
-        challenge: payload.dailyChallengeSettings.challenge || "",
-        completed: !!payload.dailyChallengeSettings.completed,
-        dateKey: payload.dailyChallengeSettings.dateKey || getTodayKey(),
-        updatedAt: normalizeExportTime(payload.dailyChallengeSettings.updatedAt)
-      }, { merge: true });
-    }
-
-    if (payload.weeklyTargets) {
-      await setDoc(doc(db, "users", user.uid, "settings", "weeklyTargets"), {
-        waterGoal: Number(payload.weeklyTargets.waterGoal) || 0,
-        sleepTarget: Number(payload.weeklyTargets.sleepTarget) || 8,
-        taskTarget: Number(payload.weeklyTargets.taskTarget) || 5,
-        updatedAt: normalizeExportTime(payload.weeklyTargets.updatedAt)
-      }, { merge: true });
-    }
-
-    if (payload.habitQuest) {
-      await setDoc(doc(db, "users", user.uid, "settings", "habitQuest"), {
-        dateKey: payload.habitQuest.dateKey || getTodayKey(),
-        xp: Number(payload.habitQuest.xp) || 0,
-        level: Number(payload.habitQuest.level) || 1,
-        shield: !!payload.habitQuest.shield,
-        quests: Array.isArray(payload.habitQuest.quests) ? payload.habitQuest.quests : [],
-        updatedAt: normalizeExportTime(payload.habitQuest.updatedAt)
-      }, { merge: true });
-    }
-
-    if (payload.insightsCurrent) {
-      await setDoc(doc(db, "users", user.uid, "insights", "current"), {
-        ...payload.insightsCurrent,
-        updatedAt: normalizeExportTime(payload.insightsCurrent.updatedAt)
-      }, { merge: true });
-    }
-
-    if (payload.insightsBarGraphs) {
-      await setDoc(doc(db, "users", user.uid, "insights", "barGraphs"), {
-        ...payload.insightsBarGraphs,
-        updatedAt: normalizeExportTime(payload.insightsBarGraphs.updatedAt)
-      }, { merge: true });
-      persistedBarGraphs = payload.insightsBarGraphs;
-    }
-
-    await Promise.all([
-      loadDailyChallenge(user.uid),
-      loadDailyUsage(user.uid),
-      loadMoods(user.uid),
-      loadAiChats(user.uid),
-      loadTasks(user.uid),
-      loadWeeklyTargets(user.uid),
-      loadRescueEvents(user.uid),
-      loadHabitQuest(user.uid),
-      loadWaterData(user.uid),
-      loadSleepData(user.uid),
-      loadGratitude(user.uid)
-    ]);
-
-    if (!moodHistory.length && !taskEntries.length && !gratitudeEntries.length) {
-      showToast("Import completed. Add your first check-in to start momentum.");
-    } else {
-      showToast("Data import complete.");
-    }
-  } catch (err) {
-    notifyFirestoreError(err);
-  } finally {
-    event.target.value = "";
+  if (payload.waterSettings && typeof payload.waterSettings.goal !== "undefined") {
+    await setDoc(doc(db, "users", user.uid, "settings", "water"), {
+      goal: Number(payload.waterSettings.goal) || 0
+    }, { merge: true });
   }
+
+  if (payload.dailyChallengeSettings) {
+    await setDoc(doc(db, "users", user.uid, "settings", "dailyChallenge"), {
+      challenge: payload.dailyChallengeSettings.challenge || "",
+      completed: !!payload.dailyChallengeSettings.completed,
+      dateKey: payload.dailyChallengeSettings.dateKey || getTodayKey(),
+      updatedAt: normalizeExportTime(payload.dailyChallengeSettings.updatedAt)
+    }, { merge: true });
+  }
+
+  if (payload.weeklyTargets) {
+    await setDoc(doc(db, "users", user.uid, "settings", "weeklyTargets"), {
+      waterGoal: Number(payload.weeklyTargets.waterGoal) || 0,
+      sleepTarget: Number(payload.weeklyTargets.sleepTarget) || 8,
+      taskTarget: Number(payload.weeklyTargets.taskTarget) || 5,
+      updatedAt: normalizeExportTime(payload.weeklyTargets.updatedAt)
+    }, { merge: true });
+  }
+
+  if (payload.habitQuest) {
+    await setDoc(doc(db, "users", user.uid, "settings", "habitQuest"), {
+      dateKey: payload.habitQuest.dateKey || getTodayKey(),
+      xp: Number(payload.habitQuest.xp) || 0,
+      level: Number(payload.habitQuest.level) || 1,
+      shield: !!payload.habitQuest.shield,
+      quests: Array.isArray(payload.habitQuest.quests) ? payload.habitQuest.quests : [],
+      updatedAt: normalizeExportTime(payload.habitQuest.updatedAt)
+    }, { merge: true });
+  }
+
+  if (payload.insightsCurrent) {
+    await setDoc(doc(db, "users", user.uid, "insights", "current"), {
+      ...payload.insightsCurrent,
+      updatedAt: normalizeExportTime(payload.insightsCurrent.updatedAt)
+    }, { merge: true });
+  }
+
+  if (payload.insightsBarGraphs) {
+    await setDoc(doc(db, "users", user.uid, "insights", "barGraphs"), {
+      ...payload.insightsBarGraphs,
+      updatedAt: normalizeExportTime(payload.insightsBarGraphs.updatedAt)
+    }, { merge: true });
+    persistedBarGraphs = payload.insightsBarGraphs;
+  }
+
+  await Promise.all([
+    loadDailyChallenge(user.uid),
+    loadDailyUsage(user.uid),
+    loadMoods(user.uid),
+    loadAiChats(user.uid),
+    loadTasks(user.uid),
+    loadReminders(user.uid),
+    loadWeeklyTargets(user.uid),
+    loadRescueEvents(user.uid),
+    loadHabitQuest(user.uid),
+    loadWaterData(user.uid),
+    loadSleepData(user.uid),
+    loadGratitude(user.uid)
+  ]);
+
+  const hasCoreData = moods.length || tasks.length || gratitudeLogs.length || remindersPayload.length;
+  return { hasCoreData: !!hasCoreData };
+}
+
+function importDataFileChange(event) {
+  if (event?.target) event.target.value = "";
+  showToast("File import is deprecated. Use Import Data and source account email/password.");
 }
 
 // Daily Challenge
@@ -8483,6 +9231,8 @@ Object.assign(window, {
   completeChallenge,
   exportAllData,
   startImportData,
+  closeImportTransferModal,
+  submitImportTransfer,
   importDataFileChange,
   nextWelcomeGuideStep,
   skipWelcomeGuide,
@@ -8498,5 +9248,4 @@ Object.assign(window, {
 </script>
 </body>
 </html>
-
 
