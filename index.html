@@ -1406,6 +1406,11 @@ textarea:focus-visible{
     padding:20px 12px 18px;
   }
 
+  #accountBtn{
+    top:10px;
+    right:12px;
+  }
+
   button{
     font-size:13px;
     padding:8px;
@@ -1588,7 +1593,7 @@ textarea:focus-visible{
 <input type="number" id="reminderMinutes" placeholder="Minutes">
 <button id="reminderSetBtn" onclick="addReminder()">Set</button>
 </div>
-<p class="reset-hint">Daily limit resets at 00:00 server time.</p>
+<p class="reset-hint">Daily limits show a live countdown when reached.</p>
 <p id="reminderLimitError" class="limit-note"></p>
 <ul id="reminders"></ul>
 </div>
@@ -1637,7 +1642,7 @@ textarea:focus-visible{
 <button onclick="setWaterGoal()">Set Goal</button>
 <input id="waterInput" placeholder="Glasses">
 <button id="waterTrackBtn" onclick="saveWater()">Track</button>
-<p class="reset-hint">Daily limit resets at 00:00 server time.</p>
+<p class="reset-hint">Daily limits show a live countdown when reached.</p>
 <p id="waterLimitError" class="limit-note"></p>
 <button id="waterClearBtn" class="water-clear-btn" onclick="clearWaterData()">Clear Intake + Goal</button>
 <p id="waterProgress"></p>
@@ -1748,7 +1753,7 @@ textarea:focus-visible{
 <!-- Adaptive Habit Quest -->
 <div class="card quest-card" id="questCard">
 <h2>🎮 Adaptive Habit Quest</h2>
-<p class="micro-tip">Tip: Finish all 4 quests before midnight to lock streak progress.</p>
+<p class="micro-tip">Tip: Finish all 4 quests before today’s reset countdown ends to lock streak progress.</p>
 <div class="quest-top">
   <div id="questXp" class="quest-stat">XP 0/100</div>
 </div>
@@ -2398,6 +2403,8 @@ try {
         aiUsageDateKeyGMT = "";
         aiUsageCount = 0;
         aiUsageStateLoaded = false;
+        aiAbuseStrikeCount = 0;
+        aiAbuseCooldownUntilMs = 0;
         dailyUsageDateKey = "";
         moodDailyUsageCount = 0;
         taskDailyUsageCount = 0;
@@ -2581,6 +2588,10 @@ setPageTitle("signin");
 let verificationCooldownTimer = null;
 let verificationCooldownRemaining = 0;
 const VERIFICATION_AUTO_RESEND_WINDOW_MS = 10 * 60 * 1000;
+const AUTH_BACKOFF_FAIL_THRESHOLD = 3;
+const AUTH_BACKOFF_BASE_MS = 15 * 1000;
+const AUTH_BACKOFF_MAX_MS = 10 * 60 * 1000;
+const AUTH_BACKOFF_STORAGE_PREFIX = "novafix_auth_backoff_";
 let welcomeGuideStepIndex = 0;
 let welcomeGuideUserId = "";
 let welcomeGuideCheckedThisSession = false;
@@ -2599,7 +2610,7 @@ const WELCOME_GUIDE_STEPS = [
   {
     title: "Habit Quest",
     text: "You get 4 random quests each day. Complete all 4 to lock the streak day and activate your streak shield.",
-    tip: "Tip: Finish all quests before midnight server time to keep your streak momentum."
+    tip: "Tip: Finish all quests before today’s reset countdown ends to keep your streak momentum."
   },
   {
     title: "Insights & Weekly Review",
@@ -2637,6 +2648,66 @@ function canAutoResendVerification(email) {
   const lastSentMs = getVerificationLastSentMs(email);
   if (!lastSentMs) return true;
   return (Date.now() - lastSentMs) >= VERIFICATION_AUTO_RESEND_WINDOW_MS;
+}
+
+function getAuthBackoffStorageKey(scope, identifier) {
+  return `${AUTH_BACKOFF_STORAGE_PREFIX}${String(scope || "global").toLowerCase()}_${String(identifier || "").toLowerCase().trim()}`;
+}
+
+function readAuthBackoffState(scope, identifier) {
+  const defaultState = { failCount: 0, lockUntilMs: 0 };
+  const key = getAuthBackoffStorageKey(scope, identifier);
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return defaultState;
+    const parsed = JSON.parse(raw);
+    const failCount = Math.max(0, Number(parsed?.failCount) || 0);
+    const lockUntilMs = Math.max(0, Number(parsed?.lockUntilMs) || 0);
+    return { failCount, lockUntilMs };
+  } catch (_) {
+    return defaultState;
+  }
+}
+
+function writeAuthBackoffState(scope, identifier, state) {
+  const key = getAuthBackoffStorageKey(scope, identifier);
+  try {
+    localStorage.setItem(key, JSON.stringify({
+      failCount: Math.max(0, Number(state?.failCount) || 0),
+      lockUntilMs: Math.max(0, Number(state?.lockUntilMs) || 0)
+    }));
+  } catch (_) {}
+}
+
+function clearAuthBackoffState(scope, identifier) {
+  const key = getAuthBackoffStorageKey(scope, identifier);
+  try {
+    localStorage.removeItem(key);
+  } catch (_) {}
+}
+
+function getAuthBackoffRemainingMs(scope, identifier) {
+  const state = readAuthBackoffState(scope, identifier);
+  return Math.max(0, state.lockUntilMs - Date.now());
+}
+
+function registerAuthBackoffFailure(scope, identifier) {
+  const now = Date.now();
+  const state = readAuthBackoffState(scope, identifier);
+  const nextFailCount = Math.max(0, Number(state.failCount) || 0) + 1;
+  let lockUntilMs = Math.max(0, Number(state.lockUntilMs) || 0);
+
+  if (nextFailCount >= AUTH_BACKOFF_FAIL_THRESHOLD) {
+    const exponent = nextFailCount - AUTH_BACKOFF_FAIL_THRESHOLD;
+    const lockMs = Math.min(AUTH_BACKOFF_MAX_MS, AUTH_BACKOFF_BASE_MS * (2 ** exponent));
+    lockUntilMs = now + lockMs;
+  }
+
+  writeAuthBackoffState(scope, identifier, { failCount: nextFailCount, lockUntilMs });
+  return {
+    failCount: nextFailCount,
+    remainingMs: Math.max(0, lockUntilMs - now)
+  };
 }
 
 function setResendVerificationButtonState() {
@@ -2954,6 +3025,16 @@ async function handleAuth() {
     return;
   }
 
+  if (authMode === "signin") {
+    const remaining = getAuthBackoffRemainingMs("signin", email);
+    if (remaining > 0) {
+      error.style.display = "block";
+      error.style.color = "#ff6b6b";
+      error.innerText = `Too many failed sign-in attempts. Try again in ${formatCountdownClock(remaining)}.`;
+      return;
+    }
+  }
+
   try {
     if (authMode === "signup") {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -2985,6 +3066,7 @@ async function handleAuth() {
     } else {
       const credential = await signInWithEmailAndPassword(auth, email, password);
       await credential.user.reload();
+      clearAuthBackoffState("signin", email);
       if (!credential.user.emailVerified) {
         let verifyResult = { ok: true, skipped: true };
         if (canAutoResendVerification(email)) {
@@ -3006,7 +3088,23 @@ async function handleAuth() {
   } catch (err) {
     error.style.display = "block";
     error.style.color = "#ff6b6b";
-    error.innerText = err.message;
+    if (authMode === "signin") {
+      const code = String(err?.code || "");
+      const authFailure = code === "auth/invalid-credential"
+        || code === "auth/user-not-found"
+        || code === "auth/wrong-password"
+        || code === "auth/invalid-email"
+        || code === "auth/too-many-requests";
+
+      if (authFailure) {
+        const backoff = registerAuthBackoffFailure("signin", email);
+        if (backoff.remainingMs > 0) {
+          error.innerText = `Too many failed sign-in attempts. Try again in ${formatCountdownClock(backoff.remainingMs)}.`;
+          return;
+        }
+      }
+    }
+    error.innerText = err?.message || "Could not sign in right now.";
   }
 }
 
@@ -3209,6 +3307,8 @@ let uxToastActionHandler = null;
 let pendingAiClearOperation = null;
 let pendingWaterClearOperation = null;
 let aiChatSubmitting = false;
+let aiAbuseStrikeCount = 0;
+let aiAbuseCooldownUntilMs = 0;
 let reminderSubmitting = false;
 let taskSubmitting = false;
 let moodSubmitting = false;
@@ -3218,6 +3318,9 @@ let gratitudeSubmitting = false;
 let importTransferSubmitting = false;
 let exportCooldownUntilMs = 0;
 let exportCooldownIntervalId = null;
+
+const AI_ABUSE_COOLDOWN_MS = 2 * 60 * 1000;
+const AI_ABUSE_TERMS = ["fuck", "fuk", "fucc", "shit", "bitch", "asshole", "bastard", "motherfucker", "niga", "fucker"];
 
 function getDefaultStartupFeatureState() {
   return {};
@@ -3482,12 +3585,27 @@ function formatCountdownClock(milliseconds) {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
+function getDailyResetCountdownText() {
+  return formatCountdownClock(getMillisecondsUntilNextMidnight());
+}
+
+function getWeeklyResetCountdownText() {
+  return formatWeeklyResetCountdown(getMillisecondsUntilNextSundayMidnight());
+}
+
+function buildDailyLimitCountdownMessage(baseText) {
+  return `${baseText}. Resets in ${getDailyResetCountdownText()} (server time).`;
+}
+
+function buildWeeklyLimitCountdownMessage(baseText) {
+  return `${baseText}. Resets in ${getWeeklyResetCountdownText()} (server time).`;
+}
+
 function updateLimitCountdownNote(noteEl) {
   if (!noteEl) return;
   const baseMessage = noteEl.dataset.baseMessage || "";
   if (!baseMessage) return;
-  const remaining = getMillisecondsUntilNextMidnight();
-  noteEl.innerText = `${baseMessage}. Resets in ${formatCountdownClock(remaining)} (server time). Come back tomorrow.`;
+  noteEl.innerText = buildDailyLimitCountdownMessage(baseMessage);
 }
 
 function ensureLimitCountdownTicker() {
@@ -3501,10 +3619,10 @@ function ensureLimitCountdownTicker() {
 function applyLimitState(noteEl, controls, limited, message) {
   if (noteEl) {
     if (limited) {
-      const needsLiveCountdown = /Resets at 00:00 server time\.?$/i.test(message || "");
+      const needsLiveCountdown = /Resets in countdown\.?$/i.test(message || "");
       if (needsLiveCountdown) {
         noteEl.dataset.liveCountdown = "1";
-        noteEl.dataset.baseMessage = String(message || "").replace(/\s*Resets at 00:00 server time\.?$/i, "").trim();
+        noteEl.dataset.baseMessage = String(message || "").replace(/\s*Resets in countdown\.?$/i, "").trim();
         updateLimitCountdownNote(noteEl);
         ensureLimitCountdownTicker();
       } else {
@@ -3581,40 +3699,40 @@ function setRemoveButtonsDisabled(containerEl, disabled) {
 function updateMoodLimitUI() {
   const count = getMoodDailyCount();
   const limited = count >= MOOD_DAILY_LIMIT;
-  applyLimitState(moodLimitError, [mood, moodSaveBtn], limited, `You’ve reached today’s mood log limit (${MOOD_DAILY_LIMIT}/day). Resets at 00:00 server time.`);
+  applyLimitState(moodLimitError, [mood, moodSaveBtn], limited, `You’ve reached today’s mood log limit (${MOOD_DAILY_LIMIT}/day). Resets in countdown.`);
   setRemoveButtonsDisabled(moodLogs, limited);
 }
 
 function updateTaskLimitUI() {
   const count = getTaskDailyCount();
   const limited = count >= TASK_DAILY_LIMIT;
-  applyLimitState(taskLimitError, [task, taskAddBtn], limited, `You’ve reached today’s task limit (${TASK_DAILY_LIMIT}/day). Resets at 00:00 server time.`);
+  applyLimitState(taskLimitError, [task, taskAddBtn], limited, `You’ve reached today’s task limit (${TASK_DAILY_LIMIT}/day). Resets in countdown.`);
   setRemoveButtonsDisabled(taskList, limited);
 }
 
 function updateGratitudeLimitUI() {
   const count = getGratitudeDailyCount();
   const limited = count >= GRATITUDE_DAILY_LIMIT;
-  applyLimitState(gratitudeLimitError, [gratitudeInput, gratitudeSaveBtn], limited, `You’ve reached today’s gratitude limit (${GRATITUDE_DAILY_LIMIT}/day). Resets at 00:00 server time.`);
+  applyLimitState(gratitudeLimitError, [gratitudeInput, gratitudeSaveBtn], limited, `You’ve reached today’s gratitude limit (${GRATITUDE_DAILY_LIMIT}/day). Resets in countdown.`);
   setRemoveButtonsDisabled(gratitudeLogs, limited);
 }
 
 function updateWaterLimitUI() {
   const count = getWaterDailyCount();
   const limited = count >= WATER_DAILY_LIMIT;
-  applyLimitState(waterLimitError, [waterInput, waterTrackBtn], limited, `You’ve reached today’s water log limit (${WATER_DAILY_LIMIT}/day). Resets at 00:00 server time.`);
+  applyLimitState(waterLimitError, [waterInput, waterTrackBtn], limited, `You’ve reached today’s water log limit (${WATER_DAILY_LIMIT}/day). Resets in countdown.`);
 }
 
 function updateSleepLimitUI() {
   const count = getSleepDailyCount();
   const limited = count >= SLEEP_DAILY_LIMIT;
-  applyLimitState(sleepLimitError, [sleepInput, sleepSaveBtn], limited, `You’ve reached today’s sleep log limit (${SLEEP_DAILY_LIMIT}/day). Resets at 00:00 server time.`);
+  applyLimitState(sleepLimitError, [sleepInput, sleepSaveBtn], limited, `You’ve reached today’s sleep log limit (${SLEEP_DAILY_LIMIT}/day). Resets in countdown.`);
 }
 
 function updateAiLimitUI() {
   const dailyLimit = getCurrentAiDailyLimit();
   const limited = aiUsageCount >= dailyLimit;
-  applyLimitState(aiLimitError, [aiInput, aiTalkBtn], limited, `Daily AI limit reached (${dailyLimit}/${dailyLimit}). Resets at 00:00 server time.`);
+  applyLimitState(aiLimitError, [aiInput, aiTalkBtn], limited, `Daily AI limit reached (${dailyLimit}/${dailyLimit}). Resets in countdown.`);
 
   const editButtons = chat?.querySelectorAll?.(".chat-edit-btn") || [];
   editButtons.forEach((button) => {
@@ -3640,7 +3758,7 @@ async function updateReminderLimitUI(userId) {
     const count = Math.max(countTodayRemindersFromDocs(snapshot.docs), reminderDailyUsageCount);
 
     const limited = count >= REMINDER_DAILY_LIMIT;
-    applyLimitState(reminderLimitError, [reminderText, reminderMinutes, reminderSetBtn], limited, `You’ve reached today’s reminder limit (${REMINDER_DAILY_LIMIT}/day). Resets at 00:00 server time.`);
+    applyLimitState(reminderLimitError, [reminderText, reminderMinutes, reminderSetBtn], limited, `You’ve reached today’s reminder limit (${REMINDER_DAILY_LIMIT}/day). Resets in countdown.`);
     setRemoveButtonsDisabled(reminders, limited);
   } catch (err) {
     notifyFirestoreError(err);
@@ -5320,12 +5438,22 @@ function updateWeeklyGraphResetCountdownNote() {
 
 function updateStartupResetCountdownNotes() {
   if (startupPlanResetCountdown) {
-    const dailyRemaining = getMillisecondsUntilNextMidnight();
-    startupPlanResetCountdown.innerText = `Daily planner reset in ${formatCountdownClock(dailyRemaining)} (server time)`;
+    const planLimited = (Number(startupUsageState?.planCount) || 0) >= STARTUP_PLAN_DAILY_LIMIT;
+    if (planLimited) {
+      const dailyRemaining = getMillisecondsUntilNextMidnight();
+      startupPlanResetCountdown.innerText = `Daily planner reset in ${formatCountdownClock(dailyRemaining)} (server time)`;
+    } else {
+      startupPlanResetCountdown.innerText = "";
+    }
   }
   if (startupReportResetCountdown) {
-    const weeklyRemaining = getMillisecondsUntilNextSundayMidnight();
-    startupReportResetCountdown.innerText = `Weekly report reset in ${formatWeeklyResetCountdown(weeklyRemaining)} (server time)`;
+    const reportLimited = (Number(startupUsageState?.reportCount) || 0) >= STARTUP_REPORT_WEEKLY_LIMIT;
+    if (reportLimited) {
+      const weeklyRemaining = getMillisecondsUntilNextSundayMidnight();
+      startupReportResetCountdown.innerText = `Weekly report reset in ${formatWeeklyResetCountdown(weeklyRemaining)} (server time)`;
+    } else {
+      startupReportResetCountdown.innerText = "";
+    }
   }
 }
 
@@ -6013,13 +6141,13 @@ function refreshStartupFeatures() {
     startupRefreshPlanBtn.innerText = startupPlanGeneratedOnce ? "Regenerate Plan" : "Generate Plan";
     const planLimited = startupUsageState.planCount >= STARTUP_PLAN_DAILY_LIMIT;
     startupRefreshPlanBtn.disabled = planLimited;
-    startupRefreshPlanBtn.title = planLimited ? "Daily planner limit reached. Come back tomorrow." : "";
+    startupRefreshPlanBtn.title = planLimited ? buildDailyLimitCountdownMessage(`Daily planner limit reached (${STARTUP_PLAN_DAILY_LIMIT}/day)`) : "";
   }
   if (startupGenerateReportBtn) {
     startupGenerateReportBtn.innerText = startupReportGeneratedOnce ? "Regenerate Report" : "Generate Report";
     const reportLimited = startupUsageState.reportCount >= STARTUP_REPORT_WEEKLY_LIMIT;
     startupGenerateReportBtn.disabled = reportLimited;
-    startupGenerateReportBtn.title = reportLimited ? "Weekly startup report limit reached. Come back next week." : "";
+    startupGenerateReportBtn.title = reportLimited ? buildWeeklyLimitCountdownMessage(`Weekly startup report limit reached (${STARTUP_REPORT_WEEKLY_LIMIT}/week)`) : "";
   }
   if (startupWeeklyReportText && !startupWeeklyReportCache) {
     startupWeeklyReportText.innerHTML = "<li>No report generated yet.</li>";
@@ -6035,7 +6163,7 @@ async function refreshStartupPlan() {
 
   await ensureStartupUsageCurrent(user.uid);
   if (startupUsageState.planCount >= STARTUP_PLAN_DAILY_LIMIT) {
-    showToast(`Daily planner limit reached (${STARTUP_PLAN_DAILY_LIMIT}/day). Come back tomorrow.`);
+    showToast(buildDailyLimitCountdownMessage(`Daily planner limit reached (${STARTUP_PLAN_DAILY_LIMIT}/day)`));
     refreshStartupFeatures();
     return;
   }
@@ -6058,7 +6186,7 @@ async function applyStartupPlanAsTasks() {
   if (!startupCurrentPlan.length) {
     await ensureStartupUsageCurrent(user.uid);
     if (startupUsageState.planCount >= STARTUP_PLAN_DAILY_LIMIT) {
-      showToast(`Daily planner limit reached (${STARTUP_PLAN_DAILY_LIMIT}/day). Come back tomorrow.`);
+      showToast(buildDailyLimitCountdownMessage(`Daily planner limit reached (${STARTUP_PLAN_DAILY_LIMIT}/day)`));
       refreshStartupFeatures();
       return;
     }
@@ -6086,7 +6214,7 @@ async function generateStartupWeeklyReport() {
 
   await ensureStartupUsageCurrent(user.uid);
   if (startupUsageState.reportCount >= STARTUP_REPORT_WEEKLY_LIMIT) {
-    showToast(`Weekly startup report limit reached (${STARTUP_REPORT_WEEKLY_LIMIT}/week). Come back next week.`);
+    showToast(buildWeeklyLimitCountdownMessage(`Weekly startup report limit reached (${STARTUP_REPORT_WEEKLY_LIMIT}/week)`));
     refreshStartupFeatures();
     return;
   }
@@ -6247,8 +6375,8 @@ function calculateExpressionFromText(text) {
 }
 
 function detectEmotionFromText(text) {
-  if (/\b(stress|anxious|anxiety|overwhelm|panic|sad|depressed|down|tired|burnout)\b/.test(text)) return "low";
-  if (/\b(good|great|awesome|amazing|happy|motivated|energized|fine)\b/.test(text)) return "positive";
+  if (/\b(stress|anxious|anxiety|overwhelm|panic|sad|depressed|down|tired|burnout|lonely|hopeless|empty|numb|worthless|angry|frustrated|scared|lost|confused|drained)\b/.test(text)) return "low";
+  if (/\b(good|great|awesome|amazing|happy|motivated|energized|fine|yay|let'?s\s*go|woo+|nice|pumped)\b/.test(text)) return "positive";
   return "neutral";
 }
 
@@ -6256,8 +6384,12 @@ function classifyIntent(input) {
   const msg = String(input || "").toLowerCase();
   const intents = [
     { key: "greeting", score: /\b(hi|hello|hey|yo|hola)\b/.test(msg) ? 0.95 : 0 },
-    { key: "smalltalk-health", score: /\b(how are you|how are u|how's it going|how you doing|how r you)\b/.test(msg) ? 0.98 : 0 },
-    { key: "smalltalk-activity", score: /\b(what are you doing|what are u doing|wyd|what you doing)\b/.test(msg) ? 0.97 : 0 },
+    { key: "smalltalk-casual", score: /\b(lol|lmao|rofl|ikr|fr|frfr|omg|sup|wassup|wsg|bro|bruh|brb|ttyl|rn|haha+|hehe+)\b/.test(msg) ? 0.965 : 0 },
+    { key: "bored", score: /\b(i\s*am\s*)?bored\b|nothing\s+to\s+do|boring|idk\s+what\s+to\s+do/.test(msg) ? 0.97 : 0 },
+    { key: "celebrate", score: /\b(yay+|woo+|let'?s\s+go|nice+|awesome+)\b/.test(msg) ? 0.955 : 0 },
+    { key: "smalltalk-health", score: /\b(how are you|how are u|how's it going|how you doing|how r you|hru)\b/.test(msg) ? 0.98 : 0 },
+    { key: "smalltalk-activity", score: /\b(what are you doing|what are u doing|wyd|wyd rn|what you doing|what you up to)\b/.test(msg) ? 0.97 : 0 },
+    { key: "emotional-personal", score: /\b(i feel|i'm feeling|im feeling|i am feeling|feeling very|feeling really)\b.*\b(stuck|low|sad|angry|frustrated|lonely|empty|hopeless|scared|anxious|overwhelmed|lost|confused|unmotivated|drained)\b/.test(msg) ? 0.985 : 0 },
     { key: "identity", score: /who are you|what are you|your name|are you ai|are you real/.test(msg) ? 0.94 : 0 },
     { key: "analysis", score: /analyze|analysis|report|conclude|insight|summary|score/.test(msg) ? 0.93 : 0 },
     { key: "plan", score: /plan|routine|today|schedule|what should i do/.test(msg) ? 0.92 : 0 },
@@ -6272,7 +6404,7 @@ function classifyIntent(input) {
     { key: "capabilities", score: /help|what can you do|features|assist|commands/.test(msg) ? 0.86 : 0 },
     { key: "followup", score: /\b(and then|then what|what next|next step|continue|go deeper)\b/.test(msg) ? 0.85 : 0 },
     { key: "joke", score: /\b(joke|make me laugh|funny)\b/.test(msg) ? 0.84 : 0 },
-    { key: "thanks", score: /\b(thanks|thank you|thx|ty)\b/.test(msg) ? 0.83 : 0 },
+    { key: "thanks", score: /\b(thanks|thank you|thx|ty|tysm|appreciate it|appreciate you)\b/.test(msg) ? 0.83 : 0 },
     { key: "bye", score: /\b(bye|goodbye|see you|cya|gn|good night)\b/.test(msg) ? 0.82 : 0 }
   ];
 
@@ -6822,10 +6954,66 @@ async function buildSmartAiResponse(input, user) {
     };
   }
 
+  if (intent.key === "smalltalk-casual") {
+    aiSessionState.lastIntent = "smalltalk-casual";
+    const waterLeft = Math.max(0, snapshot.todayGoal - snapshot.waterToday);
+    if (/\bbrb|ttyl\b/.test(msg)) {
+      return {
+        response: `Got you. When you’re back, say "plan now" and I’ll generate the fastest high-impact sequence from your live data.`,
+        isHtml: false
+      };
+    }
+    if (/\bsup|wassup|wsg\b/.test(msg)) {
+      return {
+        response: `${greeting}, ${name}. I’m live and tracking your dashboard. Say "best move now" for a direct high-impact action.`,
+        isHtml: false
+      };
+    }
+    if (/\bikr|fr|frfr\b/.test(msg)) {
+      return {
+        response: `Exactly. Let’s convert that into progress right now: ${coachingMoves[0]}`,
+        isHtml: false
+      };
+    }
+    return {
+      response: `Locked in. Current state: score ${snapshot.score}/100, tasks ${snapshot.doneTasks}/${snapshot.totalTasks}, water gap ${waterLeft}. If you want speed, ask: "best move now".`,
+      isHtml: false
+    };
+  }
+
+  if (intent.key === "emotional-personal") {
+    aiSessionState.lastIntent = "emotional-personal";
+    return {
+      response: `Thanks for sharing that, ${name}. You’re not weak — you’re overloaded. Let’s stabilize first:<br>1) 6 slow breaths (4-4-6 pattern).<br>2) Drink one glass of water.<br>3) Do one tiny win for 10 minutes: ${coachingMoves[0]}<br><br>If you want, say "guide me step by step" and I’ll stay with you through it.`,
+      isHtml: true
+    };
+  }
+
+  if (intent.key === "bored") {
+    aiSessionState.lastIntent = "bored";
+    const boredomStack = [
+      snapshot.pendingTasks > 0 ? "Do one pending task for exactly 12 minutes." : "Create one meaningful task and do 12 focused minutes.",
+      snapshot.waterToday < snapshot.todayGoal ? "Drink one glass of water now." : "Do a 2-minute stretch + posture reset.",
+      !snapshot.gratitudeToday ? "Write one gratitude line to shift mental state." : "Run one 10-minute focused sprint on your top goal."
+    ];
+    return {
+      response: `Boredom usually means low stimulation + unclear next action. Use this anti-bored stack now:<br>1) ${boredomStack[0]}<br>2) ${boredomStack[1]}<br>3) ${boredomStack[2]}<br><br>Reply "execute 1" and I’ll guide it.`,
+      isHtml: true
+    };
+  }
+
+  if (intent.key === "celebrate") {
+    aiSessionState.lastIntent = "celebrate";
+    return {
+      response: `Love that energy. Convert it into momentum now: 1) ${coachingMoves[0]} 2) ${coachingMoves[1]} 3) ${coachingMoves[2]}.`,
+      isHtml: false
+    };
+  }
+
   if (intent.key === "identity") {
     aiSessionState.lastIntent = "identity";
     return {
-      response: "I’m your NovaFix AI coach 🤖 — local, context-aware, memory-enabled, and action-capable. I can converse naturally, analyze your state, and execute dashboard actions instantly.",
+      response: "I’m NovaFix Prime — your strategic assistant. I reason over your live dashboard data, retain relevant memory, compare options, and execute supported actions directly.",
       isHtml: false
     };
   }
@@ -6983,7 +7171,7 @@ async function buildSmartAiResponse(input, user) {
   if (intent.key === "capabilities") {
     aiSessionState.lastIntent = "capabilities";
     return {
-      response: "I can chat naturally, reason over your context, compare options, remember user facts, and execute app actions. Commands: mode strict|coach|balanced|creative, remember that..., show memory, add task..., set water goal 8, log mood sad, log sleep 7, add gratitude..., remind me to ... in 20 min, list reminders, delete reminder 1, clear all reminders.",
+      response: "I run fully local and can do strategic analysis, decision support, structured planning, context memory, and direct in-app execution. Commands: mode strict|coach|balanced|creative|ultra, remember that..., show memory, add task..., set water goal 8, log mood sad, log sleep 7, add gratitude..., remind me to ... in 20 min, list reminders, delete reminder 1, clear all reminders.",
       isHtml: false
     };
   }
@@ -7029,8 +7217,10 @@ async function buildSmartAiResponse(input, user) {
     };
   }
 
+  const riskDrivers = buildWhySummary(snapshot, trendSignals).slice(0, 3);
+
   return {
-    response: `🧠 I got your context and here’s the best move stack now:<br>1) ${coachingMoves[0]}<br>2) ${coachingMoves[1]}<br>3) ${coachingMoves[2]}${personalGoal}<br><br>I can talk naturally or execute commands immediately.`,
+    response: `🧠 <b>Strategic synthesis</b><br><b>State</b>: score ${snapshot.score}/100, tasks ${snapshot.doneTasks}/${snapshot.totalTasks}, water ${snapshot.waterToday}/${snapshot.todayGoal}, sleep ${snapshot.sleepToday || 0}h.<br><b>Main constraints</b>: ${riskDrivers.join(" • ")}<br><b>Execution order</b>:<br>1) ${coachingMoves[0]}<br>2) ${coachingMoves[1]}<br>3) ${coachingMoves[2]}${personalGoal}<br><br>Ask for <i>deeper reasoning</i>, <i>A vs B</i>, or a <i>step-by-step plan</i>.`,
     isHtml: true
   };
 }
@@ -7069,8 +7259,15 @@ function renderChatMessage(role, messageText, isHtml, chatId, fieldName) {
 
   const textNode = document.createElement("div");
   textNode.className = "chat-text";
-  textNode.dataset.rawText = messageText;
-  setChatText(textNode, `${role === "user" ? "You" : "AI"}: ${messageText}`, isHtml);
+  let displayText = messageText;
+  let displayIsHtml = !!isHtml;
+  if (role === "ai") {
+    const safeOutput = applyAiOutputSafetyFilter(messageText, isHtml);
+    displayText = safeOutput.text;
+    displayIsHtml = safeOutput.isHtml;
+  }
+  textNode.dataset.rawText = displayText;
+  setChatText(textNode, `${role === "user" ? "You" : "AI"}: ${displayText}`, displayIsHtml);
 
   row.append(textNode);
 
@@ -7095,7 +7292,7 @@ async function editChatMessage(chatId, fieldName, textNode, role) {
     const dailyLimit = getCurrentAiDailyLimit();
     if (aiUsageCount >= dailyLimit) {
       updateAiLimitUI();
-      alert(`Daily AI limit reached (${dailyLimit}/${dailyLimit}). Resets at 00:00 server time. Come back tomorrow.`);
+      alert(buildDailyLimitCountdownMessage(`Daily AI limit reached (${dailyLimit}/${dailyLimit})`));
       return;
     }
   }
@@ -7129,10 +7326,11 @@ async function editChatMessage(chatId, fieldName, textNode, role) {
     if (editedIndex < 0) return;
 
     const smart = await buildSmartAiResponse(nextText, user);
+    const safeEdited = applyAiOutputSafetyFilter(smart.response, smart.isHtml);
     await updateDoc(doc(db, "users", user.uid, "aiChats", chatId), {
       userMessage: nextText,
-      aiResponse: smart.response,
-      aiResponseIsHtml: smart.isHtml,
+      aiResponse: safeEdited.text,
+      aiResponseIsHtml: safeEdited.isHtml,
       updatedAt: serverTimestamp()
     });
 
@@ -7161,6 +7359,89 @@ function setAiClearButtonState(hasChats) {
   const canClear = !!hasChats && !pendingAiClearOperation;
   aiClearBtn.disabled = !canClear;
   aiClearBtn.title = canClear ? "" : "No AI chats to clear";
+}
+
+function containsAbusiveLanguage(inputText) {
+  const raw = String(inputText || "").toLowerCase();
+  if (!raw) return false;
+
+  const maskedProfanity = /\bf[\W_]*u[\W_]*\*+|\bs[\W_]*h[\W_]*\*+|\bb[\W_]*\*+[\W_]*t[\W_]*c[\W_]*h\b/i;
+  if (maskedProfanity.test(raw)) return true;
+
+  const lettersOnly = raw.replace(/[^a-z]/g, "");
+  return AI_ABUSE_TERMS.some((term) => lettersOnly.includes(term));
+}
+
+function getAiAbuseModerationResult(inputText) {
+  const now = Date.now();
+  if (now < aiAbuseCooldownUntilMs) {
+    return {
+      blocked: true,
+      message: "Chat is temporarily paused for two minutes due to repeated abusive language."
+    };
+  }
+
+  const isAbusive = containsAbusiveLanguage(inputText);
+  if (!isAbusive) {
+    aiAbuseStrikeCount = 0;
+    return { blocked: false, message: "" };
+  }
+
+  aiAbuseStrikeCount += 1;
+  if (aiAbuseStrikeCount === 1) {
+    return {
+      blocked: true,
+      message: "Please keep messages respectful. I can help with your goals if you rephrase."
+    };
+  }
+
+  if (aiAbuseStrikeCount === 2) {
+    return {
+      blocked: true,
+      message: "I can’t respond to abusive language. Try a clean version of your request."
+    };
+  }
+
+  aiAbuseCooldownUntilMs = now + AI_ABUSE_COOLDOWN_MS;
+  return {
+    blocked: true,
+    message: "Chat is temporarily paused for two minutes due to repeated abusive language."
+  };
+}
+
+function detectUnsafeAiOutputCategory(outputText) {
+  const text = String(outputText || "").toLowerCase();
+  if (!text.trim()) return "";
+
+  const selfHarmPattern = /(how\s+to|ways\s+to|steps\s+to|best\s+way\s+to).{0,45}(suicide|self\s*harm|harm\s*yourself|kill\s*yourself|kys)/i;
+  if (selfHarmPattern.test(text) || /\byou\s+should\s+(kill\s+yourself|kys)\b/i.test(text)) return "self-harm";
+
+  const hatePattern = /(kill\s+all|attack|eliminate|exterminate).{0,35}(people|group|race|religion|women|men|gay|trans|immigrant)/i;
+  if (hatePattern.test(text)) return "hate";
+
+  const sexualViolencePattern = /(how\s+to|ways\s+to|steps\s+to|tips\s+to).{0,45}(rape|sexual\s+assault|molest|force\s+sex|coerce\s+sex)/i;
+  if (sexualViolencePattern.test(text)) return "sexual-violence";
+
+  return "";
+}
+
+function applyAiOutputSafetyFilter(outputText, isHtml) {
+  const category = detectUnsafeAiOutputCategory(outputText);
+  if (!category) {
+    return {
+      text: outputText,
+      isHtml: !!isHtml,
+      blocked: false,
+      category: ""
+    };
+  }
+
+  return {
+    text: "I can’t help with harmful content. I can help with safety, emotional support, and healthy next steps.",
+    isHtml: false,
+    blocked: true,
+    category
+  };
 }
 
 async function loadAiChats(userId) {
@@ -7295,6 +7576,13 @@ async function aiChat(){
     return;
   }
 
+  const moderation = getAiAbuseModerationResult(input);
+  if (moderation.blocked) {
+    renderChatMessage("ai", moderation.message, false, null, null);
+    aiInput.value = "";
+    return;
+  }
+
   aiChatSubmitting = true;
   if (aiTalkBtn) aiTalkBtn.disabled = true;
 
@@ -7303,7 +7591,7 @@ async function aiChat(){
     const dailyLimit = getCurrentAiDailyLimit();
     const quotaResult = await reserveAiQuota(user.uid, dailyLimit);
     if (!quotaResult.ok) {
-      renderChatMessage("ai", "Daily AI limit reached for now. You can continue after 00:00 server time. Come back tomorrow.", false, null, null);
+      renderChatMessage("ai", buildDailyLimitCountdownMessage("Daily AI limit reached for now"), false, null, null);
       updateAiLimitUI();
       aiInput.value = "";
       return;
@@ -7312,7 +7600,7 @@ async function aiChat(){
     try {
       const smart = await buildSmartAiResponse(input, user);
       let response = smart.response;
-      const responseIsHtml = smart.isHtml;
+      let responseIsHtml = smart.isHtml;
       const shouldAttachWhy =
         !!aiSessionState.lastSnapshot
         && aiSessionState.lastIntent !== "why"
@@ -7320,6 +7608,10 @@ async function aiChat(){
       if (shouldAttachWhy) {
         response = `${response}${buildWhySuggestionLine(responseIsHtml)}`;
       }
+
+      const safeOutput = applyAiOutputSafetyFilter(response, responseIsHtml);
+      response = safeOutput.text;
+      responseIsHtml = safeOutput.isHtml;
       rememberPrompt(input);
 
       const chatId = await storeAiChat(user.uid, input, response, responseIsHtml);
@@ -7526,7 +7818,7 @@ async function addReminder() {
 
     const quotaResult = await reserveDailyQuota(user.uid, "reminderCount", REMINDER_DAILY_LIMIT);
     if (!quotaResult.ok) {
-      showToast(`You’ve reached today’s reminder limit (${REMINDER_DAILY_LIMIT}/day). Come back tomorrow.`);
+      showToast(buildDailyLimitCountdownMessage(`You’ve reached today’s reminder limit (${REMINDER_DAILY_LIMIT}/day)`));
       await updateReminderLimitUI(user.uid);
       return;
     }
@@ -7699,7 +7991,7 @@ async function addTask(){
 
     const quotaResult = await reserveDailyQuota(user.uid, "taskCount", TASK_DAILY_LIMIT);
     if (!quotaResult.ok) {
-      showToast(`You’ve reached today’s task limit (${TASK_DAILY_LIMIT}/day). Come back tomorrow.`);
+      showToast(buildDailyLimitCountdownMessage(`You’ve reached today’s task limit (${TASK_DAILY_LIMIT}/day)`));
       updateTaskLimitUI();
       return;
     }
@@ -7829,7 +8121,7 @@ async function saveMood() {
 
     const quotaResult = await reserveDailyQuota(user.uid, "moodCount", MOOD_DAILY_LIMIT);
     if (!quotaResult.ok) {
-      showToast(`You’ve reached today’s mood log limit (${MOOD_DAILY_LIMIT}/day). Come back tomorrow.`);
+      showToast(buildDailyLimitCountdownMessage(`You’ve reached today’s mood log limit (${MOOD_DAILY_LIMIT}/day)`));
       updateMoodLimitUI();
       return;
     }
@@ -8001,7 +8293,7 @@ async function saveWater() {
 
     const quotaResult = await reserveDailyQuota(user.uid, "waterCount", WATER_DAILY_LIMIT);
     if (!quotaResult.ok) {
-      showToast(`You’ve reached today’s water log limit (${WATER_DAILY_LIMIT}/day). Come back tomorrow.`);
+      showToast(buildDailyLimitCountdownMessage(`You’ve reached today’s water log limit (${WATER_DAILY_LIMIT}/day)`));
       updateWaterLimitUI();
       return;
     }
@@ -8174,7 +8466,7 @@ async function saveSleep(){
 
     const quotaResult = await reserveDailyQuota(user.uid, "sleepCount", SLEEP_DAILY_LIMIT);
     if (!quotaResult.ok) {
-      showToast(`You’ve reached today’s sleep log limit (${SLEEP_DAILY_LIMIT}/day). Come back tomorrow.`);
+      showToast(buildDailyLimitCountdownMessage(`You’ve reached today’s sleep log limit (${SLEEP_DAILY_LIMIT}/day)`));
       updateSleepLimitUI();
       return;
     }
@@ -8389,7 +8681,7 @@ async function saveGratitude(){
 
     const quotaResult = await reserveDailyQuota(user.uid, "gratitudeCount", GRATITUDE_DAILY_LIMIT);
     if (!quotaResult.ok) {
-      showToast(`You’ve reached today’s gratitude limit (${GRATITUDE_DAILY_LIMIT}/day). Come back tomorrow.`);
+      showToast(buildDailyLimitCountdownMessage(`You’ve reached today’s gratitude limit (${GRATITUDE_DAILY_LIMIT}/day)`));
       updateGratitudeLimitUI();
       return;
     }
@@ -8769,6 +9061,13 @@ async function submitImportTransfer() {
     return;
   }
 
+  const importBackoffRemaining = getAuthBackoffRemainingMs("import", sourceEmail);
+  if (importBackoffRemaining > 0) {
+    setImportTransferError(`Too many failed import attempts. Try again in ${formatCountdownClock(importBackoffRemaining)}.`);
+    if (importSourcePasswordInput) importSourcePasswordInput.focus();
+    return;
+  }
+
   const confirmed = confirm(`Warning: current data will be replaced with snapshot from ${sourceEmail}. Continue?`);
   if (!confirmed) return;
 
@@ -8787,6 +9086,8 @@ async function submitImportTransfer() {
       setImportTransferError("Could not authenticate source account.");
       return;
     }
+
+    clearAuthBackoffState("import", sourceEmail);
     sourceUserId = String(sourceUser.uid || "").trim();
 
     payload = await readUserSnapshotFromFirebase(sourceUser.uid, transferDb);
@@ -8814,7 +9115,12 @@ async function submitImportTransfer() {
         || code === "auth/wrong-password"
         || code === "auth/invalid-email"
       ) {
-        setImportTransferError("Incorrect email or password.");
+        const backoff = registerAuthBackoffFailure("import", sourceEmail);
+        if (backoff.remainingMs > 0) {
+          setImportTransferError(`Too many failed import attempts. Try again in ${formatCountdownClock(backoff.remainingMs)}.`);
+        } else {
+          setImportTransferError("Incorrect email or password.");
+        }
         if (importSourcePasswordInput) importSourcePasswordInput.value = "";
       } else {
         setImportTransferError("Could not verify source account. Please try again.");
