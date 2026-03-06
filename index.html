@@ -3237,7 +3237,10 @@ const AI_MODE_PRESETS = {
   creative: { depth: 3, style: "creative" },
   ultra: { depth: 4, style: "ultra" }
 };
-let aiReasoningMode = "ultra";
+let aiReasoningMode = "creative";
+const AI_CASUAL_MODE = true;
+const AI_CLARIFY_INTENT_THRESHOLD = 0.74;
+const AI_COMMAND_HELP_LINE = "I can also do: add task ..., complete task 2, reopen task 2, set water goal 8, drink 2 water, log mood sad, log sleep 7h, set reminder call mom in 20 min, list tasks, list reminders, delete reminder 1.";
 const challengeDates=[];
 let dailyChallengeCompleted=false;
 let currentChallengeText="";
@@ -6374,22 +6377,69 @@ function calculateExpressionFromText(text) {
   }
 }
 
+function normalizeLocalIntentText(input) {
+  const source = String(input || "").toLowerCase();
+  return source
+    .replace(/\bu\b/g, "you")
+    .replace(/\bur\b/g, "your")
+    .replace(/\bidk\b/g, "i do not know")
+    .replace(/\bwanna\b/g, "want to")
+    .replace(/\bgonna\b/g, "going to")
+    .replace(/\bim\b/g, "i am")
+    .replace(/\bpls\b|\bplz\b/g, "please")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const LOCAL_INTENT_TEMPLATES = {
+  greeting: ["hi", "hello", "hey there"],
+  "smalltalk-casual": ["lol", "sup", "wassup", "bro", "ikr"],
+  "smalltalk-health": ["how are you", "how you doing"],
+  "smalltalk-activity": ["what are you doing", "what are you up to"],
+  bored: ["i am bored", "nothing to do"],
+  celebrate: ["lets go", "yay"],
+  "emotional-personal": ["i feel stuck", "i feel low", "i feel anxious"],
+  analysis: ["analyze my progress", "give me a summary"],
+  plan: ["make me a plan", "what should i do today"],
+  decision: ["which option is better", "help me decide"],
+  why: ["why this", "what caused this"],
+  optimize: ["optimize this", "improve faster"],
+  stress: ["i am stressed", "i am overwhelmed"],
+  sleep: ["sleep advice", "sleep help"],
+  water: ["water check", "hydration check"],
+  productivity: ["productivity help", "focus task"],
+  gratitude: ["gratitude prompt"],
+  capabilities: ["what can you do", "help commands"],
+  followup: ["do it", "that one", "next step", "continue"],
+  joke: ["tell a joke", "make me laugh"],
+  thanks: ["thanks", "thank you"],
+  bye: ["bye", "see you"]
+};
+
+function getTemplateIntentScore(msg, intentKey) {
+  const templates = LOCAL_INTENT_TEMPLATES[intentKey] || [];
+  return templates.reduce((best, phrase) => Math.max(best, jaccardSimilarity(msg, phrase)), 0);
+}
+
 function detectEmotionFromText(text) {
-  if (/\b(stress|anxious|anxiety|overwhelm|panic|sad|depressed|down|tired|burnout|lonely|hopeless|empty|numb|worthless|angry|frustrated|scared|lost|confused|drained)\b/.test(text)) return "low";
-  if (/\b(good|great|awesome|amazing|happy|motivated|energized|fine|yay|let'?s\s*go|woo+|nice|pumped)\b/.test(text)) return "positive";
+  const normalized = normalizeLocalIntentText(text);
+  if (/\b(stress|anxious|anxiety|overwhelm|panic|sad|depressed|down|tired|burnout|lonely|hopeless|empty|numb|worthless|angry|frustrated|scared|lost|confused|drained|meh)\b/.test(normalized)) return "low";
+  if (/\b(good|great|awesome|amazing|happy|motivated|energized|fine|yay|let'?s\s*go|woo+|nice|pumped)\b/.test(normalized)) return "positive";
   return "neutral";
 }
 
 function classifyIntent(input) {
-  const msg = String(input || "").toLowerCase();
+  const msg = normalizeLocalIntentText(input);
+  const hasAdviceHistory = Array.isArray(aiSessionState?.lastAdvice) && aiSessionState.lastAdvice.length > 0;
+
   const intents = [
     { key: "greeting", score: /\b(hi|hello|hey|yo|hola)\b/.test(msg) ? 0.95 : 0 },
     { key: "smalltalk-casual", score: /\b(lol|lmao|rofl|ikr|fr|frfr|omg|sup|wassup|wsg|bro|bruh|brb|ttyl|rn|haha+|hehe+)\b/.test(msg) ? 0.965 : 0 },
-    { key: "bored", score: /\b(i\s*am\s*)?bored\b|nothing\s+to\s+do|boring|idk\s+what\s+to\s+do/.test(msg) ? 0.97 : 0 },
+    { key: "bored", score: /\b(i\s*am\s*)?bored\b|nothing\s+to\s+do|boring|i do not know\s+what\s+to\s+do/.test(msg) ? 0.97 : 0 },
     { key: "celebrate", score: /\b(yay+|woo+|let'?s\s+go|nice+|awesome+)\b/.test(msg) ? 0.955 : 0 },
     { key: "smalltalk-health", score: /\b(how are you|how are u|how's it going|how you doing|how r you|hru)\b/.test(msg) ? 0.98 : 0 },
     { key: "smalltalk-activity", score: /\b(what are you doing|what are u doing|wyd|wyd rn|what you doing|what you up to)\b/.test(msg) ? 0.97 : 0 },
-    { key: "emotional-personal", score: /\b(i feel|i'm feeling|im feeling|i am feeling|feeling very|feeling really)\b.*\b(stuck|low|sad|angry|frustrated|lonely|empty|hopeless|scared|anxious|overwhelmed|lost|confused|unmotivated|drained)\b/.test(msg) ? 0.985 : 0 },
+    { key: "emotional-personal", score: /\b(i feel|i am feeling|feeling very|feeling really)\b.*\b(stuck|low|sad|angry|frustrated|lonely|empty|hopeless|scared|anxious|overwhelmed|lost|confused|unmotivated|drained)\b/.test(msg) ? 0.985 : 0 },
     { key: "identity", score: /who are you|what are you|your name|are you ai|are you real/.test(msg) ? 0.94 : 0 },
     { key: "analysis", score: /analyze|analysis|report|conclude|insight|summary|score/.test(msg) ? 0.93 : 0 },
     { key: "plan", score: /plan|routine|today|schedule|what should i do/.test(msg) ? 0.92 : 0 },
@@ -6402,16 +6452,99 @@ function classifyIntent(input) {
     { key: "productivity", score: /task|focus|productivity|procrastin|work|study/.test(msg) ? 0.88 : 0 },
     { key: "gratitude", score: /gratitude|thankful|grateful/.test(msg) ? 0.87 : 0 },
     { key: "capabilities", score: /help|what can you do|features|assist|commands/.test(msg) ? 0.86 : 0 },
-    { key: "followup", score: /\b(and then|then what|what next|next step|continue|go deeper)\b/.test(msg) ? 0.85 : 0 },
+    { key: "followup", score: /\b(and then|then what|what next|next step|continue|go deeper|do it|that one|same one|next one|step\s*\d+|option\s*\d+|yes|sure|okay|ok)\b/.test(msg) ? 0.9 : 0 },
     { key: "joke", score: /\b(joke|make me laugh|funny)\b/.test(msg) ? 0.84 : 0 },
     { key: "thanks", score: /\b(thanks|thank you|thx|ty|tysm|appreciate it|appreciate you)\b/.test(msg) ? 0.83 : 0 },
     { key: "bye", score: /\b(bye|goodbye|see you|cya|gn|good night)\b/.test(msg) ? 0.82 : 0 }
-  ];
+  ].map((entry) => {
+    const templateScore = getTemplateIntentScore(msg, entry.key);
+    let boostedScore = Math.min(0.995, entry.score + (templateScore * 0.35));
+
+    if (entry.key === "followup" && hasAdviceHistory) {
+      const tokenCount = tokenizeText(msg).length;
+      if (tokenCount <= 7 && /\b(do it|that|same|next|continue|step|option|yes|sure|ok|okay)\b/.test(msg)) {
+        boostedScore = Math.max(boostedScore, 0.975);
+      }
+    }
+
+    return { ...entry, score: boostedScore };
+  });
 
   const sorted = intents.sort((a, b) => b.score - a.score);
   const best = sorted[0];
-  if (!best || best.score < 0.5) return { key: "fallback", confidence: 0 };
-  return { key: best.key, confidence: best.score };
+  const second = sorted[1] || { key: "fallback", score: 0 };
+  if (!best || best.score < 0.5) {
+    return {
+      key: "fallback",
+      confidence: 0,
+      secondaryKey: second.key || "fallback",
+      secondaryConfidence: Number(second.score) || 0,
+      ambiguous: true
+    };
+  }
+
+  const confidenceGap = Number(best.score) - Number(second.score || 0);
+  const ambiguous = best.key !== "followup"
+    && best.score < AI_CLARIFY_INTENT_THRESHOLD
+    && confidenceGap < 0.08;
+
+  return {
+    key: best.key,
+    confidence: best.score,
+    secondaryKey: second.key || "fallback",
+    secondaryConfidence: Number(second.score) || 0,
+    ambiguous
+  };
+}
+
+function getIntentLabel(intentKey) {
+  const labels = {
+    greeting: "chat",
+    "smalltalk-casual": "casual chat",
+    "smalltalk-health": "status check",
+    "smalltalk-activity": "status check",
+    bored: "anti-bored ideas",
+    celebrate: "motivation",
+    "emotional-personal": "emotional support",
+    analysis: "quick analysis",
+    plan: "quick plan",
+    decision: "decision help",
+    why: "explain why",
+    optimize: "optimization",
+    stress: "stress reset",
+    sleep: "sleep help",
+    water: "water help",
+    productivity: "productivity",
+    gratitude: "gratitude",
+    capabilities: "commands",
+    followup: "follow-up",
+    joke: "joke",
+    thanks: "reply",
+    bye: "sign off",
+    fallback: "quick help"
+  };
+  return labels[intentKey] || "quick help";
+}
+
+function shouldAskIntentClarification(intentInfo, rawInput) {
+  if (!AI_CASUAL_MODE) return false;
+  if (!intentInfo) return true;
+  const text = normalizeLocalIntentText(rawInput);
+  if (!text) return false;
+
+  if (intentInfo.key === "fallback") return true;
+  if (!intentInfo.ambiguous) return false;
+
+  const tokenCount = tokenizeText(text).length;
+  if (tokenCount > 16) return false;
+  if (/\b(help|what can you do|commands)\b/.test(text)) return false;
+  return true;
+}
+
+function buildIntentClarificationMessage(intentInfo) {
+  const first = getIntentLabel(intentInfo?.key || "fallback");
+  const second = getIntentLabel(intentInfo?.secondaryKey || "plan");
+  return `Want quick help with ${first} or ${second}? You can also ask directly like: \"make me a plan\", \"log mood happy\", or \"set reminder call mom in 20 min\".`;
 }
 
 function buildAdaptiveTone(userEmotion, turnCount) {
@@ -6485,6 +6618,249 @@ function buildModeAwarePrefix(tone) {
   if (tone === "supportive") return "I’m with you. ";
   if (tone === "compact") return "Quick answer: ";
   return "Let’s go: ";
+}
+
+function getRequestedAdviceIndex(inputText, adviceLength) {
+  const text = normalizeLocalIntentText(inputText);
+  if (!adviceLength || adviceLength <= 0) return 0;
+
+  const numbered = text.match(/(?:step|option|point|number|#)\s*(\d+)/i);
+  if (numbered?.[1]) {
+    const index = Math.max(0, Math.min(adviceLength - 1, Number(numbered[1]) - 1));
+    return Number.isFinite(index) ? index : 0;
+  }
+
+  if (/\b(last|final)\b/.test(text)) return adviceLength - 1;
+  if (/\b(next|another)\b/.test(text)) return Math.min(adviceLength - 1, 1);
+  if (/\b(second|2nd)\b/.test(text)) return Math.min(adviceLength - 1, 1);
+  if (/\b(third|3rd)\b/.test(text)) return Math.min(adviceLength - 1, 2);
+  return 0;
+}
+
+function buildLocalFollowupResponse(inputText) {
+  const advice = Array.isArray(aiSessionState.lastAdvice) ? aiSessionState.lastAdvice.filter(Boolean) : [];
+  if (!advice.length) return null;
+
+  const text = normalizeLocalIntentText(inputText);
+  const hasFollowupCue = /\b(do it|do this|that one|same one|next|continue|go on|step|option|yes|sure|okay|ok)\b/.test(text);
+  if (!hasFollowupCue) return null;
+
+  const selectedIndex = getRequestedAdviceIndex(text, advice.length);
+  const selected = String(advice[selectedIndex] || advice[0] || "").trim();
+  if (!selected) return null;
+
+  const total = advice.length;
+  return {
+    lastIntent: "followup",
+    advice,
+    response: `Nice, let’s do this now: ${selected}${total > 1 ? ` (step ${selectedIndex + 1}/${total})` : ""}`,
+    isHtml: false
+  };
+}
+
+function buildCasualAiResponse(context) {
+  const {
+    input,
+    msg,
+    intent,
+    emotion,
+    name,
+    greeting,
+    snapshot,
+    coachingMoves,
+    deepPlan,
+    trendSignals,
+    priorityBoard,
+    knowledgeAnswer,
+    compareRequest,
+    mathResult
+  } = context;
+
+  const waterLeft = Math.max(0, (Number(snapshot.todayGoal) || 0) - (Number(snapshot.waterToday) || 0));
+  const pending = Number(snapshot.pendingTasks) || 0;
+  const followupFromHistory = buildLocalFollowupResponse(input);
+
+  if (mathResult) {
+    return {
+      lastIntent: "math",
+      advice: coachingMoves.slice(0, 1),
+      response: `${mathResult.expression} = ${mathResult.result} 😎`,
+      isHtml: false
+    };
+  }
+
+  if (compareRequest) {
+    return {
+      lastIntent: "compare",
+      advice: ["Pick the option you can start in under 10 minutes."],
+      response: `Quick take: ${compareRequest.left} vs ${compareRequest.right} -> pick whichever you can start in under 10 min. If both are equal, go with ${compareRequest.right}.`,
+      isHtml: false
+    };
+  }
+
+  const key = intent?.key || "fallback";
+
+  switch (key) {
+    case "greeting":
+      return {
+        lastIntent: key,
+        advice: coachingMoves.slice(0, 2),
+        response: `${greeting}, ${name} 👋 You are at ${snapshot.score}/100. ${pending} task${pending === 1 ? "" : "s"} left and ${waterLeft} water left. Want a quick 3-step plan?`,
+        isHtml: false
+      };
+    case "smalltalk-health":
+      return {
+        lastIntent: key,
+        response: `I am doing good tbh 😄 Just vibing here and tracking your dashboard. You are at ${snapshot.score}/100 right now.`,
+        isHtml: false
+      };
+    case "smalltalk-activity":
+      return {
+        lastIntent: key,
+        response: `Just hanging with your stats rn - tasks ${snapshot.doneTasks}/${snapshot.totalTasks}, water ${snapshot.waterToday}/${snapshot.todayGoal}, sleep ${snapshot.sleepToday || 0}h.`,
+        isHtml: false
+      };
+    case "smalltalk-casual":
+      if (/\bbrb|ttyl\b/.test(msg)) {
+        return { lastIntent: key, response: `Bet, catch you in a bit 👋`, isHtml: false };
+      }
+      if (/\bsup|wassup|wsg\b/.test(msg)) {
+        return { lastIntent: key, response: `yooo ${name} 😄 all good here. wanna do a quick best move now?`, isHtml: false };
+      }
+      if (/\bikr|fr|frfr|lol|lmao\b/.test(msg)) {
+        return { lastIntent: key, advice: coachingMoves.slice(0, 1), response: `fr 😌 wanna turn that into momentum? do this now: ${coachingMoves[0]}`, isHtml: false };
+      }
+      return { lastIntent: key, response: `yep 😎 what vibe are we on - chill check-in or quick action plan?`, isHtml: false };
+    case "thanks":
+      return { lastIntent: key, advice: coachingMoves.slice(0, 1), response: `anytime 🤝 next easy win: ${coachingMoves[0]}`, isHtml: false };
+    case "bye":
+      return { lastIntent: key, response: `cool, see ya ${name} 👋`, isHtml: false };
+    case "joke":
+      return { lastIntent: key, response: `why was the task calm? because it took things one checkbox at a time 😄`, isHtml: false };
+    case "bored":
+      return {
+        lastIntent: key,
+        advice: coachingMoves.slice(0, 3),
+        response: `Bored mode fix:<br>1) ${coachingMoves[0]}<br>2) ${coachingMoves[1]}<br>3) ${coachingMoves[2]}<br><br>Say "do step 1" and I got you.`,
+        isHtml: true
+      };
+    case "celebrate":
+      return {
+        lastIntent: key,
+        advice: coachingMoves.slice(0, 2),
+        response: `let's gooo 🔥 keep it rolling with this: ${coachingMoves[0]}`,
+        isHtml: false
+      };
+    case "emotional-personal":
+    case "stress":
+      return {
+        lastIntent: key,
+        advice: ["6 slow breaths", "one glass of water", "10-minute tiny win"],
+        response: `I got you ❤️ no pressure. do this rn: 1) 6 slow breaths 2) water 3) 10-min tiny win (${coachingMoves[0]}). Want me to walk you through it step by step?`,
+        isHtml: false
+      };
+    case "analysis":
+      return {
+        lastIntent: key,
+        advice: priorityBoard.slice(0, 3).map((entry) => entry.action),
+        response: `Quick read:<br>• score ${snapshot.score}/100<br>• tasks ${snapshot.doneTasks}/${snapshot.totalTasks}<br>• water ${snapshot.waterToday}/${snapshot.todayGoal}<br>• sleep ${snapshot.sleepToday || 0}h<br><br>Best move rn: ${priorityBoard[0].action}`,
+        isHtml: true
+      };
+    case "decision":
+      return {
+        lastIntent: key,
+        advice: priorityBoard.slice(0, 3).map((entry) => entry.action),
+        response: `Honestly, do this first: ${priorityBoard[0].action}`,
+        isHtml: false
+      };
+    case "why": {
+      const reasonBits = [];
+      if (trendSignals.taskDelta < 0) reasonBits.push("tasks dipped recently");
+      if (trendSignals.sleepDelta < 0) reasonBits.push("sleep trend dipped");
+      if (trendSignals.waterDelta < 0) reasonBits.push("hydration slipped");
+      if (!reasonBits.length) reasonBits.push("your pattern is mostly stable");
+      return {
+        lastIntent: key,
+        advice: coachingMoves.slice(0, 1),
+        response: `Quick why: ${reasonBits.slice(0, 2).join(" + ")}. Best next move: ${coachingMoves[0]}`,
+        isHtml: false
+      };
+    }
+    case "optimize":
+    case "plan":
+    case "followup":
+      if (followupFromHistory) {
+        return followupFromHistory;
+      }
+      return {
+        lastIntent: key,
+        advice: deepPlan.slice(0, 3),
+        response: `Easy plan:<br>1) ${deepPlan[0]}<br>2) ${deepPlan[1]}<br>3) ${deepPlan[2]}<br><br>Want me to keep it even shorter?`,
+        isHtml: true
+      };
+    case "sleep":
+      return {
+        lastIntent: key,
+        response: `Sleep vibe: low light 1 hour before bed, no doomscrolling in bed, caffeine cutoff after 2 PM.`,
+        isHtml: false
+      };
+    case "water":
+      return {
+        lastIntent: key,
+        response: `Hydration check 💧 you are at ${snapshot.waterToday}/${snapshot.todayGoal}. left: ${waterLeft}. want me to set a reminder?`,
+        isHtml: false
+      };
+    case "productivity":
+      return {
+        lastIntent: key,
+        response: `Focus move: pick one task, 25 min sprint, 5 min break. that is it.`,
+        isHtml: false
+      };
+    case "gratitude":
+      return {
+        lastIntent: key,
+        response: `Drop one line: "today i am grateful for ..." and I can save it for you 🙏`,
+        isHtml: false
+      };
+    case "identity":
+      return {
+        lastIntent: key,
+        response: `I am NovaFix AI - casual by default, and I can also run app actions for you.`,
+        isHtml: false
+      };
+    case "capabilities":
+      return {
+        lastIntent: key,
+        response: `I can log your productivity tasks, mood, sleep, water, and reminders. ${AI_COMMAND_HELP_LINE.replace("I can also do: ", "Try: ")}`,
+        isHtml: false
+      };
+    default:
+      if (followupFromHistory) {
+        return followupFromHistory;
+      }
+      if (knowledgeAnswer) {
+        return {
+          lastIntent: "knowledge",
+          advice: coachingMoves.slice(0, 1),
+          response: `${knowledgeAnswer} Quick move for you now: ${coachingMoves[0]}`,
+          isHtml: false
+        };
+      }
+      if (emotion === "low") {
+        return {
+          lastIntent: "emotional-support",
+          advice: coachingMoves.slice(0, 1),
+          response: `hey, be kind to yourself for a sec. tiny step now: ${coachingMoves[0]}`,
+          isHtml: false
+        };
+      }
+      return {
+        lastIntent: "fallback",
+        advice: coachingMoves.slice(0, 2),
+        response: `Got you 😌 quick move right now: ${coachingMoves[0]}`,
+        isHtml: false
+      };
+  }
 }
 
 function buildUltraFallback(snapshot, name) {
@@ -6746,6 +7122,74 @@ function getWellnessSnapshot() {
   };
 }
 
+function parseDurationToMinutes(amountRaw, unitRaw) {
+  const amount = Number(amountRaw);
+  if (!Number.isFinite(amount) || amount <= 0) return 0;
+  const unit = String(unitRaw || "m").toLowerCase();
+  if (/^(h|hr|hrs|hour|hours)$/.test(unit)) return Math.round(amount * 60);
+  return Math.round(amount);
+}
+
+function mapMoodFromInput(text) {
+  const lower = String(text || "").toLowerCase();
+  if (/😊|happy|good|great|awesome|fine|energized|pumped/.test(lower)) return "😊 Happy";
+  if (/😔|sad|low|down|stressed|anxious|depressed|angry|tired|drained/.test(lower)) return "😔 Low";
+  if (/😐|neutral|nuetral|ok|okay|meh/.test(lower)) return "😐 Neutral";
+  return "";
+}
+
+async function setTaskCompletionFromAi(user, query, completed) {
+  if (!user?.uid) return { ok: false, message: "Please sign in first." };
+  if (!taskEntries.length) return { ok: false, message: "No tasks found." };
+
+  const rawQuery = String(query || "").trim();
+  let target = null;
+
+  if (/^\d+$/.test(rawQuery)) {
+    const index = Number(rawQuery) - 1;
+    if (index >= 0 && index < taskEntries.length) {
+      target = taskEntries[index];
+    }
+  }
+
+  if (!target && rawQuery) {
+    const lowered = rawQuery.toLowerCase();
+    target = taskEntries.find((entry) => String(entry.text || "").toLowerCase().includes(lowered));
+  }
+
+  if (!target) {
+    target = taskEntries.find((entry) => (!!entry.completed) !== (!!completed));
+  }
+
+  if (!target || !target.id) return { ok: false, message: "No matching task found." };
+
+  if (!!target.completed === !!completed) {
+    return {
+      ok: true,
+      message: completed
+        ? `Task already completed: ${target.text || "Task"}`
+        : `Task already open: ${target.text || "Task"}`
+    };
+  }
+
+  try {
+    await updateDoc(doc(db, "users", user.uid, "tasks", target.id), {
+      completed: !!completed,
+      completedAt: completed ? serverTimestamp() : null
+    });
+    await loadTasks(user.uid);
+    return {
+      ok: true,
+      message: completed
+        ? `✅ Marked task done: ${target.text || "Task"}`
+        : `↩️ Reopened task: ${target.text || "Task"}`
+    };
+  } catch (err) {
+    notifyFirestoreError(err);
+    return { ok: false, message: "Could not update task right now." };
+  }
+}
+
 async function tryAiAction(input, user) {
   const msg = input.trim();
   const lower = msg.toLowerCase();
@@ -6781,40 +7225,89 @@ async function tryAiAction(input, user) {
     return `🛟 Mood crash rescue started (${rescueResult.level}). A 20-minute recovery reminder is now set. Focus now: ${rescueResult.reason}.`;
   }
 
-  const taskMatch = msg.match(/^(add|create)\s+(a\s+)?task\s*[:\-]?\s*(.+)$/i);
-  if (taskMatch && taskMatch[3]) {
-    task.value = taskMatch[3].trim();
+  let taskText = "";
+  const taskMatch = msg.match(/^(?:add|create|new|log)\s+(?:a\s+)?(?:(?:productivity|work|study)\s+)?(?:task|todo)\s*[:\-]?\s*(.+)$/i);
+  if (taskMatch?.[1]) taskText = taskMatch[1].trim();
+  if (!taskText && /^(?:add|create|new|log)\s+(?:a\s+)?(?:(?:productivity|work|study)\s+)?(?:task|todo)\s*[:\-]?\s*$/i.test(msg)) {
+    return "ℹ️ Tell me the task text too, like: add task finish assignment.";
+  }
+  if (!taskText) {
+    const quickTaskMatch = msg.match(/^(?:task|todo)\s*[:\-]\s*(.+)$/i);
+    if (quickTaskMatch?.[1]) taskText = quickTaskMatch[1].trim();
+  }
+  if (taskText) {
+    task.value = taskText;
     await addTask();
-    return `✅ Added task: ${taskMatch[3].trim()}`;
+    return `✅ Added task: ${taskText}`;
   }
 
-  const waterGoalMatch = lower.match(/(?:set|update)\s+(?:my\s+)?water\s+goal\s+(?:to\s+)?(\d+)/i);
+  if (/^(?:list|show|view)\s+(?:my\s+)?(?:tasks|todos|productivity\s+tasks)$/i.test(msg)) {
+    if (!taskEntries.length) return "ℹ️ You have no tasks right now.";
+    const lines = taskEntries.slice(0, 12).map((entry, index) => {
+      const mark = entry.completed ? "[x]" : "[ ]";
+      return `${index + 1}) ${mark} ${entry.text || "Task"}`;
+    });
+    return `🗂 Tasks:\n${lines.join("\n")}`;
+  }
+
+  const completeTaskMatch = msg.match(/^(?:complete|done|finish|mark)\s+(?:my\s+)?(?:(?:productivity|work|study)\s+)?(?:task|todo)\s*#?\s*(.+)$/i);
+  if (completeTaskMatch?.[1]) {
+    const result = await setTaskCompletionFromAi(user, completeTaskMatch[1], true);
+    return result.message;
+  }
+  if (/^(?:complete|done|finish|mark)\s+(?:my\s+)?(?:(?:productivity|work|study)\s+)?(?:task|todo)\b/i.test(msg)) {
+    return "ℹ️ Tell me which task, for example: complete task 2 or complete task gym.";
+  }
+
+  const reopenTaskMatch = msg.match(/^(?:reopen|undo|uncomplete|uncheck)\s+(?:my\s+)?(?:task|todo)\s*#?\s*(.+)$/i);
+  if (reopenTaskMatch?.[1]) {
+    const result = await setTaskCompletionFromAi(user, reopenTaskMatch[1], false);
+    return result.message;
+  }
+  if (/^(?:reopen|undo|uncomplete|uncheck)\s+(?:my\s+)?(?:task|todo)\b/i.test(msg)) {
+    return "ℹ️ Tell me which task to reopen, like: reopen task 2.";
+  }
+
+  const waterGoalMatch = lower.match(/(?:set|update)\s+(?:my\s+)?water\s+goal\s+(?:to\s+)?(\d+(?:\.\d+)?)/i)
+    || lower.match(/water\s+goal\s*[:\-]?\s*(\d+(?:\.\d+)?)/i);
   if (waterGoalMatch) {
     waterGoalInput.value = String(Number(waterGoalMatch[1]) || 0);
     await setWaterGoal();
     return `✅ Water goal updated to ${waterGoalInput.value} glasses.`;
   }
 
-  const waterLogMatch = lower.match(/(?:log|add|track)\s+(\d+)\s*(?:glass|glasses)\s*(?:of\s+water)?/i);
-  if (waterLogMatch) {
+  const waterLogMatch = lower.match(/(?:log|add|track|drink|drank)\s+(\d+(?:\.\d+)?)\s*(?:glass|glasses|cup|cups)?\s*(?:of\s+)?(?:water)?/i);
+  const waterSignal = /\b(water|hydrate|hydration|glass|glasses|cup|cups|drink|drank)\b/.test(lower);
+  if (waterLogMatch && waterSignal) {
     waterInput.value = String(Number(waterLogMatch[1]) || 0);
     await saveWater();
     return `✅ Logged ${waterInput.value || waterLogMatch[1]} glasses of water.`;
   }
+  if (waterSignal && /\b(log|add|track|drink|drank)\b/.test(lower) && !waterLogMatch) {
+    return "ℹ️ Tell me how much water, like: drink 2 water.";
+  }
 
-  const sleepMatch = lower.match(/(?:log|save|track)\s+sleep\s+(?:for\s+)?(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)?/i);
-  if (sleepMatch) {
+  const sleepMatch = lower.match(/(?:log|save|track|set)\s+(?:my\s+)?sleep\s*(?:for\s+)?(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)?/i)
+    || lower.match(/(?:slept|sleep)\s*(?:for\s+)?(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)\b/i)
+    || lower.match(/(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)\s*(?:sleep|slept)\b/i);
+  if (sleepMatch?.[1]) {
     sleepInput.value = sleepMatch[1];
     await saveSleep();
     return `✅ Sleep logged: ${sleepMatch[1]} hours.`;
   }
+  if (/\b(log|save|track|set)\b.*\bsleep\b/.test(lower) && !sleepMatch) {
+    return "ℹ️ Tell me sleep hours too, like: log sleep 7.5h.";
+  }
 
-  const moodMatch = lower.match(/(?:log|set|save)\s+mood\s+(happy|neutral|nuetral|low|sad)/i);
-  if (moodMatch) {
-    const map = { happy: "😊 Happy", neutral: "😐 Neutral", nuetral: "😐 Neutral", low: "😔 Low", sad: "😔 Low" };
-    mood.value = map[moodMatch[1]] || mood.value;
+  const moodActionRequested = /(?:log|set|save|track|update)\s+(?:my\s+)?(?:mood|feeling)|^mood\s*[:\-]/i.test(msg);
+  const mappedMood = mapMoodFromInput(msg);
+  if (moodActionRequested && mappedMood) {
+    mood.value = mappedMood;
     await saveMood();
     return `✅ Mood logged: ${mood.value}`;
+  }
+  if (moodActionRequested && !mappedMood) {
+    return "ℹ️ Mood options: happy, neutral, or low.";
   }
 
   const gratitudeMatch = msg.match(/^(?:add|log|save)\s+gratitude\s*[:\-]?\s*(.+)$/i);
@@ -6824,12 +7317,20 @@ async function tryAiAction(input, user) {
     return `✅ Gratitude saved.`;
   }
 
-  const reminderMatch = msg.match(/^remind\s+me\s+to\s+(.+)\s+in\s+(\d+)\s*(m|min|mins|minute|minutes)$/i);
+  const reminderMatch = msg.match(/^remind\s+me\s+to\s+(.+?)\s+(?:in|after)\s+(\d+(?:\.\d+)?)\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours)$/i)
+    || msg.match(/^(?:set|add|create)\s+(?:a\s+)?reminder\s*(?:to)?\s*[:\-]?\s*(.+?)\s+(?:in|after)\s+(\d+(?:\.\d+)?)\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours)$/i)
+    || msg.match(/^reminder\s*[:\-]?\s*(.+?)\s+(?:in|after)\s+(\d+(?:\.\d+)?)\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours)$/i);
   if (reminderMatch) {
-    reminderText.value = reminderMatch[1].trim();
-    reminderMinutes.value = String(Number(reminderMatch[2]) || 0);
-    addReminder();
-    return `✅ Reminder set: ${reminderMatch[1].trim()} in ${reminderMatch[2]} min.`;
+    const reminderLabel = reminderMatch[1].trim();
+    const minutes = parseDurationToMinutes(reminderMatch[2], reminderMatch[3]);
+    if (!minutes) return "ℹ️ Reminder time should be greater than 0.";
+    reminderText.value = reminderLabel;
+    reminderMinutes.value = String(minutes);
+    await addReminder();
+    return `✅ Reminder set: ${reminderLabel} in ${minutes} min.`;
+  }
+  if (/^(?:remind\s+me\s+to|set\s+reminder|add\s+reminder|create\s+reminder|reminder\s*[:\-]?)/i.test(msg)) {
+    return "ℹ️ Include time too, like: set reminder submit assignment in 45 min.";
   }
 
   const reminderDeleteMatch = msg.match(/^(?:delete|remove|cancel|clear)\s+(?:the\s+)?reminder\b(.*)$/i);
@@ -6856,7 +7357,7 @@ async function tryAiAction(input, user) {
       if (!items.length) return "ℹ️ You have no reminders right now.";
 
       const lines = items.slice(0, 8).map((entry, index) => `${index + 1}) ${entry.text || "Reminder"}`);
-      return `⏰ Reminders:<br>${lines.map((line) => `• ${escapeHtml(line)}`).join("<br>")}`;
+      return `⏰ Reminders:\n${lines.join("\n")}`;
     } catch (err) {
       notifyFirestoreError(err);
       return "ℹ️ Could not load reminders right now.";
@@ -6885,8 +7386,8 @@ async function buildSmartAiResponse(input, user) {
   const actionResult = await tryAiAction(input, user);
   if (actionResult) {
     return {
-      response: `${actionResult}<br>🤖 I can also run: <i>add task ..., set water goal 8, log mood sad, log sleep 7, remind me to ... in 20 min, list reminders, delete reminder 1</i>.`,
-      isHtml: true
+      response: `${actionResult} 😎\n${AI_COMMAND_HELP_LINE}`,
+      isHtml: false
     };
   }
 
@@ -6912,11 +7413,53 @@ async function buildSmartAiResponse(input, user) {
   aiSessionState.turnCount += 1;
   aiSessionState.lastUserMessage = input;
   aiSessionState.userEmotion = emotion;
+  pushTopicHistory(intent.key);
+
+  if (shouldAskIntentClarification(intent, input)) {
+    aiSessionState.lastIntent = "clarify";
+    aiSessionState.lastAdvice = [];
+    aiSessionState.conversationSummary = `Need clarification: ${intent.key} vs ${intent.secondaryKey || "fallback"}`;
+    return {
+      response: buildIntentClarificationMessage(intent),
+      isHtml: false
+    };
+  }
 
   const coachingMoves = buildActionCoaching(snapshot);
   const deepPlan = buildDeepPlan(snapshot);
 
   const stylePrefix = buildModeAwarePrefix(tone);
+
+  if (AI_CASUAL_MODE) {
+    const casualResult = buildCasualAiResponse({
+      input,
+      msg,
+      intent,
+      emotion,
+      name,
+      greeting,
+      snapshot,
+      coachingMoves,
+      deepPlan,
+      trendSignals,
+      priorityBoard,
+      knowledgeAnswer,
+      compareRequest,
+      mathResult
+    });
+
+    if (casualResult) {
+      aiSessionState.lastIntent = casualResult.lastIntent || intent.key || "casual";
+      aiSessionState.lastAdvice = Array.isArray(casualResult.advice) && casualResult.advice.length
+        ? casualResult.advice
+        : coachingMoves.slice(0, 3);
+      aiSessionState.conversationSummary = `Last topic: ${aiSessionState.lastIntent}; mood: ${emotion}; score: ${snapshot.score}`;
+      return {
+        response: String(casualResult.response || ""),
+        isHtml: !!casualResult.isHtml
+      };
+    }
+  }
 
   if (compareRequest) {
     const comparison = buildComparisonResponse(compareRequest.left, compareRequest.right, snapshot);
@@ -7171,7 +7714,7 @@ async function buildSmartAiResponse(input, user) {
   if (intent.key === "capabilities") {
     aiSessionState.lastIntent = "capabilities";
     return {
-      response: "I run fully local and can do strategic analysis, decision support, structured planning, context memory, and direct in-app execution. Commands: mode strict|coach|balanced|creative|ultra, remember that..., show memory, add task..., set water goal 8, log mood sad, log sleep 7, add gratitude..., remind me to ... in 20 min, list reminders, delete reminder 1, clear all reminders.",
+      response: `I run fully local and can execute app actions directly. ${AI_COMMAND_HELP_LINE.replace("I can also do:", "Commands:")}, clear all reminders, add gratitude....`,
       isHtml: false
     };
   }
@@ -7602,9 +8145,11 @@ async function aiChat(){
       let response = smart.response;
       let responseIsHtml = smart.isHtml;
       const shouldAttachWhy =
+        !AI_CASUAL_MODE
+        &&
         !!aiSessionState.lastSnapshot
         && aiSessionState.lastIntent !== "why"
-        && !/I can also run:/i.test(String(response || ""));
+        && !/I can also run:|I can also do:/i.test(String(response || ""));
       if (shouldAttachWhy) {
         response = `${response}${buildWhySuggestionLine(responseIsHtml)}`;
       }
