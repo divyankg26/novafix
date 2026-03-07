@@ -2919,83 +2919,19 @@ const PAGE_TITLES = {
   signup: "NovaFix - Sign Up",
   signin: "NovaFix - Sign In"
 };
-let currentPageTitleKey = "signin";
-let pageTitleGuardIntervalId = null;
-
-function getExpectedPageTitle() {
-  return PAGE_TITLES[currentPageTitleKey] || PAGE_TITLES.signin;
-}
-
-function normalizeIncomingPageTitle(rawValue) {
-  const raw = String(rawValue || "").trim();
-  const compact = raw.replace(/\s+/g, " ").trim();
-  const expected = getExpectedPageTitle();
-  if (!compact) return expected;
-
-  if (/^novafix\s*-\s*dashboard$/i.test(compact) || /^dashboard$/i.test(compact)) {
-    return PAGE_TITLES.dashboard;
-  }
-
-  if (/^novafix\s*-\s*sign\s*in$/i.test(compact) || /^sign\s*in$/i.test(compact) || /^in$/i.test(compact)) {
-    return PAGE_TITLES.signin;
-  }
-
-  if (/^novafix\s*-\s*sign\s*up$/i.test(compact) || /^sign\s*up$/i.test(compact) || /^up$/i.test(compact)) {
-    return PAGE_TITLES.signup;
-  }
-
-  if (/^novafix\b/i.test(compact)) {
-    return compact;
-  }
-
-  return expected;
-}
-
-function enforcePageTitle() {
-  const normalized = normalizeIncomingPageTitle(getExpectedPageTitle());
-  if (document.title !== normalized) {
-    document.title = normalized;
-  }
-
-  const titleEl = document.getElementById("appPageTitle") || document.querySelector("head > title");
-  if (titleEl && titleEl.textContent !== normalized) {
-    titleEl.textContent = normalized;
-  }
-}
-
-function ensurePageTitleGuard() {
-  if (!pageTitleGuardIntervalId) {
-    pageTitleGuardIntervalId = setInterval(refreshPageTitleByState, 1200);
-  }
-}
 
 function setPageTitle(view = "signin") {
   const normalizedView = String(view || "signin").toLowerCase();
   const safeKey = Object.prototype.hasOwnProperty.call(PAGE_TITLES, normalizedView)
     ? normalizedView
     : "signin";
-  currentPageTitleKey = safeKey;
-  enforcePageTitle();
-  ensurePageTitleGuard();
-}
-
-function refreshPageTitleByState() {
-  const signedIn = !!auth?.currentUser;
-  if (signedIn && dashboard?.style?.display !== "none") {
-    setPageTitle("dashboard");
-    return;
-  }
-  setPageTitle(authMode === "signup" ? "signup" : "signin");
+  const titleText = PAGE_TITLES[safeKey];
+  document.title = titleText;
+  const titleEl = document.getElementById("appPageTitle") || document.querySelector("head > title");
+  if (titleEl) titleEl.textContent = titleText;
 }
 
 setPageTitle("signin");
-ensurePageTitleGuard();
-enforcePageTitle();
-window.addEventListener("focus", refreshPageTitleByState);
-window.addEventListener("pageshow", refreshPageTitleByState);
-document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) refreshPageTitleByState();
-});
 let verificationCooldownTimer = null;
 let verificationCooldownRemaining = 0;
 const VERIFICATION_AUTO_RESEND_WINDOW_MS = 10 * 60 * 1000;
