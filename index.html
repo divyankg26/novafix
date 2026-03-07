@@ -11,11 +11,16 @@
   --waveA:#2196f3;
   --waveB:#ff9800;
   --waveC:#00c9a7;
-  --waveD:#ff6f91;
-  --waveE:#845ec2;
+  --waveD:#ffd166;
+  --waveE:#ff7f50;
   --primary:#2196f3;
   --accent:#ff9800;
   --glass:rgba(255,255,255,0.18);
+  --glass-strong:rgba(255,255,255,0.24);
+  --surface-1:rgba(255,255,255,0.11);
+  --surface-2:rgba(255,255,255,0.16);
+  --surface-dark:rgba(9,20,38,0.28);
+  --border-soft:rgba(255,255,255,0.22);
   --text:#fff;
 }
 
@@ -33,6 +38,17 @@ body{
   animation:waveMove 52s cubic-bezier(.43,.03,.57,.97) infinite;
   overflow-x:hidden;
   -webkit-tap-highlight-color: transparent;
+}
+
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 14% 18%, rgba(255,255,255,.18), transparent 42%),
+    radial-gradient(circle at 84% 72%, rgba(255,255,255,.12), transparent 45%);
+  z-index:0;
 }
 
 @keyframes waveMove{
@@ -205,10 +221,18 @@ body{
 }
 
 .friend-row{
-  padding:10px;
-  border-radius:10px;
-  border:1px solid rgba(255,255,255,.22);
-  background:rgba(255,255,255,.09);
+  padding:11px 12px;
+  border-radius:12px;
+  border:1px solid var(--border-soft);
+  background:linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.08));
+  box-shadow:0 8px 18px rgba(0,0,0,.18);
+  transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+
+.friend-row:hover{
+  transform:translateY(-1px);
+  border-color:rgba(255,255,255,.34);
+  box-shadow:0 12px 22px rgba(0,0,0,.22);
 }
 
 .friend-row strong{
@@ -358,12 +382,14 @@ body{
 header{
   text-align:center;
   padding:30px;
-  background:var(--glass);
+  background:linear-gradient(180deg,var(--glass-strong),var(--glass));
   backdrop-filter:blur(14px);
   border-radius:20px;
   box-shadow:0 12px 30px rgba(0,0,0,.3);
   position:relative;
   margin:10px 10px 0;
+  border:1px solid rgba(255,255,255,.28);
+  z-index:1;
 }
 header h1{
   margin:0;
@@ -411,7 +437,7 @@ header p{margin:8px 0 0;opacity:.94}
   max-width:calc(100vw - 40px);
   max-height:80vh;
   overflow-y:auto;
-  background:rgba(0,0,0,.35);
+  background:linear-gradient(180deg, rgba(9,20,38,.55), rgba(9,20,38,.42));
   border:1px solid rgba(255,255,255,.25);
   border-radius:14px;
   padding:18px;
@@ -420,6 +446,31 @@ header p{margin:8px 0 0;opacity:.94}
   box-shadow:0 14px 34px rgba(0,0,0,.32);
   display:none;
   z-index:10021;
+  box-sizing:border-box;
+  overflow-x:hidden;
+  overflow-y:auto;
+  scrollbar-gutter:stable;
+}
+
+#accountPanel::-webkit-scrollbar{
+  width:8px;
+}
+
+#accountPanel::-webkit-scrollbar-track{
+  margin:10px 0;
+  border-radius:999px;
+  background:rgba(255,255,255,.08);
+}
+
+#accountPanel::-webkit-scrollbar-thumb{
+  border-radius:999px;
+  background:rgba(255,255,255,.34);
+  border:2px solid transparent;
+  background-clip:content-box;
+}
+
+#accountPanel h4{
+  letter-spacing:.2px;
 }
 
 .account-title{
@@ -512,25 +563,28 @@ header p{margin:8px 0 0;opacity:.94}
 /* DASHBOARD */
 .dashboard{
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+  grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));
   gap:24px;
   padding:24px 24px 190px;
   display:none;
+  position:relative;
+  z-index:1;
 }
 
 /* CARD */
 .card{
-  background:var(--glass);
+  background:linear-gradient(180deg,var(--surface-2),var(--surface-1));
   backdrop-filter:blur(16px);
   border-radius:20px;
   padding:20px;
   box-shadow:0 16px 40px rgba(0,0,0,.3);
   display:flex;
   flex-direction:column;
-  border:1px solid rgba(255,255,255,.25);
+  border:1px solid var(--border-soft);
   transform:translateZ(0);
   transition:transform .34s cubic-bezier(.22,.61,.36,1), box-shadow .34s cubic-bezier(.22,.61,.36,1), border-color .34s cubic-bezier(.22,.61,.36,1);
   will-change:transform;
+  animation:cardRise .55s cubic-bezier(.2,.7,.2,1) both;
 }
 .card:hover{
   transform:translateY(-4px) scale(1.012);
@@ -544,6 +598,20 @@ header p{margin:8px 0 0;opacity:.94}
   font-size:24px;
   line-height:1.2;
   font-weight:700;
+}
+
+.dashboard .card:nth-child(2){animation-delay:.03s}
+.dashboard .card:nth-child(3){animation-delay:.06s}
+.dashboard .card:nth-child(4){animation-delay:.09s}
+.dashboard .card:nth-child(5){animation-delay:.12s}
+.dashboard .card:nth-child(6){animation-delay:.15s}
+.dashboard .card:nth-child(7){animation-delay:.18s}
+.dashboard .card:nth-child(8){animation-delay:.21s}
+.dashboard .card:nth-child(9){animation-delay:.24s}
+
+@keyframes cardRise{
+  from{opacity:0;transform:translateY(8px)}
+  to{opacity:1;transform:translateY(0)}
 }
 
 .wellness-music-card{
@@ -600,7 +668,7 @@ input,select,textarea,button{
 }
 
 input,select,textarea{
-  border:1px solid rgba(255,255,255,.16);
+  border:1px solid rgba(255,255,255,.2);
   transition:border-color .18s ease, background .18s ease;
 }
 
@@ -612,8 +680,9 @@ textarea::placeholder{
 input:focus,
 select:focus,
 textarea:focus{
-  background:rgba(255,255,255,.28);
-  border-color:rgba(255,255,255,.45);
+  background:rgba(255,255,255,.32);
+  border-color:rgba(255,255,255,.58);
+  box-shadow:0 0 0 2px rgba(255,255,255,.16);
 }
 
 button{
@@ -761,9 +830,9 @@ textarea:focus-visible{
   overflow-y:auto;
   padding:10px;
   border-radius:12px;
-  background:rgba(0,0,0,.15);
+  background:linear-gradient(180deg, rgba(7,16,30,.26), rgba(7,16,30,.16));
   margin-top:8px;
-  border:1px solid rgba(255,255,255,.14);
+  border:1px solid rgba(255,255,255,.2);
 }
 
 #moodLogs{
@@ -790,7 +859,11 @@ textarea:focus-visible{
   text-align:center;
 }
 
-#taskList .item-row,
+#taskList .item-row{
+  align-items:center;
+  margin-bottom:10px;
+}
+
 #gratitudeLogs .item-row{
   align-items:flex-start;
   margin-bottom:10px;
@@ -810,10 +883,31 @@ textarea:focus-visible{
 
 #timeMirror{white-space:pre-wrap;}
 
-#taskList button,
 #gratitudeLogs button,
 #reminders button{
   margin-left:12px;
+}
+
+#taskList .item-actions{
+  align-items:center;
+  gap:8px;
+  flex-wrap:nowrap;
+}
+
+#taskList .item-actions button{
+  margin-left:0;
+  display:grid;
+  place-items:center;
+  width:34px;
+  height:34px;
+  min-height:34px;
+  padding:0;
+  flex:0 0 34px;
+  line-height:1;
+}
+
+#taskList .item-actions button + button{
+  margin-top:0 !important;
 }
 
 .item-row{
@@ -870,8 +964,18 @@ textarea:focus-visible{
   gap:8px;
   margin-bottom:8px;
   padding:8px 10px;
-  border-radius:10px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.16);
   background:rgba(255,255,255,.12);
+}
+
+.chat-message.is-user{
+  background:linear-gradient(180deg, rgba(22,143,255,.24), rgba(22,143,255,.14));
+  border-color:rgba(86,178,255,.45);
+}
+
+.chat-message.is-ai{
+  background:linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.1));
 }
 
 .chat-text{
@@ -1503,6 +1607,20 @@ textarea:focus-visible{
     max-width:calc(100vw - 18px);
     bottom:calc(10px + env(safe-area-inset-bottom));
     padding:10px;
+  }
+
+  .dashboard{
+    gap:16px;
+    padding:16px 12px 170px;
+  }
+
+  .card{
+    border-radius:16px;
+    padding:14px;
+  }
+
+  .card h2{
+    font-size:21px;
   }
 }
 
@@ -2611,6 +2729,7 @@ try {
         aiUsageStateLoaded = false;
         aiAbuseStrikeCount = 0;
         aiAbuseCooldownUntilMs = 0;
+        stopAiAbuseCooldownTicker();
         dailyUsageDateKey = "";
         moodDailyUsageCount = 0;
         taskDailyUsageCount = 0;
@@ -2642,56 +2761,34 @@ try {
 setTimeout(hideSplash, 2000);
 
 // ---------- COLOR WAVES ----------
-const waves = [
-  ["#2196f3","#ff9800"],
-  ["#9c27b0","#03a9f4"],
-  ["#ff5722","#4caf50"],
-  ["#3f51b5","#e91e63"],
-  ["#009688","#ffc107"],
-  ["#8e24aa","#ff6f91"],
-  ["#00c853","#ff9100"],
-  ["#1e88e5","#ff7043"],
-  ["#6a1b9a","#f06292"],
-  ["#00bfa5","#ffca28"],
-  ["#43a047","#fb8c00"],
-  ["#3949ab","#ec407a"],
-  ["#7e57c2","#26c6da"],
-  ["#2e7d32","#ff6d00"],
-  ["#5e35b1","#ff8a65"],
-  ["#26a69a","#ffb300"],
-  ["#4a148c","#ff80ab"],
-  ["#ab47bc","#26a69a"],
-  ["#ef5350","#7cb342"],
-  ["#1a237e","#00acc1"],
-  ["#8e24aa","#26c6da"],
-  ["#00897b","#f4511e"],
-  ["#5c6bc0","#ffa726"],
-  ["#d81b60","#5e35b1"],
-  ["#039be5","#8bc34a"],
-  ["#7b1fa2","#ff7043"],
-  ["#43a047","#ec407a"],
-  ["#3949ab","#26a69a"],
-  ["#e53935","#1e88e5"],
-  ["#6d4c41","#29b6f6"],
-  ["#8e24aa","#42a5f5"],
-  ["#ad1457","#26a69a"],
-  ["#283593","#ef5350"],
-  ["#0277bd","#ab47bc"],
-  ["#00695c","#ff7043"],
-  ["#4527a0","#66bb6a"],
-  ["#00838f","#ff8f00"],
-  ["#5d4037","#42a5f5"],
-  ["#c2185b","#7e57c2"],
-  ["#33691e","#ff6f00"],
-  ["#1565c0","#ec407a"],
-  ["#00897b","#5c6bc0"],
-  ["#6a1b9a","#26c6da"],
-  ["#7b1fa2","#66bb6a"],
-  ["#303f9f","#ffa726"]
+const waveSchemes = [
+  ["#2196f3", "#ff9800", "#00c9a7", "#ffd166", "#ff7f50"],
+  ["#00acc1", "#ffca28", "#43a047", "#ffb74d", "#1e88e5"],
+  ["#26c6da", "#8bc34a", "#ffb300", "#ff7043", "#1565c0"],
+  ["#00897b", "#ffa726", "#4fc3f7", "#9ccc65", "#ef6c00"],
+  ["#0277bd", "#66bb6a", "#ffb300", "#ff8a65", "#455a64"],
+  ["#1e88e5", "#7e57c2", "#f06292", "#26a69a", "#ffca28"],
+  ["#00796b", "#f9a825", "#29b6f6", "#aed581", "#f4511e"],
+  ["#00bcd4", "#c0ca33", "#ffb74d", "#42a5f5", "#6d4c41"],
+  ["#2e7d32", "#ffb300", "#4dd0e1", "#ff7043", "#5c6bc0"],
+  ["#039be5", "#9ccc65", "#ffa000", "#26a69a", "#8d6e63"],
+  ["#1565c0", "#66bb6a", "#ffca28", "#26c6da", "#e65100"],
+  ["#3949ab", "#ab47bc", "#ec407a", "#26a69a", "#ffb300"],
+  ["#00838f", "#fbc02d", "#4caf50", "#ff8a65", "#42a5f5"],
+  ["#0d47a1", "#8bc34a", "#ffb74d", "#00acc1", "#bf360c"],
+  ["#26a69a", "#ffa000", "#64b5f6", "#9ccc65", "#ef5350"],
+  ["#1976d2", "#7cb342", "#ffca28", "#00bfa5", "#ff7043"],
+  ["#00695c", "#ffb74d", "#4dd0e1", "#c0ca33", "#1e88e5"],
+  ["#5e35b1", "#f06292", "#26c6da", "#ffca28", "#43a047"],
+  ["#0277bd", "#f57c00", "#80cbc4", "#aed581", "#ff8a65"],
+  ["#004d40", "#ffb300", "#29b6f6", "#9ccc65", "#ef6c00"],
+  ["#1b5e20", "#ff8a65", "#4fc3f7", "#fdd835", "#455a64"],
+  ["#0097a7", "#d4e157", "#ffb74d", "#1e88e5", "#6d4c41"],
+  ["#1565c0", "#ffb300", "#26a69a", "#ffd54f", "#ff7043"],
+  ["#303f9f", "#ce93d8", "#ff80ab", "#26a69a", "#ffca28"]
 ];
 let w = 1;
-let currentWaveA = waves[0][0];
-let currentWaveB = waves[0][1];
+let [currentWaveA, currentWaveB, currentWaveC, currentWaveD, currentWaveE] = waveSchemes[0];
 let waveAnimationId = null;
 const WAVE_HOLD_MS = 14000;
 const WAVE_TRANSITION_MS = 18000;
@@ -2718,20 +2815,31 @@ function lerp(start, end, progress) {
   return start + (end - start) * progress;
 }
 
-function setWaveColors(colorA, colorB) {
+function setWaveColors(colorA, colorB, colorC, colorD, colorE) {
   document.documentElement.style.setProperty("--waveA", colorA);
   document.documentElement.style.setProperty("--waveB", colorB);
+  document.documentElement.style.setProperty("--waveC", colorC);
+  document.documentElement.style.setProperty("--waveD", colorD);
+  document.documentElement.style.setProperty("--waveE", colorE);
   document.documentElement.style.setProperty("--primary", colorA);
   document.documentElement.style.setProperty("--accent", colorB);
 }
 
-function animateWaveTo(targetA, targetB, durationMs) {
+function animateWaveTo(targetScheme, durationMs) {
   if (waveAnimationId) cancelAnimationFrame(waveAnimationId);
+
+  const [targetA, targetB, targetC, targetD, targetE] = targetScheme;
 
   const startA = hexToRgb(currentWaveA);
   const startB = hexToRgb(currentWaveB);
+  const startC = hexToRgb(currentWaveC);
+  const startD = hexToRgb(currentWaveD);
+  const startE = hexToRgb(currentWaveE);
   const endA = hexToRgb(targetA);
   const endB = hexToRgb(targetB);
+  const endC = hexToRgb(targetC);
+  const endD = hexToRgb(targetD);
+  const endE = hexToRgb(targetE);
   const startTime = performance.now();
 
   const tick = (now) => {
@@ -2751,7 +2859,25 @@ function animateWaveTo(targetA, targetB, durationMs) {
       b: lerp(startB.b, endB.b, eased)
     });
 
-    setWaveColors(nextA, nextB);
+    const nextC = rgbToHex({
+      r: lerp(startC.r, endC.r, eased),
+      g: lerp(startC.g, endC.g, eased),
+      b: lerp(startC.b, endC.b, eased)
+    });
+
+    const nextD = rgbToHex({
+      r: lerp(startD.r, endD.r, eased),
+      g: lerp(startD.g, endD.g, eased),
+      b: lerp(startD.b, endD.b, eased)
+    });
+
+    const nextE = rgbToHex({
+      r: lerp(startE.r, endE.r, eased),
+      g: lerp(startE.g, endE.g, eased),
+      b: lerp(startE.b, endE.b, eased)
+    });
+
+    setWaveColors(nextA, nextB, nextC, nextD, nextE);
 
     if (progress < 1) {
       waveAnimationId = requestAnimationFrame(tick);
@@ -2760,6 +2886,9 @@ function animateWaveTo(targetA, targetB, durationMs) {
 
     currentWaveA = targetA;
     currentWaveB = targetB;
+    currentWaveC = targetC;
+    currentWaveD = targetD;
+    currentWaveE = targetE;
     setTimeout(rotateWave, WAVE_HOLD_MS);
   };
 
@@ -2767,12 +2896,12 @@ function animateWaveTo(targetA, targetB, durationMs) {
 }
 
 function rotateWave() {
-  const [targetA, targetB] = waves[w];
-  w = (w + 1) % waves.length;
-  animateWaveTo(targetA, targetB, WAVE_TRANSITION_MS);
+  const targetScheme = waveSchemes[w];
+  w = (w + 1) % waveSchemes.length;
+  animateWaveTo(targetScheme, WAVE_TRANSITION_MS);
 }
 
-setWaveColors(currentWaveA, currentWaveB);
+setWaveColors(currentWaveA, currentWaveB, currentWaveC, currentWaveD, currentWaveE);
 setTimeout(rotateWave, WAVE_HOLD_MS);
 
 // ---------- SIGN-IN / SIGN-UP ----------
@@ -4907,6 +5036,10 @@ async function submitAddFriendRequest() {
     setAddFriendError("Friend email is required.");
     return;
   }
+  if (!isEmailLike(targetEmail)) {
+    setAddFriendError("Enter a valid email address.");
+    return;
+  }
   if (targetEmail === senderEmail) {
     setAddFriendError("You cannot add your own account.");
     return;
@@ -4923,6 +5056,7 @@ async function submitAddFriendRequest() {
 
     let targetUid = "";
     let targetName = "Friend";
+    let lookupFailed = false;
     try {
       const targetDirectory = await getDoc(doc(db, "userDirectory", targetEmail));
       if (targetDirectory.exists()) {
@@ -4930,7 +5064,19 @@ async function submitAddFriendRequest() {
         targetUid = String(targetData.uid || "").trim();
         targetName = normalizeUsernameCandidate(targetData.name, targetEmail) || "Friend";
       }
-    } catch (_) {}
+    } catch (_) {
+      lookupFailed = true;
+    }
+
+    if (lookupFailed) {
+      setAddFriendError("Could not verify this email right now. Try again.");
+      return;
+    }
+
+    if (!targetUid) {
+      setAddFriendError("No account found with this email. Ask them to sign up first.");
+      return;
+    }
 
     const sentByMeSnap = await getDocs(collection(db, "users", user.uid, "friendRequestsSent"));
     let alreadyPendingToEmail = false;
@@ -5380,6 +5526,7 @@ let pendingWaterClearOperation = null;
 let aiChatSubmitting = false;
 let aiAbuseStrikeCount = 0;
 let aiAbuseCooldownUntilMs = 0;
+let aiAbuseCooldownIntervalId = null;
 let reminderSubmitting = false;
 let taskSubmitting = false;
 let moodSubmitting = false;
@@ -5677,6 +5824,34 @@ function buildWeeklyLimitCountdownMessage(baseText) {
   return `${baseText}. Resets in ${getWeeklyResetCountdownText()} (server time).`;
 }
 
+function getAiAbuseCooldownRemainingMs() {
+  return Math.max(0, Number(aiAbuseCooldownUntilMs || 0) - Date.now());
+}
+
+function buildAiAbuseCooldownMessage(remainingMs = getAiAbuseCooldownRemainingMs()) {
+  return `AI chat is temporarily paused for abusive language. Try again in ${formatCountdownClock(remainingMs)}.`;
+}
+
+function stopAiAbuseCooldownTicker() {
+  if (aiAbuseCooldownIntervalId) {
+    clearInterval(aiAbuseCooldownIntervalId);
+    aiAbuseCooldownIntervalId = null;
+  }
+}
+
+function ensureAiAbuseCooldownTicker() {
+  if (aiAbuseCooldownIntervalId) return;
+  aiAbuseCooldownIntervalId = setInterval(() => {
+    const remaining = getAiAbuseCooldownRemainingMs();
+    if (remaining <= 0) {
+      aiAbuseCooldownUntilMs = 0;
+      aiAbuseStrikeCount = 0;
+      stopAiAbuseCooldownTicker();
+    }
+    updateAiLimitUI();
+  }, 1000);
+}
+
 function updateLimitCountdownNote(noteEl) {
   if (!noteEl) return;
   const baseMessage = noteEl.dataset.baseMessage || "";
@@ -5810,6 +5985,25 @@ function updateAiLimitUI() {
   const limited = aiUsageCount >= dailyLimit;
   applyLimitState(aiLimitError, [aiInput, aiTalkBtn], limited, `Daily AI limit reached (${dailyLimit}/${dailyLimit}). Resets in countdown.`);
 
+  const abuseCooldownRemainingMs = getAiAbuseCooldownRemainingMs();
+  const abuseBlocked = abuseCooldownRemainingMs > 0;
+  if (abuseBlocked) {
+    ensureAiAbuseCooldownTicker();
+    if (aiLimitError) {
+      aiLimitError.innerText = buildAiAbuseCooldownMessage(abuseCooldownRemainingMs);
+      aiLimitError.classList.add("show");
+      delete aiLimitError.dataset.liveCountdown;
+      delete aiLimitError.dataset.baseMessage;
+    }
+    if (aiTalkBtn) {
+      aiTalkBtn.disabled = true;
+      aiTalkBtn.title = `Temporarily paused (${formatCountdownClock(abuseCooldownRemainingMs)})`;
+    }
+  } else {
+    stopAiAbuseCooldownTicker();
+    if (aiTalkBtn && !limited) aiTalkBtn.title = "";
+  }
+
   const editButtons = chat?.querySelectorAll?.(".chat-edit-btn") || [];
   editButtons.forEach((button) => {
     button.disabled = !!limited;
@@ -5842,6 +6036,7 @@ async function updateReminderLimitUI(userId) {
 }
 
 function resetAllLimitUIs() {
+  stopAiAbuseCooldownTicker();
   applyLimitState(aiLimitError, [aiInput, aiTalkBtn], false, "");
   applyLimitState(reminderLimitError, [reminderText, reminderMinutes, reminderSetBtn], false, "");
   applyLimitState(taskLimitError, [task, taskAddBtn], false, "");
@@ -10593,6 +10788,7 @@ function renderChatMessage(role, messageText, isHtml, chatId, fieldName) {
   clearStatusState(chat);
   const row = document.createElement("div");
   row.className = "chat-message";
+  row.classList.add(role === "user" ? "is-user" : "is-ai");
 
   const textNode = document.createElement("div");
   textNode.className = "chat-text";
@@ -10711,10 +10907,14 @@ function containsAbusiveLanguage(inputText) {
 
 function getAiAbuseModerationResult(inputText) {
   const now = Date.now();
+  if (aiAbuseCooldownUntilMs && now >= aiAbuseCooldownUntilMs) {
+    aiAbuseCooldownUntilMs = 0;
+    aiAbuseStrikeCount = 0;
+  }
   if (now < aiAbuseCooldownUntilMs) {
     return {
       blocked: true,
-      message: "Chat is temporarily paused for two minutes due to repeated abusive language."
+      message: buildAiAbuseCooldownMessage(aiAbuseCooldownUntilMs - now)
     };
   }
 
@@ -10742,7 +10942,7 @@ function getAiAbuseModerationResult(inputText) {
   aiAbuseCooldownUntilMs = now + AI_ABUSE_COOLDOWN_MS;
   return {
     blocked: true,
-    message: "Chat is temporarily paused for two minutes due to repeated abusive language."
+    message: buildAiAbuseCooldownMessage(AI_ABUSE_COOLDOWN_MS)
   };
 }
 
@@ -10917,6 +11117,7 @@ async function aiChat(){
   if (moderation.blocked) {
     renderChatMessage("ai", moderation.message, false, null, null);
     aiInput.value = "";
+    updateAiLimitUI();
     return;
   }
 
