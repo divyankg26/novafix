@@ -2921,17 +2921,6 @@ const PAGE_TITLES = {
 };
 let currentPageTitleKey = "signin";
 let pageTitleGuardIntervalId = null;
-let pageTitleMutationObserver = null;
-let pageTitleWriteGuardInstalled = false;
-const nativeDocumentTitleDescriptor =
-  Object.getOwnPropertyDescriptor(Document.prototype, "title")
-  || (typeof HTMLDocument !== "undefined" ? Object.getOwnPropertyDescriptor(HTMLDocument.prototype, "title") : null);
-const nativeSetDocumentTitle = nativeDocumentTitleDescriptor?.set
-  ? (value) => nativeDocumentTitleDescriptor.set.call(document, value)
-  : null;
-const nativeGetDocumentTitle = nativeDocumentTitleDescriptor?.get
-  ? () => String(nativeDocumentTitleDescriptor.get.call(document) || "")
-  : () => String(document.title || "");
 
 function getExpectedPageTitle() {
   return PAGE_TITLES[currentPageTitleKey] || PAGE_TITLES.signin;
@@ -2962,11 +2951,9 @@ function normalizeIncomingPageTitle(rawValue) {
   return expected;
 }
 
-function applyNormalizedPageTitle(rawValue) {
-  const normalized = normalizeIncomingPageTitle(rawValue);
-  if (nativeSetDocumentTitle) {
-    nativeSetDocumentTitle(normalized);
-  } else if (document.title !== normalized) {
+function enforcePageTitle() {
+  const normalized = normalizeIncomingPageTitle(getExpectedPageTitle());
+  if (document.title !== normalized) {
     document.title = normalized;
   }
 
@@ -2976,49 +2963,9 @@ function applyNormalizedPageTitle(rawValue) {
   }
 }
 
-function installPageTitleWriteGuard() {
-  if (pageTitleWriteGuardInstalled) return;
-  if (!nativeSetDocumentTitle || !nativeGetDocumentTitle) return;
-
-  try {
-    Object.defineProperty(document, "title", {
-      configurable: true,
-      get() {
-        return nativeGetDocumentTitle();
-      },
-      set(value) {
-        applyNormalizedPageTitle(value);
-      }
-    });
-    pageTitleWriteGuardInstalled = true;
-  } catch (_) {
-    pageTitleWriteGuardInstalled = false;
-  }
-}
-
-function enforcePageTitle() {
-  applyNormalizedPageTitle(getExpectedPageTitle());
-}
-
 function ensurePageTitleGuard() {
-  installPageTitleWriteGuard();
-
-  if (!pageTitleMutationObserver) {
-    const titleEl = document.getElementById("appPageTitle") || document.querySelector("head > title");
-    if (titleEl) {
-      pageTitleMutationObserver = new MutationObserver(() => {
-        enforcePageTitle();
-      });
-      pageTitleMutationObserver.observe(titleEl, {
-        subtree: true,
-        childList: true,
-        characterData: true
-      });
-    }
-  }
-
   if (!pageTitleGuardIntervalId) {
-    pageTitleGuardIntervalId = setInterval(enforcePageTitle, 700);
+    pageTitleGuardIntervalId = setInterval(refreshPageTitleByState, 1200);
   }
 }
 
