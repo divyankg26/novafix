@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>NovaFix - Sign In</title>
+<title id="appPageTitle">NovaFix - Sign In</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
@@ -2292,6 +2292,12 @@ function toggleAccountPanel() {
   const isOpen = accountPanel.style.display === "block";
   accountPanel.style.display = isOpen ? "none" : "block";
   accountOverlay.style.display = isOpen ? "none" : "block";
+  if (isOpen) {
+    accountPanel.scrollTop = 0;
+    return;
+  }
+
+  accountPanel.scrollTop = 0;
   if (!isOpen) {
     const user = auth.currentUser;
     if (user?.uid) {
@@ -2304,6 +2310,7 @@ function toggleAccountPanel() {
 
 function closeAccountPanel() {
   if (!accountPanel || !accountOverlay) return;
+  accountPanel.scrollTop = 0;
   accountPanel.style.display = "none";
   accountOverlay.style.display = "none";
 }
@@ -2907,19 +2914,141 @@ setTimeout(rotateWave, WAVE_HOLD_MS);
 // ---------- SIGN-IN / SIGN-UP ----------
 let authMode="signin";
 
+const PAGE_TITLES = {
+  dashboard: "NovaFix - Dashboard",
+  signup: "NovaFix - Sign Up",
+  signin: "NovaFix - Sign In"
+};
+let currentPageTitleKey = "signin";
+let pageTitleGuardIntervalId = null;
+let pageTitleMutationObserver = null;
+let pageTitleWriteGuardInstalled = false;
+const nativeDocumentTitleDescriptor =
+  Object.getOwnPropertyDescriptor(Document.prototype, "title")
+  || (typeof HTMLDocument !== "undefined" ? Object.getOwnPropertyDescriptor(HTMLDocument.prototype, "title") : null);
+const nativeSetDocumentTitle = nativeDocumentTitleDescriptor?.set
+  ? (value) => nativeDocumentTitleDescriptor.set.call(document, value)
+  : null;
+const nativeGetDocumentTitle = nativeDocumentTitleDescriptor?.get
+  ? () => String(nativeDocumentTitleDescriptor.get.call(document) || "")
+  : () => String(document.title || "");
+
+function getExpectedPageTitle() {
+  return PAGE_TITLES[currentPageTitleKey] || PAGE_TITLES.signin;
+}
+
+function normalizeIncomingPageTitle(rawValue) {
+  const raw = String(rawValue || "").trim();
+  const compact = raw.replace(/\s+/g, " ").trim();
+  const expected = getExpectedPageTitle();
+  if (!compact) return expected;
+
+  if (/^novafix\s*-\s*dashboard$/i.test(compact) || /^dashboard$/i.test(compact)) {
+    return PAGE_TITLES.dashboard;
+  }
+
+  if (/^novafix\s*-\s*sign\s*in$/i.test(compact) || /^sign\s*in$/i.test(compact) || /^in$/i.test(compact)) {
+    return PAGE_TITLES.signin;
+  }
+
+  if (/^novafix\s*-\s*sign\s*up$/i.test(compact) || /^sign\s*up$/i.test(compact) || /^up$/i.test(compact)) {
+    return PAGE_TITLES.signup;
+  }
+
+  if (/^novafix\b/i.test(compact)) {
+    return compact;
+  }
+
+  return expected;
+}
+
+function applyNormalizedPageTitle(rawValue) {
+  const normalized = normalizeIncomingPageTitle(rawValue);
+  if (nativeSetDocumentTitle) {
+    nativeSetDocumentTitle(normalized);
+  } else if (document.title !== normalized) {
+    document.title = normalized;
+  }
+
+  const titleEl = document.getElementById("appPageTitle") || document.querySelector("head > title");
+  if (titleEl && titleEl.textContent !== normalized) {
+    titleEl.textContent = normalized;
+  }
+}
+
+function installPageTitleWriteGuard() {
+  if (pageTitleWriteGuardInstalled) return;
+  if (!nativeSetDocumentTitle || !nativeGetDocumentTitle) return;
+
+  try {
+    Object.defineProperty(document, "title", {
+      configurable: true,
+      get() {
+        return nativeGetDocumentTitle();
+      },
+      set(value) {
+        applyNormalizedPageTitle(value);
+      }
+    });
+    pageTitleWriteGuardInstalled = true;
+  } catch (_) {
+    pageTitleWriteGuardInstalled = false;
+  }
+}
+
+function enforcePageTitle() {
+  applyNormalizedPageTitle(getExpectedPageTitle());
+}
+
+function ensurePageTitleGuard() {
+  installPageTitleWriteGuard();
+
+  if (!pageTitleMutationObserver) {
+    const titleEl = document.getElementById("appPageTitle") || document.querySelector("head > title");
+    if (titleEl) {
+      pageTitleMutationObserver = new MutationObserver(() => {
+        enforcePageTitle();
+      });
+      pageTitleMutationObserver.observe(titleEl, {
+        subtree: true,
+        childList: true,
+        characterData: true
+      });
+    }
+  }
+
+  if (!pageTitleGuardIntervalId) {
+    pageTitleGuardIntervalId = setInterval(enforcePageTitle, 700);
+  }
+}
+
 function setPageTitle(view = "signin") {
-  if (view === "dashboard") {
-    document.title = "NovaFix - Dashboard";
+  const normalizedView = String(view || "signin").toLowerCase();
+  const safeKey = Object.prototype.hasOwnProperty.call(PAGE_TITLES, normalizedView)
+    ? normalizedView
+    : "signin";
+  currentPageTitleKey = safeKey;
+  enforcePageTitle();
+  ensurePageTitleGuard();
+}
+
+function refreshPageTitleByState() {
+  const signedIn = !!auth?.currentUser;
+  if (signedIn && dashboard?.style?.display !== "none") {
+    setPageTitle("dashboard");
     return;
   }
-  if (view === "signup") {
-    document.title = "NovaFix - Sign Up";
-    return;
-  }
-  document.title = "NovaFix - Sign In";
+  setPageTitle(authMode === "signup" ? "signup" : "signin");
 }
 
 setPageTitle("signin");
+ensurePageTitleGuard();
+enforcePageTitle();
+window.addEventListener("focus", refreshPageTitleByState);
+window.addEventListener("pageshow", refreshPageTitleByState);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) refreshPageTitleByState();
+});
 let verificationCooldownTimer = null;
 let verificationCooldownRemaining = 0;
 const VERIFICATION_AUTO_RESEND_WINDOW_MS = 10 * 60 * 1000;
@@ -5080,25 +5209,89 @@ async function submitAddFriendRequest() {
 
     const sentByMeSnap = await getDocs(collection(db, "users", user.uid, "friendRequestsSent"));
     let alreadyPendingToEmail = false;
+    let activePendingSentCount = 0;
     const sentExpiryUpdates = [];
+    const sentStatusSyncUpdates = [];
+
+    const queueStatusByTarget = new Map();
+    try {
+      const queueSnap = await getDocs(query(collection(db, "friendRequestsQueue"), where("fromUid", "==", user.uid)));
+      queueSnap.docs.forEach((docSnap) => {
+        const entry = docSnap.data() || {};
+        const toUid = String(entry.toUid || "").trim();
+        const toEmail = String(entry.toEmail || "").trim().toLowerCase();
+        const status = String(entry.status || "").trim().toLowerCase();
+        const updatedAtMs = Number(entry.updatedAtMs)
+          || Number(entry.createdAtMs)
+          || getOptionalTimestampMs(entry.updatedAt)
+          || getOptionalTimestampMs(entry.respondedAt)
+          || getOptionalTimestampMs(entry.cancelledAt)
+          || getOptionalTimestampMs(entry.expiredAt)
+          || getOptionalTimestampMs(entry.createdAt)
+          || 0;
+
+        const keys = [];
+        if (toUid) keys.push(`uid:${toUid}`);
+        if (toEmail) keys.push(`email:${toEmail}`);
+        keys.forEach((key) => {
+          const existing = queueStatusByTarget.get(key);
+          if (!existing || updatedAtMs >= Number(existing.updatedAtMs || 0)) {
+            queueStatusByTarget.set(key, { status, updatedAtMs });
+          }
+        });
+      });
+    } catch (_) {}
+
     sentByMeSnap.docs.forEach((docSnap) => {
       const data = docSnap.data() || {};
-      const toEmailMatch = String(data.toEmail || "").trim().toLowerCase() === targetEmail;
       const pending = String(data.status || "pending") === "pending";
-      if (!toEmailMatch || !pending) return;
+      if (!pending) return;
+
+      const toUid = String(data.toUid || "").trim();
+      const toEmail = String(data.toEmail || "").trim().toLowerCase();
+      const queueCandidates = [
+        toUid ? queueStatusByTarget.get(`uid:${toUid}`) : null,
+        toEmail ? queueStatusByTarget.get(`email:${toEmail}`) : null
+      ].filter(Boolean);
+      queueCandidates.sort((a, b) => Number(b?.updatedAtMs || 0) - Number(a?.updatedAtMs || 0));
+      const queueStatusEntry = queueCandidates[0] || null;
+      const queueStatus = String(queueStatusEntry?.status || "");
+      const queueStatusUpdatedAtMs = Number(queueStatusEntry?.updatedAtMs || 0);
+      const sentUpdatedAtMs = Number(data.updatedAtMs)
+        || Number(data.createdAtMs)
+        || getOptionalTimestampMs(data.updatedAt)
+        || getOptionalTimestampMs(data.createdAt)
+        || 0;
+      const terminalQueueStatus = isTerminalFriendRequestStatus(queueStatus);
+      if (terminalQueueStatus && queueStatusUpdatedAtMs > 0 && queueStatusUpdatedAtMs >= sentUpdatedAtMs) {
+        sentStatusSyncUpdates.push(setDoc(docSnap.ref, {
+          status: queueStatus,
+          updatedAt: serverTimestamp(),
+          updatedAtMs: Date.now()
+        }, { merge: true }).catch(() => {}));
+        return;
+      }
 
       if (isFriendRequestExpired(data)) {
         sentExpiryUpdates.push(setDoc(docSnap.ref, {
           status: "expired",
           expiredAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
+          updatedAt: serverTimestamp(),
+          updatedAtMs: Date.now()
         }, { merge: true }).catch(() => {}));
         return;
       }
 
-      alreadyPendingToEmail = true;
+      activePendingSentCount += 1;
+      if (toEmail === targetEmail) alreadyPendingToEmail = true;
     });
-    await Promise.all(sentExpiryUpdates);
+    await Promise.all([...sentExpiryUpdates, ...sentStatusSyncUpdates]);
+
+    if (activePendingSentCount >= MAX_PENDING_SENT_REQUESTS) {
+      setAddFriendError(`You can only have ${MAX_PENDING_SENT_REQUESTS} pending sent requests. Wait for one to be accepted/declined/cancelled/expired first.`);
+      return;
+    }
+
     if (alreadyPendingToEmail) {
       setAddFriendError("Request already sent and pending.");
       return;
@@ -5488,6 +5681,7 @@ const GRATITUDE_DAILY_LIMIT = 30;
 const WATER_DAILY_LIMIT = 40;
 const WATER_MAX_GLASSES_PER_ENTRY = 10;
 const MAX_FRIENDS = 5;
+const MAX_PENDING_SENT_REQUESTS = 5;
 const FRIEND_REQUEST_EXPIRY_MS = 3 * 24 * 60 * 60 * 1000;
 const REMINDER_MAX_MINUTES = 43200;
 const REMINDER_MAX_TEXT_LENGTH = 140;
