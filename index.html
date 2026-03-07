@@ -10,6 +10,9 @@
 :root{
   --waveA:#2196f3;
   --waveB:#ff9800;
+  --waveC:#00c9a7;
+  --waveD:#ff6f91;
+  --waveE:#845ec2;
   --primary:#2196f3;
   --accent:#ff9800;
   --glass:rgba(255,255,255,0.18);
@@ -25,17 +28,19 @@ html,body{
 }
 
 body{
-  background:linear-gradient(120deg,var(--waveA),var(--waveB));
-  background-size:260% 260%;
-  animation:waveMove 36s ease-in-out infinite alternate;
+  background:linear-gradient(130deg,var(--waveA),var(--waveB),var(--waveC),var(--waveD),var(--waveE));
+  background-size:420% 420%;
+  animation:waveMove 52s cubic-bezier(.43,.03,.57,.97) infinite;
   overflow-x:hidden;
   -webkit-tap-highlight-color: transparent;
 }
 
 @keyframes waveMove{
-  0%{background-position:0% 50%}
-  50%{background-position:100% 50%}
-  100%{background-position:0% 50%}
+  0%{background-position:0% 35%}
+  25%{background-position:70% 45%}
+  50%{background-position:100% 65%}
+  75%{background-position:35% 75%}
+  100%{background-position:0% 35%}
 }
 
 /* SPLASH */
@@ -123,6 +128,17 @@ body{
   padding:16px;
 }
 
+#addFriendModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.78);
+  justify-content:center;
+  align-items:center;
+  z-index:10036;
+  padding:16px;
+}
+
 .import-transfer-card{
   width:min(420px, calc(100vw - 24px));
   max-width:100%;
@@ -180,6 +196,42 @@ body{
 
 .import-transfer-cancel{
   background:rgba(255,255,255,.24) !important;
+}
+
+.friends-list-box{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.friend-row{
+  padding:10px;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,.22);
+  background:rgba(255,255,255,.09);
+}
+
+.friend-row strong{
+  display:block;
+  font-size:13px;
+  margin-bottom:4px;
+}
+
+.friend-row small{
+  display:block;
+  font-size:12px;
+  line-height:1.45;
+  opacity:.95;
+}
+
+.friend-row .friend-actions{
+  display:flex;
+  gap:6px;
+  margin-top:8px;
+}
+
+.friend-row .friend-actions button{
+  flex:1;
 }
 
 
@@ -638,6 +690,17 @@ textarea:focus-visible{
   font-size:12px;
   line-height:1.4;
   opacity:.92;
+}
+
+.friend-card-note{
+  margin:8px 0 0;
+  font-size:12px;
+  line-height:1.45;
+  padding:8px 10px;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,.2);
+  background:rgba(255,255,255,.08);
+  color:#f3f7ff;
 }
 
 .status-loading,
@@ -1539,6 +1602,26 @@ textarea:focus-visible{
     </div>
     <p class="export-note">Store one secure Firebase snapshot and import from another account via email + password.</p>
   </div>
+
+  <div class="account-transfer-box">
+    <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Friend Requests</h4>
+    <div class="export-actions" style="margin-bottom:8px;">
+      <button id="addFriendsBtn" onclick="startAddFriendRequest()">Add Friends</button>
+    </div>
+    <p class="export-note">Send a friend request by email, then compare progress and motivate each other.</p>
+    <div id="friendRequestsList" class="friends-list-box"></div>
+  </div>
+
+  <div class="account-transfer-box">
+    <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Sent Requests</h4>
+    <div id="sentRequestsList" class="friends-list-box"></div>
+  </div>
+
+  <div class="account-transfer-box">
+    <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Current Friends</h4>
+    <div id="currentFriendsList" class="friends-list-box"></div>
+  </div>
+
 </div>
 
 <div id="accountOverlay" onclick="closeAccountPanel()"></div>
@@ -1553,6 +1636,19 @@ textarea:focus-visible{
     <div class="import-transfer-actions">
       <button id="importTransferCancelBtn" class="import-transfer-cancel" onclick="closeImportTransferModal()">Cancel</button>
       <button id="importTransferConfirmBtn" onclick="submitImportTransfer()">Import</button>
+    </div>
+  </div>
+</div>
+
+<div id="addFriendModal" onclick="closeAddFriendModal(event)">
+  <div class="import-transfer-card" onclick="event.stopPropagation()">
+    <h3>Add Friend</h3>
+    <p class="import-transfer-note">Enter your friend's email to send a request. They will see an accept/decline prompt on next login.</p>
+    <input id="addFriendEmail" type="email" placeholder="Friend account email">
+    <p id="addFriendError" class="import-transfer-error"></p>
+    <div class="import-transfer-actions">
+      <button id="addFriendCancelBtn" class="import-transfer-cancel" onclick="closeAddFriendModal()">Cancel</button>
+      <button id="addFriendConfirmBtn" onclick="submitAddFriendRequest()">Send Request</button>
     </div>
   </div>
 </div>
@@ -1607,6 +1703,7 @@ textarea:focus-visible{
 <button id="taskAddBtn" onclick="addTask()">Add</button>
 </div>
 <p id="taskLimitError" class="limit-note"></p>
+<p id="taskFriendInsight" class="friend-card-note">Friend benchmark: add a friend to compare productivity pace.</p>
 <ul id="taskList"></ul>
 </div>
 
@@ -1645,6 +1742,7 @@ textarea:focus-visible{
 <p class="reset-hint">Daily limits show a live countdown when reached.</p>
 <p id="waterLimitError" class="limit-note"></p>
 <button id="waterClearBtn" class="water-clear-btn" onclick="clearWaterData()">Clear Intake + Goal</button>
+<p id="waterFriendInsight" class="friend-card-note">Friend benchmark: add a friend to compare hydration consistency.</p>
 <p id="waterProgress"></p>
 </div>
 
@@ -1655,6 +1753,7 @@ textarea:focus-visible{
 <input id="sleepInput" placeholder="Hours">
 <button id="sleepSaveBtn" onclick="saveSleep()">Save</button>
 <p id="sleepLimitError" class="limit-note"></p>
+<p id="sleepFriendInsight" class="friend-card-note">Friend benchmark: add a friend to compare sleep consistency.</p>
 <p id="sleepResult"></p>
 </div>
 
@@ -1687,6 +1786,7 @@ textarea:focus-visible{
 <button id="gratitudeSaveBtn" onclick="saveGratitude()">Save</button>
 <p id="gratitudeLimitError" class="limit-note"></p>
 <div id="gratitudeLogs"></div>
+<p id="gratitudeFriendInsight" class="friend-card-note">Friend benchmark: add a friend to compare gratitude consistency.</p>
 </div>
 
 <!-- Daily Challenge -->
@@ -1696,6 +1796,7 @@ textarea:focus-visible{
 <p id="dailyChallenge"></p>
 <button id="challengeCompleteBtn" onclick="completeChallenge()">Complete</button>
 <p id="challengeResult"></p>
+<p id="dailyChallengeFriendInsight" class="friend-card-note">Friend benchmark: add a friend to compare daily challenge consistency.</p>
 </div>
 
 <!-- Daily Wellness Score -->
@@ -1851,7 +1952,7 @@ textarea:focus-visible{
 <script type="module">
   // 🔥 Firebase Imports
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { initializeFirestore, persistentLocalCache, getFirestore, collection, addDoc, getDocs, serverTimestamp, deleteDoc, doc, updateDoc, setDoc, getDoc, runTransaction } 
+import { initializeFirestore, persistentLocalCache, getFirestore, collection, collectionGroup, addDoc, getDocs, serverTimestamp, deleteDoc, doc, updateDoc, setDoc, getDoc, runTransaction, query, where } 
 from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { 
   getAuth,
@@ -1928,6 +2029,16 @@ const importTransferError = document.getElementById("importTransferError");
 const importTransferConfirmBtn = document.getElementById("importTransferConfirmBtn");
 const importTransferCancelBtn = document.getElementById("importTransferCancelBtn");
 const exportDataBtn = document.getElementById("exportDataBtn");
+const addFriendModal = document.getElementById("addFriendModal");
+const addFriendEmailInput = document.getElementById("addFriendEmail");
+const addFriendError = document.getElementById("addFriendError");
+const addFriendConfirmBtn = document.getElementById("addFriendConfirmBtn");
+const addFriendCancelBtn = document.getElementById("addFriendCancelBtn");
+const addFriendsBtn = document.getElementById("addFriendsBtn");
+const friendRequestsList = document.getElementById("friendRequestsList");
+const sentRequestsList = document.getElementById("sentRequestsList");
+const currentFriendsList = document.getElementById("currentFriendsList");
+const friendsInsightsList = document.getElementById("friendsInsightsList");
 const welcomeGuideModal = document.getElementById("welcomeGuideModal");
 const guideStepCounter = document.getElementById("guideStepCounter");
 const guideStepTitle = document.getElementById("guideStepTitle");
@@ -1980,6 +2091,7 @@ const reminders = document.getElementById("reminders");
 const task = document.getElementById("task");
 const taskAddBtn = document.getElementById("taskAddBtn");
 const taskLimitError = document.getElementById("taskLimitError");
+const taskFriendInsight = document.getElementById("taskFriendInsight");
 const taskList = document.getElementById("taskList");
 const gCost = document.getElementById("gCost");
 const gMonths = document.getElementById("gMonths");
@@ -1993,11 +2105,13 @@ const waterGoalInput = document.getElementById("waterGoalInput");
 const waterInput = document.getElementById("waterInput");
 const waterTrackBtn = document.getElementById("waterTrackBtn");
 const waterLimitError = document.getElementById("waterLimitError");
+const waterFriendInsight = document.getElementById("waterFriendInsight");
 const waterProgress = document.getElementById("waterProgress");
 const waterClearBtn = document.getElementById("waterClearBtn");
 const sleepInput = document.getElementById("sleepInput");
 const sleepSaveBtn = document.getElementById("sleepSaveBtn");
 const sleepLimitError = document.getElementById("sleepLimitError");
+const sleepFriendInsight = document.getElementById("sleepFriendInsight");
 const sleepResult = document.getElementById("sleepResult");
 const futureTask = document.getElementById("futureTask");
 const timeMirror = document.getElementById("timeMirror");
@@ -2006,9 +2120,11 @@ const gratitudeInput = document.getElementById("gratitudeInput");
 const gratitudeSaveBtn = document.getElementById("gratitudeSaveBtn");
 const gratitudeLimitError = document.getElementById("gratitudeLimitError");
 const gratitudeLogs = document.getElementById("gratitudeLogs");
+const gratitudeFriendInsight = document.getElementById("gratitudeFriendInsight");
 const dailyChallengeElement = document.getElementById("dailyChallenge");
 const challengeResultElement = document.getElementById("challengeResult");
 const challengeCompleteBtn = document.getElementById("challengeCompleteBtn");
+const dailyChallengeFriendInsight = document.getElementById("dailyChallengeFriendInsight");
 const wellnessScoreEl = document.getElementById("wellnessScore");
 const wellnessStatusEl = document.getElementById("wellnessStatus");
 const wellnessReassuranceEl = document.getElementById("wellnessReassurance");
@@ -2058,6 +2174,14 @@ function toggleAccountPanel() {
   const isOpen = accountPanel.style.display === "block";
   accountPanel.style.display = isOpen ? "none" : "block";
   accountOverlay.style.display = isOpen ? "none" : "block";
+  if (!isOpen) {
+    const user = auth.currentUser;
+    if (user?.uid) {
+      loadFriendRequests(user.uid);
+      loadSentFriendRequests(user.uid);
+      loadFriendsInsights(user.uid);
+    }
+  }
 }
 
 function closeAccountPanel() {
@@ -2095,6 +2219,7 @@ document.addEventListener("click", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
   closeAccountPanel();
+  closeAddFriendModal();
   if (welcomeGuideModal && welcomeGuideModal.style.display === "flex") {
     closeWelcomeGuide();
   }
@@ -2149,6 +2274,41 @@ async function clearAllAccountData() {
     const waterTodayCount = countTodayFromDates(waterDates);
     const gratitudeTodayCount = gratitudeEntries.reduce((total, entry) => (dateToKey(entry.time) === todayKey ? total + 1 : total), 0);
 
+    let friendIds = [];
+    let sentRequestTargetIds = [];
+    let queueRequestDocIds = [];
+    try {
+      const friendsSnap = await getDocs(collection(db, "users", user.uid, "friends"));
+      friendIds = friendsSnap.docs.map((docSnap) => String(docSnap.id || "")).filter(Boolean);
+    } catch (_) {
+      friendIds = [];
+    }
+
+    try {
+      const sentSnap = await getDocs(collection(db, "users", user.uid, "friendRequestsSent"));
+      sentRequestTargetIds = sentSnap.docs
+        .map((docSnap) => {
+          const data = docSnap.data() || {};
+          return String(data.toUid || docSnap.id || "");
+        })
+        .filter(Boolean);
+    } catch (_) {
+      sentRequestTargetIds = [];
+    }
+
+    try {
+      const [queueFromSnap, queueToSnap] = await Promise.all([
+        getDocs(query(collection(db, "friendRequestsQueue"), where("fromUid", "==", user.uid))),
+        getDocs(query(collection(db, "friendRequestsQueue"), where("toUid", "==", user.uid)))
+      ]);
+      queueRequestDocIds = [...new Set([
+        ...queueFromSnap.docs.map((docSnap) => String(docSnap.id || "")),
+        ...queueToSnap.docs.map((docSnap) => String(docSnap.id || ""))
+      ].filter(Boolean))];
+    } catch (_) {
+      queueRequestDocIds = [];
+    }
+
     const targetCollections = [
       "moods",
       "tasks",
@@ -2158,7 +2318,11 @@ async function clearAllAccountData() {
       "aiChats",
       "reminders",
       "challengeHistory",
-      "rescueEvents"
+      "rescueEvents",
+      "friends",
+      "friendRequests",
+      "friendRequestsSent",
+      "friendRequestDecisions"
     ];
 
     await Promise.all(targetCollections.map((name) => clearUserCollection(user.uid, name)));
@@ -2169,7 +2333,27 @@ async function clearAllAccountData() {
     await deleteDoc(doc(db, "users", user.uid, "settings", "startupPack")).catch(() => {});
     await deleteDoc(doc(db, "users", user.uid, "insights", "current")).catch(() => {});
     await deleteDoc(doc(db, "users", user.uid, "insights", "barGraphs")).catch(() => {});
+    await deleteDoc(doc(db, "users", user.uid, "social", "profile")).catch(() => {});
     persistedBarGraphs = null;
+    persistedBehaviorPatterns = null;
+
+    if (friendIds.length) {
+      await Promise.all(friendIds.map((friendUid) => {
+        return deleteDoc(doc(db, "users", friendUid, "friends", user.uid)).catch(() => {});
+      }));
+    }
+
+    if (sentRequestTargetIds.length) {
+      await Promise.all(sentRequestTargetIds.map((targetUid) => {
+        return deleteDoc(doc(db, "users", targetUid, "friendRequests", user.uid)).catch(() => {});
+      }));
+    }
+
+    if (queueRequestDocIds.length) {
+      await Promise.all(queueRequestDocIds.map((requestId) => {
+        return deleteDoc(doc(db, "friendRequestsQueue", requestId)).catch(() => {});
+      }));
+    }
 
     if (preservedAiUsage && Number.isFinite(Number(preservedAiUsage.count))) {
       await setDoc(aiUsageRef, {
@@ -2203,6 +2387,12 @@ async function clearAllAccountData() {
     taskList.innerHTML = "";
     reminders.innerHTML = "";
     gratitudeLogs.innerHTML = "";
+    if (friendRequestsList) friendRequestsList.innerHTML = "";
+    if (sentRequestsList) sentRequestsList.innerHTML = "";
+    if (currentFriendsList) currentFriendsList.innerHTML = "";
+    if (friendsInsightsList) friendsInsightsList.innerHTML = "";
+    friendInsightProfiles = [];
+    renderFriendMetricCardInsights();
     waterProgress.innerText = "";
     sleepResult.innerText = "";
     challengeResultElement.innerText = "";
@@ -2289,6 +2479,7 @@ try {
         updateClearDataButtonState();
         await syncServerClock(user.uid);
         await refreshExportCooldownState(user.uid);
+        await upsertUserDirectoryProfile(user);
         await loadPersistedBarGraphs(user.uid);
         loadDailyChallenge(user.uid);
         loadDailyUsage(user.uid);
@@ -2305,6 +2496,11 @@ try {
         loadWaterData(user.uid);
         loadSleepData(user.uid);
         loadGratitude(user.uid);
+        friendRequestLoginAlertShown = false;
+        loadFriendRequests(user.uid, true);
+        loadSentFriendRequests(user.uid);
+        loadFriendsInsights(user.uid);
+        startFriendInsightsWatcher(user.uid);
         showPendingImportSecurityWarnings(user.uid);
         startDailyChallengeWatcher();
         scheduleDailyChallengeReset(user.uid);
@@ -2316,6 +2512,7 @@ try {
         await maybeShowWelcomeGuide(user.uid);
       } else {
         stopDailyChallengeWatcher();
+        stopFriendInsightsWatcher();
         clearDailyChallengeResetSchedule();
         clearDailyQuestResetSchedule();
         clearWeeklyGraphResetSchedule();
@@ -2324,6 +2521,8 @@ try {
         startExportCooldown(0);
         clearWaterGoalResetSchedule();
         closeAccountPanel();
+        closeAddFriendModal(null, true);
+        friendRequestLoginAlertShown = false;
         updateAccountPanel(null);
         signInModal.style.display = "flex";
         setPageTitle("signin");
@@ -2396,9 +2595,16 @@ try {
         taskEntries.length = 0;
         gratitudeEntries.length = 0;
         challengeDates.length = 0;
+        if (friendRequestsList) friendRequestsList.innerHTML = "";
+        if (sentRequestsList) sentRequestsList.innerHTML = "";
+        if (currentFriendsList) currentFriendsList.innerHTML = "";
+        if (friendsInsightsList) friendsInsightsList.innerHTML = "";
+        friendInsightProfiles = [];
+        renderFriendMetricCardInsights();
         dailyChallengeCompleted = false;
         currentChallengeDateKey = "";
         persistedBarGraphs = null;
+        persistedBehaviorPatterns = null;
         waterGoal = 0;
         aiUsageDateKeyGMT = "";
         aiUsageCount = 0;
@@ -3039,6 +3245,7 @@ async function handleAuth() {
     if (authMode === "signup") {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(userCredential.user, { displayName: username });
+      await upsertUserDirectoryProfile(userCredential.user);
       const verifyResult = await sendVerificationEmailReliable(userCredential.user);
 
       await signOut(auth);
@@ -3110,6 +3317,7 @@ async function handleAuth() {
 
 function signOutUser() {
   closeAccountPanel();
+  closeAddFriendModal(null, true);
   signOut(auth);
 }
 
@@ -3203,6 +3411,1862 @@ async function sendAccountResetPasswordEmail() {
   }
 }
 
+function setAddFriendError(message = "") {
+  if (!addFriendError) return;
+  addFriendError.innerText = String(message || "");
+  addFriendError.style.display = message ? "block" : "none";
+}
+
+function setAddFriendBusy(isBusy) {
+  addFriendSubmitting = !!isBusy;
+  if (addFriendConfirmBtn) {
+    addFriendConfirmBtn.disabled = !!isBusy;
+    addFriendConfirmBtn.innerText = isBusy ? "Sending..." : "Send Request";
+  }
+  if (addFriendCancelBtn) addFriendCancelBtn.disabled = !!isBusy;
+  if (addFriendEmailInput) addFriendEmailInput.disabled = !!isBusy;
+}
+
+function closeAddFriendModal(event, force = false) {
+  if (event?.target && event.target !== addFriendModal) return;
+  if (addFriendSubmitting && !force) return;
+  if (addFriendModal) addFriendModal.style.display = "none";
+  setAddFriendError("");
+}
+
+function startAddFriendRequest() {
+  const user = auth.currentUser;
+  if (!user) {
+    showToast("Please sign in first.");
+    return;
+  }
+  if (addFriendModal) addFriendModal.style.display = "flex";
+  setAddFriendBusy(false);
+  setAddFriendError("");
+  if (addFriendEmailInput) {
+    addFriendEmailInput.value = "";
+    addFriendEmailInput.focus();
+  }
+}
+
+async function getActiveFriendCount(userId, userEmail = "") {
+  const safeUserId = String(userId || "").trim();
+  const safeUserEmail = String(userEmail || "").trim().toLowerCase();
+  if (!safeUserId) return 0;
+
+  const acceptedFriends = new Set();
+  try {
+    const friendsSnap = await getDocs(collection(db, "users", safeUserId, "friends"));
+    friendsSnap.docs.forEach((docSnap) => {
+      const data = docSnap.data() || {};
+      const status = String(data.status || "accepted").trim().toLowerCase();
+      const friendUid = String(data.friendUid || docSnap.id || "").trim();
+      if (status === "accepted" && friendUid) {
+        acceptedFriends.add(friendUid);
+      }
+    });
+  } catch (_) {}
+
+  const queueAccepted = new Set();
+  const unfriendedFriendUids = new Set();
+  try {
+    const [sentQueueSnap, receivedQueueSnap, receivedByEmailSnap] = await Promise.all([
+      getDocs(query(collection(db, "friendRequestsQueue"), where("fromUid", "==", safeUserId))),
+      getDocs(query(collection(db, "friendRequestsQueue"), where("toUid", "==", safeUserId))),
+      safeUserEmail
+        ? getDocs(query(collection(db, "friendRequestsQueue"), where("toEmail", "==", safeUserEmail)))
+        : Promise.resolve({ docs: [] })
+    ]);
+
+    [...sentQueueSnap.docs, ...receivedQueueSnap.docs, ...receivedByEmailSnap.docs].forEach((docSnap) => {
+      const data = docSnap.data() || {};
+      const fromUid = String(data.fromUid || "").trim();
+      const toUid = String(data.toUid || "").trim();
+      const status = String(data.status || "").trim().toLowerCase();
+      const isSender = fromUid === safeUserId;
+      const friendUid = isSender ? toUid : fromUid;
+      if (!friendUid) return;
+
+      if (status === "unfriended") {
+        unfriendedFriendUids.add(friendUid);
+        return;
+      }
+      if (status === "accepted") {
+        queueAccepted.add(friendUid);
+      }
+    });
+  } catch (_) {}
+
+  queueAccepted.forEach((friendUid) => {
+    if (!unfriendedFriendUids.has(friendUid)) acceptedFriends.add(friendUid);
+  });
+  unfriendedFriendUids.forEach((friendUid) => acceptedFriends.delete(friendUid));
+
+  return acceptedFriends.size;
+}
+
+function getMoodLabelFromScore(scoreValue) {
+  const score = Number(scoreValue) || 0;
+  if (score >= 2.5) return "Happy";
+  if (score >= 1.75) return "Neutral";
+  if (score > 0) return "Low";
+  return "Not enough data";
+}
+
+function isEmailLike(value) {
+  const text = String(value || "").trim();
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(text);
+}
+
+function normalizeUsernameCandidate(nameValue, relatedEmail = "") {
+  const text = String(nameValue || "").trim();
+  if (!text) return "";
+  if (isEmailLike(text)) return "";
+
+  const emailLocal = String(relatedEmail || "").trim().toLowerCase().split("@")[0] || "";
+  if (emailLocal && text.toLowerCase() === emailLocal) return "";
+  return text;
+}
+
+function getFriendDisplayName(profileLike, fallbackName = "") {
+  const safeEmail = String(profileLike?.email || "").trim().toLowerCase();
+  const normalizedProfileName = normalizeUsernameCandidate(profileLike?.name, safeEmail);
+  const isGenericProfileName = /^(friend|unknown|your friend|user)$/i.test(String(normalizedProfileName || "").trim());
+  const normalizedFallback = normalizeUsernameCandidate(fallbackName, safeEmail);
+  const isGenericFallback = /^(friend|unknown|your friend|user)$/i.test(String(normalizedFallback || "").trim());
+  const preferred = (isGenericProfileName ? "" : normalizedProfileName)
+    || (isGenericFallback ? "" : normalizedFallback);
+  if (preferred) return preferred;
+
+  const emailLocal = safeEmail.split("@")[0] || "";
+  if (emailLocal) return `@${emailLocal}`;
+
+  const uid = String(profileLike?.uid || "").trim();
+  if (uid) return `Friend ${uid.slice(0, 6)}`;
+  return "Friend";
+}
+
+async function resolveUsernameFromDirectoryEmail(emailValue) {
+  const safeEmail = String(emailValue || "").trim().toLowerCase();
+  if (!safeEmail) return "";
+  if (userDirectoryNameCache.has(safeEmail)) {
+    return userDirectoryNameCache.get(safeEmail) || "";
+  }
+
+  let resolvedName = "";
+  try {
+    const directorySnap = await getDoc(doc(db, "userDirectory", safeEmail));
+    if (directorySnap.exists()) {
+      const data = directorySnap.data() || {};
+      resolvedName = normalizeUsernameCandidate(data.name, safeEmail);
+    }
+  } catch (_) {
+    resolvedName = "";
+  }
+
+  userDirectoryNameCache.set(safeEmail, resolvedName || "");
+  return resolvedName || "";
+}
+
+function buildUserSocialProfileSnapshot(user = auth.currentUser) {
+  const activeUser = user || auth.currentUser;
+  const email = String(activeUser?.email || "").trim().toLowerCase();
+  const displayName = normalizeUsernameCandidate(activeUser?.displayName, email)
+    || normalizeUsernameCandidate(accountName?.innerText || "", email)
+    || "User";
+  const uid = String(activeUser?.uid || "").trim();
+
+  const maps = buildPatternMetricMaps(14);
+  const dayKeys = maps.dayKeys || [];
+  const sleepValues = dayKeys.map((key) => Number(maps.sleepByDay.get(key)) || 0).filter((value) => value > 0);
+  const moodValues = dayKeys.map((key) => Number(maps.moodByDay.get(key)) || 0).filter((value) => value > 0);
+  const waterValues = dayKeys.map((key) => Number(maps.waterByDay.get(key)) || 0);
+  const taskValues = dayKeys.map((key) => Number(maps.tasksDoneByDay.get(key)) || 0);
+
+  const avgSleepHours = Number(safeAvg(sleepValues).toFixed(1));
+  const avgMoodScore = Number(safeAvg(moodValues).toFixed(2));
+  const avgWaterDaily = Number(safeAvg(waterValues).toFixed(1));
+  const avgTasksCompletedDaily = Number(safeAvg(taskValues).toFixed(1));
+  const totalTasksLogged = taskEntries.length;
+  const completedTasks = taskEntries.filter((entry) => !!entry.completed).length;
+  const todayKey = getTodayKey();
+  const tasksToday = Number(maps.tasksDoneByDay.get(todayKey)) || 0;
+  const sleepToday = Number(maps.sleepByDay.get(todayKey)) || 0;
+  const waterToday = Number(getTodayWater().toFixed(1));
+  const gratitudeToday = getTodayGratitudeCount();
+  const dailyChallengeCompletedToday = dailyChallengeCompleted ? 1 : 0;
+
+  return {
+    uid,
+    email,
+    name: displayName,
+    metrics: {
+      totalTasksLogged,
+      completedTasks,
+      tasksToday,
+      waterToday,
+      sleepToday,
+      gratitudeToday,
+      dailyChallengeCompletedToday,
+      avgWaterDaily,
+      avgSleepHours,
+      avgMoodScore,
+      avgMoodLabel: getMoodLabelFromScore(avgMoodScore),
+      avgTasksCompletedDaily,
+      sampleDays: dayKeys.length
+    },
+    generatedAtMs: Date.now()
+  };
+}
+
+function buildFriendMotivationLine(friendProfile, myProfile) {
+  const friendName = getFriendDisplayName(friendProfile, "Your friend");
+  const friendMetrics = friendProfile?.metrics || {};
+  const myMetrics = myProfile?.metrics || {};
+
+  const friendMood = Number(friendMetrics.avgMoodScore) || 0;
+  const myMood = Number(myMetrics.avgMoodScore) || 0;
+  const friendSleep = Number(friendMetrics.avgSleepHours) || 0;
+  const mySleep = Number(myMetrics.avgSleepHours) || 0;
+  const friendWater = Number(friendMetrics.avgWaterDaily) || 0;
+  const myWater = Number(myMetrics.avgWaterDaily) || 0;
+  const friendTasks = Number(friendMetrics.avgTasksCompletedDaily) || 0;
+  const myTasks = Number(myMetrics.avgTasksCompletedDaily) || 0;
+
+  if (friendMood > myMood + 0.12) {
+    return `${friendName}'s average mood is ${friendMetrics.avgMoodLabel || "higher"} and yours is ${myMetrics.avgMoodLabel || "lower"}. Try improving sleep + hydration consistency today.`;
+  }
+  if (friendSleep > mySleep + 0.4) {
+    return `${friendName} averages ${friendSleep.toFixed(1)}h sleep while you average ${mySleep.toFixed(1)}h. Better sleep can lift mood and focus.`;
+  }
+  if (friendWater > myWater + 0.5) {
+    return `${friendName} averages ${friendWater.toFixed(1)} cups/day and you average ${myWater.toFixed(1)}. Match hydration pace to stay competitive.`;
+  }
+  if (friendTasks > myTasks + 0.3) {
+    return `${friendName} completes about ${friendTasks.toFixed(1)} tasks/day vs your ${myTasks.toFixed(1)}. One extra focused sprint can close the gap.`;
+  }
+  return `You and ${friendName} are close right now. Keep your consistency to stay ahead.`;
+}
+
+function pickBestFriendMetric(profileRows, metricKey, todayMetricKey = "") {
+  if (!Array.isArray(profileRows) || !profileRows.length) return null;
+  const hasTodaySignal = !!todayMetricKey && profileRows.some((profile) => (Number(profile?.metrics?.[todayMetricKey]) || 0) > 0);
+  const selectedMetricKey = hasTodaySignal ? todayMetricKey : metricKey;
+  let best = null;
+  profileRows.forEach((profile) => {
+    const value = Number(profile?.metrics?.[selectedMetricKey]) || 0;
+    if (!best || value > best.value) {
+      best = {
+        profile,
+        value,
+        selectedMetricKey
+      };
+    }
+  });
+  return best;
+}
+
+function formatFriendDelta(delta, digits = 1) {
+  return Math.abs(Number(delta) || 0).toFixed(digits);
+}
+
+function getComparisonFriendProfiles(profileRows, maxCount = MAX_FRIENDS) {
+  if (!Array.isArray(profileRows) || !profileRows.length) return [];
+  const unique = [];
+  const seen = new Set();
+  profileRows.forEach((profile, index) => {
+    const uid = String(profile?.uid || "").trim();
+    const email = String(profile?.email || "").trim().toLowerCase();
+    const key = uid || email || `row_${index}`;
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    unique.push(profile);
+  });
+  return unique.slice(0, Math.max(1, Number(maxCount) || 5));
+}
+
+function buildNumericFriendComparisonText({
+  friends,
+  myValue,
+  unit,
+  digits = 1,
+  leadThreshold = 0.2,
+  noDataMessage = "no comparison data yet"
+}) {
+  const compareFriends = Array.isArray(friends) ? friends : [];
+  const friendNames = compareFriends.map((entry) => entry.name);
+  const header = `You vs ${friendNames.join(" vs ")}`;
+  const allValues = [Number(myValue) || 0, ...compareFriends.map((entry) => Number(entry.value) || 0)];
+  const hasAnyData = allValues.some((value) => value > 0);
+  if (!hasAnyData) {
+    return `${header}: ${noDataMessage}.`;
+  }
+
+  const formatValue = (value) => {
+    const safe = Number(value) || 0;
+    return digits <= 0 ? `${Math.round(safe)}` : safe.toFixed(digits);
+  };
+
+  const mySafeValue = Number(myValue) || 0;
+  const friendSummary = compareFriends
+    .map((entry) => `${entry.name} ${formatValue(entry.value)}`)
+    .join("; ");
+
+  let leaderName = "You";
+  let leaderValue = mySafeValue;
+  compareFriends.forEach((entry) => {
+    const value = Number(entry.value) || 0;
+    if (value > leaderValue) {
+      leaderValue = value;
+      leaderName = entry.name;
+    }
+  });
+
+  const closestGap = Math.abs(leaderValue - mySafeValue);
+  let motivation = "Comparison is close. Stay consistent and push one more small win.";
+  if (leaderName === "You") {
+    motivation = "You are leading. Keep the momentum going.";
+  } else if (closestGap > leadThreshold) {
+    motivation = `${leaderName} is currently ahead by ${formatValue(leaderValue - mySafeValue)}. One focused push now can close the gap.`;
+  }
+
+  return `${header}: You ${formatValue(mySafeValue)} ${unit}; ${friendSummary} ${unit}. ${motivation}`;
+}
+
+function renderFriendMetricCardInsights() {
+  if (!taskFriendInsight && !waterFriendInsight && !sleepFriendInsight && !gratitudeFriendInsight && !dailyChallengeFriendInsight) return;
+  const user = auth.currentUser;
+  if (!user) {
+    if (taskFriendInsight) taskFriendInsight.innerText = "";
+    if (waterFriendInsight) waterFriendInsight.innerText = "";
+    if (sleepFriendInsight) sleepFriendInsight.innerText = "";
+    if (gratitudeFriendInsight) gratitudeFriendInsight.innerText = "";
+    if (dailyChallengeFriendInsight) dailyChallengeFriendInsight.innerText = "";
+    return;
+  }
+
+  if (!Array.isArray(friendInsightProfiles) || !friendInsightProfiles.length) {
+    if (taskFriendInsight) taskFriendInsight.innerText = "Friend benchmark: add a friend to compare productivity pace.";
+    if (waterFriendInsight) waterFriendInsight.innerText = "Friend benchmark: add a friend to compare hydration consistency.";
+    if (sleepFriendInsight) sleepFriendInsight.innerText = "Friend benchmark: add a friend to compare sleep consistency.";
+    if (gratitudeFriendInsight) gratitudeFriendInsight.innerText = "Friend benchmark: add a friend to compare gratitude consistency.";
+    if (dailyChallengeFriendInsight) dailyChallengeFriendInsight.innerText = "Friend benchmark: add a friend to compare daily challenge consistency.";
+    return;
+  }
+
+  const myProfile = buildUserSocialProfileSnapshot(user);
+  const myMetrics = myProfile?.metrics || {};
+
+  const compareProfiles = getComparisonFriendProfiles(friendInsightProfiles, MAX_FRIENDS);
+  if (!compareProfiles.length) {
+    if (taskFriendInsight) taskFriendInsight.innerText = "Friend benchmark: add a friend to compare productivity pace.";
+    if (waterFriendInsight) waterFriendInsight.innerText = "Friend benchmark: add a friend to compare hydration consistency.";
+    if (sleepFriendInsight) sleepFriendInsight.innerText = "Friend benchmark: add a friend to compare sleep consistency.";
+    if (gratitudeFriendInsight) gratitudeFriendInsight.innerText = "Friend benchmark: add a friend to compare gratitude consistency.";
+    if (dailyChallengeFriendInsight) dailyChallengeFriendInsight.innerText = "Friend benchmark: add a friend to compare daily challenge consistency.";
+    return;
+  }
+
+  const friendNames = compareProfiles.map((profile) => getFriendDisplayName(profile, "Friend"));
+  const header = `You vs ${friendNames.join(" vs ")}`;
+
+  if (taskFriendInsight) {
+    const myToday = Number(myMetrics.tasksToday) || 0;
+    const hasFriendToday = compareProfiles.some((profile) => (Number(profile?.metrics?.tasksToday) || 0) > 0);
+    const useToday = myToday > 0 || hasFriendToday;
+    const taskUnit = useToday ? "tasks today" : "tasks/day";
+    const taskFriends = compareProfiles.map((profile, index) => ({
+      name: friendNames[index],
+      value: useToday
+        ? (Number(profile?.metrics?.tasksToday) || 0)
+        : (Number(profile?.metrics?.avgTasksCompletedDaily) || 0)
+    }));
+    const myValue = useToday ? myToday : (Number(myMetrics.avgTasksCompletedDaily) || 0);
+    taskFriendInsight.innerText = buildNumericFriendComparisonText({
+      friends: taskFriends,
+      myValue,
+      unit: taskUnit,
+      digits: 1,
+      leadThreshold: 0.2,
+      noDataMessage: "no productivity comparison data yet. Log and complete your first task today to start the race"
+    });
+  }
+
+  if (waterFriendInsight) {
+    const myToday = Number(myMetrics.waterToday) || 0;
+    const hasFriendToday = compareProfiles.some((profile) => (Number(profile?.metrics?.waterToday) || 0) > 0);
+    const useToday = myToday > 0 || hasFriendToday;
+    const waterUnit = useToday ? "cups today" : "cups/day";
+    const waterFriends = compareProfiles.map((profile, index) => ({
+      name: friendNames[index],
+      value: useToday
+        ? (Number(profile?.metrics?.waterToday) || 0)
+        : (Number(profile?.metrics?.avgWaterDaily) || 0)
+    }));
+    const myValue = useToday ? myToday : (Number(myMetrics.avgWaterDaily) || 0);
+    waterFriendInsight.innerText = buildNumericFriendComparisonText({
+      friends: waterFriends,
+      myValue,
+      unit: waterUnit,
+      digits: 1,
+      leadThreshold: 0.3,
+      noDataMessage: "no hydration comparison yet. Start with one glass now and build your streak"
+    });
+  }
+
+  if (sleepFriendInsight) {
+    const myToday = Number(myMetrics.sleepToday) || 0;
+    const hasFriendToday = compareProfiles.some((profile) => (Number(profile?.metrics?.sleepToday) || 0) > 0);
+    const useToday = myToday > 0 || hasFriendToday;
+    const sleepUnit = useToday ? "h today" : "h/night";
+    const sleepFriends = compareProfiles.map((profile, index) => ({
+      name: friendNames[index],
+      value: useToday
+        ? (Number(profile?.metrics?.sleepToday) || 0)
+        : (Number(profile?.metrics?.avgSleepHours) || 0)
+    }));
+    const myValue = useToday ? myToday : (Number(myMetrics.avgSleepHours) || 0);
+    sleepFriendInsight.innerText = buildNumericFriendComparisonText({
+      friends: sleepFriends,
+      myValue,
+      unit: sleepUnit,
+      digits: 1,
+      leadThreshold: 0.3,
+      noDataMessage: "no sleep comparison yet. Log sleep for a few days to unlock this benchmark"
+    });
+  }
+
+  if (gratitudeFriendInsight) {
+    const gratitudeFriends = compareProfiles.map((profile, index) => ({
+      name: friendNames[index],
+      value: Number(profile?.metrics?.gratitudeToday) || 0
+    }));
+    const myValue = Number(myMetrics.gratitudeToday) || 0;
+    gratitudeFriendInsight.innerText = buildNumericFriendComparisonText({
+      friends: gratitudeFriends,
+      myValue,
+      unit: "gratitude notes today",
+      digits: 0,
+      leadThreshold: 0,
+      noDataMessage: "no gratitude comparison yet. Add one gratitude note now to start your consistency streak"
+    });
+  }
+
+  if (dailyChallengeFriendInsight) {
+    const myCompleted = (Number(myMetrics.dailyChallengeCompletedToday) || 0) > 0;
+    const challengeRows = compareProfiles.map((profile, index) => ({
+      name: friendNames[index],
+      completed: (Number(profile?.metrics?.dailyChallengeCompletedToday) || 0) > 0
+    }));
+    const friendStatuses = challengeRows
+      .map((entry) => `${entry.name}: ${entry.completed ? "Completed" : "Pending"}`)
+      .join("; ");
+    const anyFriendCompleted = challengeRows.some((entry) => entry.completed);
+    let motivation = "Nobody has completed it yet. Be first today and set the tone.";
+    if (myCompleted && challengeRows.every((entry) => !entry.completed)) {
+      motivation = "You are currently ahead. Strong discipline, keep the streak going.";
+    } else if (!myCompleted && anyFriendCompleted) {
+      const firstCompletedFriend = challengeRows.find((entry) => entry.completed)?.name || "A friend";
+      motivation = `${firstCompletedFriend} has already completed their daily challenge. Finish yours now and match that momentum.`;
+    } else if (myCompleted && anyFriendCompleted) {
+      motivation = "Multiple people are already completed. Elite consistency from your circle.";
+    }
+
+    dailyChallengeFriendInsight.innerText = `${header}: You: ${myCompleted ? "Completed" : "Pending"}; ${friendStatuses}. ${motivation}`;
+  }
+}
+
+function renderFriendRequests(rows) {
+  if (!friendRequestsList) return;
+  if (!rows.length) {
+    friendRequestsList.innerHTML = `<div class="friend-row"><small>No pending requests yet.</small></div>`;
+    return;
+  }
+
+  friendRequestsList.innerHTML = "";
+  rows.forEach((entry) => {
+    const row = document.createElement("div");
+    row.className = "friend-row";
+    const senderName = escapeHtml(getFriendDisplayName({
+      name: entry.fromName,
+      email: entry.fromEmail,
+      uid: entry.fromUid
+    }, "Unknown"));
+    const senderEmail = escapeHtml(String(entry.fromEmail || "unknown@email.com"));
+    row.innerHTML = `<strong>${senderName}</strong><small>Request from ${senderEmail}</small>`;
+
+    const actions = document.createElement("div");
+    actions.className = "friend-actions";
+
+    const acceptBtn = document.createElement("button");
+    acceptBtn.innerText = "Accept";
+    acceptBtn.onclick = () => respondToFriendRequest(entry, "accept");
+
+    const declineBtn = document.createElement("button");
+    declineBtn.className = "import-transfer-cancel";
+    declineBtn.innerText = "Decline";
+    declineBtn.onclick = () => respondToFriendRequest(entry, "decline");
+
+    actions.append(acceptBtn, declineBtn);
+    row.append(actions);
+    friendRequestsList.appendChild(row);
+  });
+}
+
+function renderFriendsInsights(rows, myProfile) {
+  if (!friendsInsightsList) return;
+  if (!rows.length) {
+    friendsInsightsList.innerHTML = `<div class="friend-row"><small>No friends linked yet. Send a request to start shared progress.</small></div>`;
+    return;
+  }
+
+  friendsInsightsList.innerHTML = "";
+  rows.forEach((entry) => {
+    const profile = entry.profile || {};
+    const metrics = profile.metrics || {};
+    const friendName = escapeHtml(getFriendDisplayName({
+      ...profile,
+      uid: profile.uid || entry.friendUid,
+      email: profile.email || entry.friendEmail,
+      name: profile.name || entry.friendName
+    }, "Friend"));
+    const moodLabel = escapeHtml(String(metrics.avgMoodLabel || getMoodLabelFromScore(metrics.avgMoodScore)));
+    const motivation = escapeHtml(buildFriendMotivationLine(profile, myProfile));
+
+    const row = document.createElement("div");
+    row.className = "friend-row";
+    row.innerHTML = `
+      <strong>${friendName}</strong>
+      <small>Tasks logged: ${Number(metrics.totalTasksLogged) || 0} • Avg tasks/day: ${(Number(metrics.avgTasksCompletedDaily) || 0).toFixed(1)}</small>
+      <small>Water avg: ${(Number(metrics.avgWaterDaily) || 0).toFixed(1)} cups/day • Sleep avg: ${(Number(metrics.avgSleepHours) || 0).toFixed(1)}h</small>
+      <small>Mood avg: ${moodLabel} (${(Number(metrics.avgMoodScore) || 0).toFixed(2)})</small>
+      <small>${motivation}</small>
+    `;
+    friendsInsightsList.appendChild(row);
+  });
+}
+
+function renderCurrentFriends(rows) {
+  if (!currentFriendsList) return;
+  if (!rows.length) {
+    currentFriendsList.innerHTML = `<div class="friend-row"><small>No friends linked yet.</small></div>`;
+    return;
+  }
+
+  currentFriendsList.innerHTML = "";
+  rows.forEach((entry) => {
+    const row = document.createElement("div");
+    row.className = "friend-row";
+    const friendName = escapeHtml(getFriendDisplayName({
+      uid: entry.friendUid,
+      email: entry.friendEmail,
+      name: entry.friendName
+    }, "Friend"));
+    const friendEmail = escapeHtml(String(entry.friendEmail || ""));
+    row.innerHTML = `<strong>${friendName}</strong><small>${friendEmail || "No email shared"}</small>`;
+
+    const actions = document.createElement("div");
+    actions.className = "friend-actions";
+
+    const unfriendBtn = document.createElement("button");
+    unfriendBtn.className = "import-transfer-cancel";
+    unfriendBtn.innerText = "Unfriend";
+    unfriendBtn.onclick = async () => {
+      const confirmText = `Remove ${friendName.replace(/&amp;/g, "&")} from your friends list?`;
+      if (!confirm(confirmText)) return;
+      await unfriendByUid(String(entry.friendUid || ""));
+    };
+
+    actions.appendChild(unfriendBtn);
+    row.append(actions);
+    currentFriendsList.appendChild(row);
+  });
+}
+
+function formatRequestExpiryLabel(entry) {
+  const createdMs = getOptionalTimestampMs(entry?.createdAt)
+    || getOptionalTimestampMs(entry?.updatedAt)
+    || getServerNowDate().getTime();
+  const remainingMs = Math.max(0, (createdMs + FRIEND_REQUEST_EXPIRY_MS) - getServerNowDate().getTime());
+  const hours = Math.ceil(remainingMs / (60 * 60 * 1000));
+  if (hours <= 24) return `${hours}h left`;
+  const days = Math.ceil(hours / 24);
+  return `${days}d left`;
+}
+
+function getFriendRequestActorKey(uidValue, emailValue) {
+  const uid = String(uidValue || "").trim();
+  if (uid) return `uid:${uid}`;
+  const email = String(emailValue || "").trim().toLowerCase();
+  return email ? `email:${email}` : "";
+}
+
+function isTerminalFriendRequestStatus(statusValue) {
+  const status = String(statusValue || "").trim().toLowerCase();
+  return status === "accepted"
+    || status === "declined"
+    || status === "cancelled"
+    || status === "expired"
+    || status === "unfriended";
+}
+
+function renderSentFriendRequests(rows) {
+  if (!sentRequestsList) return;
+  if (!rows.length) {
+    sentRequestsList.innerHTML = `<div class="friend-row"><small>No pending sent requests.</small></div>`;
+    return;
+  }
+
+  sentRequestsList.innerHTML = "";
+  rows.forEach((entry) => {
+    const row = document.createElement("div");
+    row.className = "friend-row";
+    const friendName = escapeHtml(getFriendDisplayName({
+      uid: entry.toUid,
+      email: entry.toEmail,
+      name: entry.toName
+    }, "Friend"));
+    const friendEmail = escapeHtml(String(entry.toEmail || ""));
+    const expiry = escapeHtml(formatRequestExpiryLabel(entry));
+    row.innerHTML = `<strong>${friendName}</strong><small>Pending for ${friendEmail || "unknown"} • Expires in ${expiry}</small>`;
+
+    const actions = document.createElement("div");
+    actions.className = "friend-actions";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.className = "import-transfer-cancel";
+    cancelBtn.innerText = "Cancel Request";
+    cancelBtn.onclick = async () => {
+      if (!confirm(`Cancel request to ${friendName.replace(/&amp;/g, "&")}?`)) return;
+      await cancelSentFriendRequest(entry);
+    };
+
+    actions.appendChild(cancelBtn);
+    row.append(actions);
+    sentRequestsList.appendChild(row);
+  });
+}
+
+async function loadSentFriendRequests(userId) {
+  if (!sentRequestsList || !userId) return;
+
+  try {
+    const userEmail = String(auth.currentUser?.email || "").trim().toLowerCase();
+    let queueRows = [];
+    try {
+      const queueSnap = await getDocs(query(collection(db, "friendRequestsQueue"), where("fromUid", "==", userId)));
+      queueRows = queueSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+    } catch (_) {
+      // Fallback to sender-owned sent docs only when queue read is unavailable.
+      queueRows = [];
+    }
+    const queueStatusByTarget = new Map();
+    queueRows.forEach((entry) => {
+      const toUid = String(entry.toUid || "").trim();
+      const toEmail = String(entry.toEmail || "").trim().toLowerCase();
+      const status = String(entry.status || "").trim().toLowerCase();
+      const requestNonce = String(entry.requestNonce || "").trim();
+      const updatedAtMs = Number(entry.updatedAtMs)
+        || Number(entry.createdAtMs)
+        || getOptionalTimestampMs(entry.updatedAt)
+        || getOptionalTimestampMs(entry.respondedAt)
+        || getOptionalTimestampMs(entry.cancelledAt)
+        || getOptionalTimestampMs(entry.expiredAt)
+        || getOptionalTimestampMs(entry.createdAt)
+        || 0;
+
+      const keys = [];
+      if (toUid) keys.push(`uid:${toUid}`);
+      if (toEmail) keys.push(`email:${toEmail}`);
+      keys.forEach((key) => {
+        const existing = queueStatusByTarget.get(key);
+        if (!existing || updatedAtMs >= Number(existing.updatedAtMs || 0)) {
+          queueStatusByTarget.set(key, { status, updatedAtMs, requestNonce });
+        }
+      });
+    });
+
+    const snap = await getDocs(collection(db, "users", userId, "friendRequestsSent"));
+    const nowMs = getServerNowDate().getTime();
+    const expiryUpdates = [];
+    const statusSyncUpdates = [];
+    const nonceBackfillUpdates = [];
+    let rows = snap.docs
+      .map((docSnap) => ({ ref: docSnap.ref, id: docSnap.id, ...docSnap.data() }))
+      .map((entry) => {
+        const pending = String(entry.status || "pending") === "pending";
+        const existingNonce = String(entry.requestNonce || "").trim();
+        if (!pending || existingNonce) return entry;
+
+        const fallbackNonce = `legacy_${String(entry.id || "request")}_${Date.now().toString(36)}`;
+        const toUid = String(entry.toUid || "").trim();
+        const toEmail = String(entry.toEmail || "").trim().toLowerCase();
+        nonceBackfillUpdates.push(setDoc(entry.ref, {
+          requestNonce: fallbackNonce,
+          updatedAt: serverTimestamp(),
+          updatedAtMs: Date.now()
+        }, { merge: true }).catch(() => {}));
+
+        const queueKeys = [];
+        if (toUid) queueKeys.push(toUid);
+        if (toEmail) queueKeys.push(`email_${encodeURIComponent(toEmail)}`);
+        [...new Set(queueKeys)].forEach((key) => {
+          const queueId = `${userId}__${key}`;
+          nonceBackfillUpdates.push(setDoc(doc(db, "friendRequestsQueue", queueId), {
+            requestNonce: fallbackNonce,
+            updatedAt: serverTimestamp(),
+            updatedAtMs: Date.now(),
+            queueId,
+            targetKey: key
+          }, { merge: true }).catch(() => {}));
+        });
+
+        return { ...entry, requestNonce: fallbackNonce };
+      })
+      .filter((entry) => {
+        const pending = String(entry.status || "pending") === "pending";
+        if (!pending) return false;
+
+        const toUid = String(entry.toUid || "").trim();
+        const toEmail = String(entry.toEmail || "").trim().toLowerCase();
+        const queueCandidates = [
+          toUid ? queueStatusByTarget.get(`uid:${toUid}`) : null,
+          toEmail ? queueStatusByTarget.get(`email:${toEmail}`) : null
+        ].filter(Boolean);
+        queueCandidates.sort((a, b) => Number(b?.updatedAtMs || 0) - Number(a?.updatedAtMs || 0));
+        const queueStatusEntry = queueCandidates[0] || null;
+        const queueStatus = String(queueStatusEntry?.status || "");
+        const sentRequestNonce = String(entry.requestNonce || "").trim();
+        const queueRequestNonce = String(queueStatusEntry?.requestNonce || "").trim();
+        const queueStatusUpdatedAtMs = Number(queueStatusEntry?.updatedAtMs || 0);
+        const sentEntryUpdatedAtMs = Number(entry.updatedAtMs)
+          || Number(entry.createdAtMs)
+          || getOptionalTimestampMs(entry.updatedAt)
+          || getOptionalTimestampMs(entry.createdAt)
+          || 0;
+        const nonceMismatch = !!sentRequestNonce && !!queueRequestNonce && sentRequestNonce !== queueRequestNonce;
+        const missingQueueNonceForKnownSent = !!sentRequestNonce && !queueRequestNonce;
+        const terminalQueueStatus = isTerminalFriendRequestStatus(queueStatus);
+        if (terminalQueueStatus
+          && !nonceMismatch
+          && !missingQueueNonceForKnownSent
+          && queueStatusUpdatedAtMs > 0
+          && queueStatusUpdatedAtMs >= sentEntryUpdatedAtMs) {
+          statusSyncUpdates.push(setDoc(entry.ref, {
+            status: queueStatus,
+            updatedAt: serverTimestamp(),
+            updatedAtMs: Date.now()
+          }, { merge: true }).catch(() => {}));
+          return false;
+        }
+
+        const expired = isFriendRequestExpired(entry, nowMs);
+        if (expired) {
+          const requestNonce = String(entry.requestNonce || "").trim();
+          expiryUpdates.push(setDoc(entry.ref, {
+            status: "expired",
+            expiredAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            updatedAtMs: Date.now(),
+            ...(requestNonce ? { requestNonce } : {})
+          }, { merge: true }).catch(() => {}));
+
+          const queueKeys = [];
+          if (toUid) queueKeys.push(toUid);
+          if (toEmail) queueKeys.push(`email_${encodeURIComponent(toEmail)}`);
+          [...new Set(queueKeys)].forEach((key) => {
+            const queueId = `${userId}__${key}`;
+            expiryUpdates.push(setDoc(doc(db, "friendRequestsQueue", queueId), {
+              status: "expired",
+              expiredAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+              updatedAtMs: Date.now(),
+              ...(requestNonce ? { requestNonce } : {}),
+              queueId,
+              targetKey: key
+            }, { merge: true }).catch(() => {}));
+          });
+
+          if (toUid) {
+            expiryUpdates.push(setDoc(doc(db, "users", toUid, "friendRequests", userId), {
+              status: "expired",
+              expiredAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+              updatedAtMs: Date.now(),
+              ...(requestNonce ? { requestNonce } : {})
+            }, { merge: true }).catch(() => {}));
+          }
+        }
+        return !expired;
+      })
+      .sort((a, b) => {
+        const aMs = getOptionalTimestampMs(a.createdAt) || 0;
+        const bMs = getOptionalTimestampMs(b.createdAt) || 0;
+        return bMs - aMs;
+      });
+    await Promise.all([...expiryUpdates, ...statusSyncUpdates, ...nonceBackfillUpdates]);
+
+    const emailSet = [...new Set(rows
+      .map((entry) => String(entry.toEmail || "").trim().toLowerCase())
+      .filter(Boolean))];
+    const toEmailNameMap = new Map();
+    await Promise.all(emailSet.map(async (email) => {
+      const resolved = await resolveUsernameFromDirectoryEmail(email);
+      toEmailNameMap.set(email, resolved || "");
+    }));
+
+    rows = rows.map((entry) => {
+      const toEmail = String(entry.toEmail || "").trim().toLowerCase();
+      const toName = normalizeUsernameCandidate(entry.toName, toEmail)
+        || toEmailNameMap.get(toEmail)
+        || (toEmail === userEmail ? "You" : "")
+        || "Friend";
+      return { ...entry, toEmail, toName };
+    });
+
+    renderSentFriendRequests(rows);
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+}
+
+async function cancelSentFriendRequest(entry) {
+  const user = auth.currentUser;
+  if (!user?.uid) return;
+
+  const entryId = String(entry?.id || "").trim();
+  const toUid = String(entry?.toUid || "").trim();
+  const toEmail = String(entry?.toEmail || "").trim().toLowerCase();
+  if (!entryId) return;
+
+  try {
+    const requestNonce = String(entry?.requestNonce || "").trim();
+    await setDoc(doc(db, "users", user.uid, "friendRequestsSent", entryId), {
+      status: "cancelled",
+      cancelledAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      updatedAtMs: Date.now(),
+      ...(requestNonce ? { requestNonce } : {})
+    }, { merge: true });
+
+    const queueKeys = [];
+    if (toUid) queueKeys.push(toUid);
+    if (toEmail) queueKeys.push(`email_${encodeURIComponent(toEmail)}`);
+    const uniqueKeys = [...new Set(queueKeys)];
+    await Promise.all(uniqueKeys.map((key) => {
+      const queueId = `${user.uid}__${key}`;
+      return setDoc(doc(db, "friendRequestsQueue", queueId), {
+        status: "cancelled",
+        cancelledAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        updatedAtMs: Date.now(),
+        ...(requestNonce ? { requestNonce } : {}),
+        queueId,
+        targetKey: key
+      }, { merge: true }).catch(() => {});
+    }));
+
+    if (toUid) {
+      await setDoc(doc(db, "users", toUid, "friendRequests", user.uid), {
+        status: "cancelled",
+        cancelledAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        updatedAtMs: Date.now(),
+        ...(requestNonce ? { requestNonce } : {})
+      }, { merge: true }).catch(() => {});
+    }
+
+    showToast("Sent request cancelled.");
+    await loadSentFriendRequests(user.uid);
+    await loadFriendRequests(user.uid);
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+}
+
+async function unfriendByUid(friendUid) {
+  const user = auth.currentUser;
+  const safeFriendUid = String(friendUid || "").trim();
+  if (!user?.uid || !safeFriendUid) return;
+
+  try {
+    const userEmail = String(user.email || "").trim().toLowerCase();
+    let friendEmail = "";
+    try {
+      const myFriendSnap = await getDoc(doc(db, "users", user.uid, "friends", safeFriendUid));
+      if (myFriendSnap.exists()) {
+        friendEmail = String(myFriendSnap.data()?.friendEmail || "").trim().toLowerCase();
+      }
+    } catch (_) {
+      friendEmail = "";
+    }
+
+    // Local safety mark: if delete is blocked/transient, this keeps it hidden from accepted-only views.
+    await setDoc(doc(db, "users", user.uid, "friends", safeFriendUid), {
+      status: "unfriended",
+      unfriendedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }, { merge: true }).catch(() => {});
+
+    await deleteDoc(doc(db, "users", user.uid, "friends", safeFriendUid)).catch(() => {});
+    await deleteDoc(doc(db, "users", safeFriendUid, "friends", user.uid)).catch(() => {});
+
+    const sentDocsSnap = await getDocs(collection(db, "users", user.uid, "friendRequestsSent"));
+    const sentUpdates = [];
+    sentDocsSnap.docs.forEach((docSnap) => {
+      const data = docSnap.data() || {};
+      const sameUid = String(data.toUid || "") === safeFriendUid;
+      const sameEmail = friendEmail && String(data.toEmail || "").trim().toLowerCase() === friendEmail;
+      if (!sameUid && !sameEmail) return;
+      sentUpdates.push(setDoc(docSnap.ref, {
+        status: "unfriended",
+        unfriendedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true }).catch(() => {}));
+    });
+    await Promise.all(sentUpdates);
+
+    await setDoc(doc(db, "users", user.uid, "friendRequests", safeFriendUid), {
+      status: "unfriended",
+      unfriendedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }, { merge: true }).catch(() => {});
+
+    await setDoc(doc(db, "users", user.uid, "friendRequestDecisions", safeFriendUid), {
+      fromUid: safeFriendUid,
+      status: "unfriended",
+      updatedAt: serverTimestamp()
+    }, { merge: true }).catch(() => {});
+
+    // Mark queue relationship entries as unfriended on both directions when available.
+    const [myToFriendQueue, friendToMeQueue, friendToMeByEmailQueue] = await Promise.all([
+      getDocs(query(
+        collection(db, "friendRequestsQueue"),
+        where("fromUid", "==", user.uid)
+      )),
+      getDocs(query(
+        collection(db, "friendRequestsQueue"),
+        where("toUid", "==", user.uid)
+      )),
+      userEmail
+        ? getDocs(query(
+          collection(db, "friendRequestsQueue"),
+          where("toEmail", "==", userEmail)
+        ))
+        : Promise.resolve({ docs: [] })
+    ]);
+
+    const queueUpdates = [];
+    myToFriendQueue.docs.forEach((docSnap) => {
+      const data = docSnap.data() || {};
+      const sameUid = String(data.toUid || "") === safeFriendUid;
+      const sameEmail = !!friendEmail && String(data.toEmail || "").trim().toLowerCase() === friendEmail;
+      if (sameUid || sameEmail) {
+        queueUpdates.push(setDoc(docSnap.ref, {
+          status: "unfriended",
+          unfriendedBy: user.uid,
+          updatedAt: serverTimestamp()
+        }, { merge: true }));
+      }
+    });
+    friendToMeQueue.docs.forEach((docSnap) => {
+      const data = docSnap.data() || {};
+      if (String(data.fromUid || "") === safeFriendUid) {
+        queueUpdates.push(setDoc(docSnap.ref, {
+          status: "unfriended",
+          unfriendedBy: user.uid,
+          updatedAt: serverTimestamp()
+        }, { merge: true }));
+      }
+    });
+    friendToMeByEmailQueue.docs.forEach((docSnap) => {
+      const data = docSnap.data() || {};
+      if (String(data.fromUid || "") === safeFriendUid) {
+        queueUpdates.push(setDoc(docSnap.ref, {
+          status: "unfriended",
+          unfriendedBy: user.uid,
+          updatedAt: serverTimestamp()
+        }, { merge: true }));
+      }
+    });
+    await Promise.all(queueUpdates.map((promise) => promise.catch(() => {})));
+
+    showToast("Friend removed.");
+    await loadSentFriendRequests(user.uid);
+    await loadFriendRequests(user.uid);
+    await loadFriendsInsights(user.uid);
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+}
+
+async function upsertUserDirectoryProfile(user) {
+  if (!user?.uid) return;
+  const safeEmail = String(user.email || "").trim().toLowerCase();
+  const safeName = normalizeUsernameCandidate(user.displayName, safeEmail)
+    || normalizeUsernameCandidate(accountName?.innerText || "", safeEmail)
+    || "User";
+
+  const profilePayload = {
+    uid: user.uid,
+    email: safeEmail,
+    name: safeName,
+    updatedAt: serverTimestamp()
+  };
+
+  try {
+    await setDoc(doc(db, "users", user.uid, "settings", "profile"), profilePayload, { merge: true });
+    if (safeEmail) {
+      await setDoc(doc(db, "userDirectory", safeEmail), profilePayload, { merge: true });
+    }
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+}
+
+async function loadFriendRequests(userId, showLoginAlert = false) {
+  if (!friendRequestsList || !userId) return;
+
+  try {
+    const nowMs = getServerNowDate().getTime();
+    const userEmail = String(auth.currentUser?.email || "").trim().toLowerCase();
+
+    const legacySnap = await getDocs(collection(db, "users", userId, "friendRequests"));
+    const legacyRawRows = legacySnap.docs
+      .map((docSnap) => ({ ref: docSnap.ref, id: docSnap.id, ...docSnap.data() }));
+
+    const queueTerminalStatusByActorKey = new Map();
+    let queueRows = [];
+    try {
+      const [queueByUid, queueByEmail] = await Promise.all([
+        getDocs(query(
+          collection(db, "friendRequestsQueue"),
+          where("toUid", "==", userId)
+        )),
+        userEmail
+          ? getDocs(query(
+            collection(db, "friendRequestsQueue"),
+            where("toEmail", "==", userEmail)
+          ))
+          : Promise.resolve({ docs: [] })
+      ]);
+
+      const queueAddressedRows = [...queueByUid.docs, ...queueByEmail.docs]
+        .map((docSnap) => ({ ref: docSnap.ref, id: docSnap.id, ...docSnap.data() }))
+        .filter((entry) => {
+          const toUid = String(entry.toUid || "");
+          const toEmail = String(entry.toEmail || "").trim().toLowerCase();
+          const addressedToMe = toUid === userId || (userEmail && toEmail === userEmail);
+          return addressedToMe;
+        });
+
+      const latestQueueStatusByActorKey = new Map();
+      queueAddressedRows.forEach((entry) => {
+        const actorKey = getFriendRequestActorKey(entry.fromUid, entry.fromEmail);
+        if (!actorKey) return;
+        const status = String(entry.status || "pending").trim().toLowerCase();
+        const updatedAtMs = Number(entry.updatedAtMs)
+          || Number(entry.createdAtMs)
+          || getOptionalTimestampMs(entry.updatedAt)
+          || getOptionalTimestampMs(entry.respondedAt)
+          || getOptionalTimestampMs(entry.cancelledAt)
+          || getOptionalTimestampMs(entry.expiredAt)
+          || getOptionalTimestampMs(entry.createdAt)
+          || 0;
+        const existing = latestQueueStatusByActorKey.get(actorKey);
+        if (!existing || updatedAtMs >= Number(existing.updatedAtMs || 0)) {
+          latestQueueStatusByActorKey.set(actorKey, { status, updatedAtMs });
+        }
+      });
+
+      latestQueueStatusByActorKey.forEach((entry, actorKey) => {
+        if (isTerminalFriendRequestStatus(entry.status)) {
+          queueTerminalStatusByActorKey.set(actorKey, entry.status);
+        }
+      });
+
+      queueRows = queueAddressedRows
+        .filter((entry) => {
+          const pending = !!entry.fromUid && String(entry.status || "pending") === "pending";
+          if (!pending) return false;
+          return !isFriendRequestExpired(entry, nowMs);
+        })
+        .map((entry) => ({
+          ...entry,
+          source: "queue",
+          requestId: String(entry.id || "")
+        }));
+    } catch (_) {
+      queueRows = [];
+    }
+
+    const legacyExpiryUpdates = [];
+    const legacyTerminalSyncUpdates = [];
+    const legacyRows = legacyRawRows
+      .filter((entry) => {
+        const pending = String(entry.status || "pending") === "pending" && !!entry.fromUid;
+        if (!pending) return false;
+
+        const actorKey = getFriendRequestActorKey(entry.fromUid, entry.fromEmail);
+        const queueTerminalStatus = actorKey ? String(queueTerminalStatusByActorKey.get(actorKey) || "") : "";
+        if (queueTerminalStatus) {
+          legacyTerminalSyncUpdates.push(setDoc(entry.ref, {
+            status: queueTerminalStatus,
+            updatedAt: serverTimestamp()
+          }, { merge: true }).catch(() => {}));
+          return false;
+        }
+
+        const expired = isFriendRequestExpired(entry, nowMs);
+        if (expired) {
+          legacyExpiryUpdates.push(setDoc(entry.ref, {
+            status: "expired",
+            expiredAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          }, { merge: true }).catch(() => {}));
+        }
+        return !expired;
+      })
+      .map((entry) => ({
+        ...entry,
+        source: "legacy",
+        requestId: String(entry.id || entry.fromUid || "")
+      }));
+    await Promise.all([...legacyExpiryUpdates, ...legacyTerminalSyncUpdates]);
+
+    let sentFeedRows = [];
+    try {
+      const [sentByUidSnap, sentByEmailSnap] = await Promise.all([
+        getDocs(query(
+          collectionGroup(db, "friendRequestsSent"),
+          where("toUid", "==", userId)
+        )),
+        userEmail
+          ? getDocs(query(
+            collectionGroup(db, "friendRequestsSent"),
+            where("toEmail", "==", userEmail)
+          ))
+          : Promise.resolve({ docs: [] })
+      ]);
+
+      sentFeedRows = [...sentByUidSnap.docs, ...sentByEmailSnap.docs]
+        .map((docSnap) => {
+          const data = docSnap.data() || {};
+          const parentUid = docSnap.ref?.parent?.parent?.id || "";
+          return {
+            id: docSnap.id,
+            ref: docSnap.ref,
+            ...data,
+            fromUid: String(data.fromUid || parentUid || ""),
+            fromEmail: String(data.fromEmail || ""),
+            fromName: String(data.fromName || data.fromEmail || "Friend"),
+            toUid: String(data.toUid || userId),
+            toEmail: String(data.toEmail || "").trim().toLowerCase(),
+            status: String(data.status || "pending"),
+            source: "sentFeed",
+            requestId: String(docSnap.id || "")
+          };
+        })
+        .filter((entry) => {
+          const matchesUser = entry.toUid === userId || (userEmail && entry.toEmail === userEmail);
+          const pending = !!entry.fromUid && entry.status === "pending" && !!matchesUser;
+          if (!pending) return false;
+
+          const actorKey = getFriendRequestActorKey(entry.fromUid, entry.fromEmail);
+          if (actorKey && queueTerminalStatusByActorKey.has(actorKey)) return false;
+
+          return !isFriendRequestExpired(entry, nowMs);
+        });
+    } catch (_) {
+      sentFeedRows = [];
+    }
+
+    const seen = new Set();
+    let rows = [...legacyRows, ...queueRows, ...sentFeedRows]
+      .filter((entry) => {
+        const actorKey = getFriendRequestActorKey(entry.fromUid, entry.fromEmail)
+          || `${String(entry.fromUid || "")}|${String(entry.fromEmail || "").trim().toLowerCase()}`;
+        const key = actorKey;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((a, b) => {
+        const aMs = getOptionalTimestampMs(a.createdAt) || 0;
+        const bMs = getOptionalTimestampMs(b.createdAt) || 0;
+        return bMs - aMs;
+      });
+
+    const fromEmails = [...new Set(rows
+      .map((entry) => String(entry.fromEmail || "").trim().toLowerCase())
+      .filter(Boolean))];
+    const fromEmailNameMap = new Map();
+    await Promise.all(fromEmails.map(async (email) => {
+      const resolved = await resolveUsernameFromDirectoryEmail(email);
+      fromEmailNameMap.set(email, resolved || "");
+    }));
+
+    rows = rows.map((entry) => {
+      const fromEmail = String(entry.fromEmail || "").trim().toLowerCase();
+      const normalized = normalizeUsernameCandidate(entry.fromName, fromEmail)
+        || fromEmailNameMap.get(fromEmail)
+        || "Friend";
+      return { ...entry, fromName: normalized };
+    });
+
+    renderFriendRequests(rows);
+    if (rows.length && showLoginAlert && !friendRequestLoginAlertShown) {
+      friendRequestLoginAlertShown = true;
+      alert(`You have ${rows.length} pending friend request${rows.length === 1 ? "" : "s"}. Open Account -> Friend Requests to accept or decline.`);
+    } else if (rows.length) {
+      showToast(`You have ${rows.length} pending friend request${rows.length === 1 ? "" : "s"}.`);
+    }
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+}
+
+async function loadFriendsInsights(userId) {
+  if (!userId) return;
+
+  try {
+    const myProfile = buildUserSocialProfileSnapshot(auth.currentUser);
+    const userEmail = String(auth.currentUser?.email || "").trim().toLowerCase();
+    const friendsSnap = await getDocs(collection(db, "users", userId, "friends"));
+    const persistedFriends = friendsSnap.docs
+      .map((docSnap) => {
+        const data = docSnap.data() || {};
+        return {
+          id: docSnap.id,
+          ...data,
+          friendUid: String(data.friendUid || docSnap.id || "").trim(),
+          friendEmail: String(data.friendEmail || "").trim().toLowerCase(),
+          friendName: String(data.friendName || "").trim()
+        };
+      });
+    let friends = persistedFriends
+      .filter((entry) => String(entry.status || "accepted") === "accepted" && !!entry.friendUid);
+    const persistedFriendUids = new Set(friends.map((entry) => String(entry.friendUid || "")).filter(Boolean));
+
+    let queueFriends = [];
+    const unfriendedFriendUids = new Set();
+    try {
+      const [sentAcceptedSnap, receivedAcceptedSnap, receivedAcceptedByEmailSnap] = await Promise.all([
+        getDocs(query(
+          collection(db, "friendRequestsQueue"),
+          where("fromUid", "==", userId)
+        )),
+        getDocs(query(
+          collection(db, "friendRequestsQueue"),
+          where("toUid", "==", userId)
+        )),
+        userEmail
+          ? getDocs(query(
+            collection(db, "friendRequestsQueue"),
+            where("toEmail", "==", userEmail)
+          ))
+          : Promise.resolve({ docs: [] })
+      ]);
+
+      const queueRelationshipRowsRaw = [...sentAcceptedSnap.docs, ...receivedAcceptedSnap.docs, ...receivedAcceptedByEmailSnap.docs]
+        .map((docSnap) => docSnap.data() || {})
+        .map((entry) => {
+          const isSender = String(entry.fromUid || "") === userId;
+          const friendUid = String(isSender ? entry.toUid : entry.fromUid || "");
+          const status = String(entry.status || "").trim().toLowerCase();
+          const sharedProfileRaw = isSender ? (entry.toProfile || null) : (entry.fromProfile || null);
+          const sharedProfile = sharedProfileRaw && typeof sharedProfileRaw === "object"
+            ? {
+              uid: String(sharedProfileRaw.uid || friendUid || ""),
+              email: String(sharedProfileRaw.email || (isSender ? entry.toEmail : entry.fromEmail) || "").trim().toLowerCase(),
+              name: String(sharedProfileRaw.name || "").trim(),
+              metrics: {
+                totalTasksLogged: Number(sharedProfileRaw?.metrics?.totalTasksLogged) || 0,
+                completedTasks: Number(sharedProfileRaw?.metrics?.completedTasks) || 0,
+                tasksToday: Number(sharedProfileRaw?.metrics?.tasksToday) || 0,
+                waterToday: Number(sharedProfileRaw?.metrics?.waterToday) || 0,
+                sleepToday: Number(sharedProfileRaw?.metrics?.sleepToday) || 0,
+                gratitudeToday: Number(sharedProfileRaw?.metrics?.gratitudeToday) || 0,
+                dailyChallengeCompletedToday: Number(sharedProfileRaw?.metrics?.dailyChallengeCompletedToday) || 0,
+                avgWaterDaily: Number(sharedProfileRaw?.metrics?.avgWaterDaily) || 0,
+                avgSleepHours: Number(sharedProfileRaw?.metrics?.avgSleepHours) || 0,
+                avgMoodScore: Number(sharedProfileRaw?.metrics?.avgMoodScore) || 0,
+                avgMoodLabel: String(sharedProfileRaw?.metrics?.avgMoodLabel || "Not enough data"),
+                avgTasksCompletedDaily: Number(sharedProfileRaw?.metrics?.avgTasksCompletedDaily) || 0,
+                sampleDays: Number(sharedProfileRaw?.metrics?.sampleDays) || 0
+              },
+              generatedAtMs: Number(sharedProfileRaw.generatedAtMs) || Date.now()
+            }
+            : null;
+          const updatedAtMs = getOptionalTimestampMs(entry.updatedAt)
+            || getOptionalTimestampMs(entry.respondedAt)
+            || getOptionalTimestampMs(entry.createdAt)
+            || 0;
+          return {
+            ...entry,
+            friendUid,
+            status,
+            sharedProfile,
+            updatedAtMs,
+            friendEmail: String(isSender ? entry.toEmail : entry.fromEmail || "").trim().toLowerCase(),
+            friendName: String(isSender ? (entry.toName || entry.toEmail || "Friend") : (entry.fromName || entry.fromEmail || "Friend"))
+          };
+        })
+        .filter((entry) => !!entry.friendUid || !!entry.friendEmail);
+
+      const queueRelationshipRows = await Promise.all(queueRelationshipRowsRaw.map(async (entry) => {
+        if (entry.friendUid) return entry;
+        const friendEmail = String(entry.friendEmail || "").trim().toLowerCase();
+        if (!friendEmail) return entry;
+
+        try {
+          const directorySnap = await getDoc(doc(db, "userDirectory", friendEmail));
+          if (!directorySnap.exists()) return entry;
+          const resolvedUid = String(directorySnap.data()?.uid || "").trim();
+          if (!resolvedUid) return entry;
+          return { ...entry, friendUid: resolvedUid };
+        } catch (_) {
+          return entry;
+        }
+      }));
+
+      const latestQueueStatusByFriendUid = new Map();
+      queueRelationshipRows.forEach((entry) => {
+        const friendUid = String(entry.friendUid || "");
+        if (!friendUid) return;
+        const existing = latestQueueStatusByFriendUid.get(friendUid);
+        if (!existing || Number(entry.updatedAtMs) >= Number(existing.updatedAtMs)) {
+          latestQueueStatusByFriendUid.set(friendUid, entry);
+        }
+      });
+
+      [...latestQueueStatusByFriendUid.values()].forEach((entry) => {
+        if (entry.status === "unfriended") {
+          unfriendedFriendUids.add(String(entry.friendUid || ""));
+        }
+      });
+
+      queueFriends = [...latestQueueStatusByFriendUid.values()]
+        .filter((entry) => entry.status === "accepted")
+        .map((entry) => ({
+          friendUid: String(entry.friendUid || ""),
+          friendEmail: String(entry.friendEmail || "").trim().toLowerCase(),
+          friendName: String(entry.friendName || "Friend"),
+          status: "accepted",
+          sharedProfile: entry.sharedProfile || null
+        }))
+        .filter((entry) => !!entry.friendUid && !unfriendedFriendUids.has(String(entry.friendUid)));
+    } catch (_) {
+      queueFriends = [];
+    }
+
+    friends = friends.filter((entry) => !unfriendedFriendUids.has(String(entry.friendUid || "")));
+
+    // If accepted relationships are visible in queue but missing in persistent friends docs,
+    // backfill them so friendships remain after sign-out/sign-in cycles.
+    const queueOnlyAccepted = queueFriends.filter((entry) => {
+      const uid = String(entry.friendUid || "");
+      return !!uid && !persistedFriendUids.has(uid);
+    });
+    if (queueOnlyAccepted.length) {
+      await Promise.all(queueOnlyAccepted.map((entry) => {
+        const friendUid = String(entry.friendUid || "").trim();
+        if (!friendUid) return Promise.resolve();
+        const fallbackName = getFriendDisplayName({
+          uid: friendUid,
+          email: String(entry.friendEmail || "").trim().toLowerCase(),
+          name: String(entry.friendName || "").trim()
+        }, "Friend");
+        return setDoc(doc(db, "users", userId, "friends", friendUid), {
+          friendUid,
+          friendEmail: String(entry.friendEmail || "").trim().toLowerCase(),
+          friendName: fallbackName,
+          status: "accepted",
+          updatedAt: serverTimestamp()
+        }, { merge: true }).catch(() => {});
+      }));
+      queueOnlyAccepted.forEach((entry) => {
+        const uid = String(entry.friendUid || "").trim();
+        if (uid) persistedFriendUids.add(uid);
+      });
+    }
+
+    const mergedByFriendUid = new Map();
+    [...queueFriends, ...friends].forEach((entry) => {
+      if (!entry?.friendUid) return;
+      const key = String(entry.friendUid);
+      const existing = mergedByFriendUid.get(key);
+      if (!existing) {
+        mergedByFriendUid.set(key, entry);
+        return;
+      }
+      mergedByFriendUid.set(key, {
+        ...existing,
+        ...entry,
+        friendEmail: String(entry.friendEmail || existing.friendEmail || ""),
+        friendName: String(entry.friendName || existing.friendName || ""),
+        sharedProfile: entry.sharedProfile || existing.sharedProfile || null
+      });
+    });
+    const mergedFriends = [...mergedByFriendUid.values()];
+
+    if (!mergedFriends.length) {
+      friendInsightProfiles = [];
+      renderFriendMetricCardInsights();
+      renderCurrentFriends([]);
+      renderFriendsInsights([], myProfile);
+      return;
+    }
+
+    const enriched = await Promise.all(mergedFriends.map(async (entry) => {
+      let profile = entry.sharedProfile || null;
+      if (!profile) {
+        try {
+          const profileSnap = await getDoc(doc(db, "users", entry.friendUid, "social", "profile"));
+          if (profileSnap.exists()) profile = profileSnap.data() || null;
+        } catch (_) {
+          profile = null;
+        }
+      }
+
+      const friendEmail = String(entry.friendEmail || profile?.email || "").trim().toLowerCase();
+      const directoryName = await resolveUsernameFromDirectoryEmail(friendEmail);
+      const resolvedFriendName = normalizeUsernameCandidate(profile?.name, friendEmail)
+        || normalizeUsernameCandidate(entry.friendName, friendEmail)
+        || directoryName
+        || "Friend";
+
+      if (!profile) {
+        profile = {
+          uid: entry.friendUid,
+          email: friendEmail || entry.friendEmail || "",
+          name: resolvedFriendName,
+          metrics: {
+            totalTasksLogged: 0,
+            avgTasksCompletedDaily: 0,
+            tasksToday: 0,
+            avgWaterDaily: 0,
+            waterToday: 0,
+            avgSleepHours: 0,
+            sleepToday: 0,
+            gratitudeToday: 0,
+            dailyChallengeCompletedToday: 0,
+            avgMoodScore: 0,
+            avgMoodLabel: "Not enough data"
+          }
+        };
+      } else {
+        profile = {
+          ...profile,
+          email: friendEmail || String(profile.email || "").trim().toLowerCase(),
+          name: resolvedFriendName
+        };
+      }
+
+      return { ...entry, profile };
+    }));
+
+    renderCurrentFriends(enriched.map((entry) => ({
+      friendUid: String(entry.friendUid || entry.profile?.uid || ""),
+      friendEmail: String(entry.profile?.email || entry.friendEmail || "").trim().toLowerCase(),
+      friendName: getFriendDisplayName({
+        uid: entry.profile?.uid || entry.friendUid,
+        email: entry.profile?.email || entry.friendEmail,
+        name: entry.profile?.name || entry.friendName
+      }, "Friend")
+    })));
+
+    friendInsightProfiles = enriched.map((entry) => ({
+      ...(entry.profile || {}),
+      uid: String(entry?.profile?.uid || entry?.friendUid || ""),
+      email: String(entry?.profile?.email || entry?.friendEmail || "").trim().toLowerCase(),
+      name: getFriendDisplayName({
+        uid: entry?.profile?.uid || entry?.friendUid,
+        email: entry?.profile?.email || entry?.friendEmail,
+        name: entry?.profile?.name || entry?.friendName
+      }, "Friend")
+    }));
+    renderFriendMetricCardInsights();
+    renderFriendsInsights(enriched, myProfile);
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+}
+
+async function submitAddFriendRequest() {
+  if (addFriendSubmitting) return;
+  const user = auth.currentUser;
+  if (!user) {
+    setAddFriendError("Please sign in first.");
+    return;
+  }
+
+  const targetEmail = String(addFriendEmailInput?.value || "").trim().toLowerCase();
+  const senderEmail = String(user.email || "").trim().toLowerCase();
+  if (!targetEmail) {
+    setAddFriendError("Friend email is required.");
+    return;
+  }
+  if (targetEmail === senderEmail) {
+    setAddFriendError("You cannot add your own account.");
+    return;
+  }
+
+  setAddFriendBusy(true);
+  setAddFriendError("");
+  try {
+    const currentFriendCount = await getActiveFriendCount(user.uid, senderEmail);
+    if (currentFriendCount >= MAX_FRIENDS) {
+      setAddFriendError(`You can only have ${MAX_FRIENDS} friends. Unfriend someone first to add a new friend.`);
+      return;
+    }
+
+    let targetUid = "";
+    let targetName = "Friend";
+    try {
+      const targetDirectory = await getDoc(doc(db, "userDirectory", targetEmail));
+      if (targetDirectory.exists()) {
+        const targetData = targetDirectory.data() || {};
+        targetUid = String(targetData.uid || "").trim();
+        targetName = normalizeUsernameCandidate(targetData.name, targetEmail) || "Friend";
+      }
+    } catch (_) {}
+
+    const sentByMeSnap = await getDocs(collection(db, "users", user.uid, "friendRequestsSent"));
+    let alreadyPendingToEmail = false;
+    const sentExpiryUpdates = [];
+    sentByMeSnap.docs.forEach((docSnap) => {
+      const data = docSnap.data() || {};
+      const toEmailMatch = String(data.toEmail || "").trim().toLowerCase() === targetEmail;
+      const pending = String(data.status || "pending") === "pending";
+      if (!toEmailMatch || !pending) return;
+
+      if (isFriendRequestExpired(data)) {
+        sentExpiryUpdates.push(setDoc(docSnap.ref, {
+          status: "expired",
+          expiredAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }, { merge: true }).catch(() => {}));
+        return;
+      }
+
+      alreadyPendingToEmail = true;
+    });
+    await Promise.all(sentExpiryUpdates);
+    if (alreadyPendingToEmail) {
+      setAddFriendError("Request already sent and pending.");
+      return;
+    }
+
+    if (targetUid) {
+      const existingFriend = await getDoc(doc(db, "users", user.uid, "friends", targetUid));
+      if (existingFriend.exists()) {
+        setAddFriendError("You are already friends with this account.");
+        return;
+      }
+    }
+
+    if (targetUid) {
+      const reverseRequest = await getDoc(doc(db, "users", user.uid, "friendRequests", targetUid));
+      const reverseData = reverseRequest.exists() ? (reverseRequest.data() || {}) : null;
+      if (reverseData && String(reverseData.status || "") === "pending" && !isFriendRequestExpired(reverseData)) {
+        setAddFriendError("This user has already sent you a request. Open Friend Requests to accept or decline it.");
+        return;
+      }
+      if (reverseData && String(reverseData.status || "") === "pending" && isFriendRequestExpired(reverseData)) {
+        await setDoc(doc(db, "users", user.uid, "friendRequests", targetUid), {
+          status: "expired",
+          expiredAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }, { merge: true }).catch(() => {});
+      }
+    }
+
+    if (targetUid) {
+      try {
+        const senderEmailLower = String(user.email || "").trim().toLowerCase();
+        const [reverseQueueByUid, reverseQueueByEmail] = await Promise.all([
+          getDocs(query(
+            collection(db, "friendRequestsQueue"),
+            where("toUid", "==", user.uid)
+          )),
+          senderEmailLower
+            ? getDocs(query(
+              collection(db, "friendRequestsQueue"),
+              where("toEmail", "==", senderEmailLower)
+            ))
+            : Promise.resolve({ docs: [] })
+        ]);
+        const hasReversePending = [...reverseQueueByUid.docs, ...reverseQueueByEmail.docs].some((docSnap) => {
+          const data = docSnap.data() || {};
+          const fromUidMatches = String(data.fromUid || "") === targetUid;
+          const pending = String(data.status || "pending") === "pending" && !isFriendRequestExpired(data);
+          return fromUidMatches && pending;
+        });
+        if (hasReversePending) {
+          setAddFriendError("This user has already sent you a request. Open Friend Requests to accept or decline it.");
+          return;
+        }
+      } catch (_) {}
+    }
+
+    const incomingRef = targetUid ? doc(db, "users", targetUid, "friendRequests", user.uid) : null;
+    if (incomingRef) {
+      try {
+        const incomingSnap = await getDoc(incomingRef);
+        if (incomingSnap.exists() && String(incomingSnap.data()?.status || "") === "pending") {
+          setAddFriendError("Request already sent and pending.");
+          return;
+        }
+      } catch (_) {}
+    }
+
+    const fromName = normalizeUsernameCandidate(user.displayName, senderEmail)
+      || normalizeUsernameCandidate(accountName?.innerText || "", senderEmail)
+      || await resolveUsernameFromDirectoryEmail(senderEmail)
+      || "User";
+    const requestNowMs = Date.now();
+    const requestNonce = `${user.uid}_${requestNowMs}_${Math.random().toString(36).slice(2, 8)}`;
+    const requestPayload = {
+      fromUid: user.uid,
+      fromEmail: senderEmail,
+      fromName,
+      toUid: targetUid,
+      toEmail: targetEmail,
+      toName: targetName,
+      status: "pending",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      createdAtMs: requestNowMs,
+      updatedAtMs: requestNowMs,
+      requestNonce
+    };
+
+    const sentRequestDocId = targetUid || `email_${targetEmail}`;
+
+    await setDoc(doc(db, "users", user.uid, "friendRequestsSent", sentRequestDocId), {
+      ...requestPayload,
+      status: "pending",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      createdAtMs: requestNowMs,
+      updatedAtMs: requestNowMs
+    }, { merge: true });
+
+    let deliveredToInbox = false;
+    let queuedFallback = false;
+
+    const queueKeys = [];
+    if (targetUid) queueKeys.push(targetUid);
+    if (targetEmail) queueKeys.push(`email_${encodeURIComponent(targetEmail)}`);
+    const uniqueQueueKeys = [...new Set(queueKeys)];
+    if (uniqueQueueKeys.length) {
+      const queueResults = await Promise.allSettled(uniqueQueueKeys.map((key) => {
+        const queueId = `${user.uid}__${key}`;
+        return setDoc(doc(db, "friendRequestsQueue", queueId), {
+          ...requestPayload,
+          queueId,
+          delivery: "queued",
+          targetKey: key,
+          updatedAt: serverTimestamp(),
+          updatedAtMs: requestNowMs,
+          createdAtMs: requestNowMs
+        }, { merge: true });
+      }));
+      queuedFallback = queueResults.some((result) => result.status === "fulfilled");
+    } else {
+      queuedFallback = false;
+    }
+
+    try {
+      if (incomingRef) {
+        await setDoc(incomingRef, {
+          ...requestPayload,
+          updatedAtMs: requestNowMs,
+          createdAtMs: requestNowMs
+        }, { merge: true });
+        deliveredToInbox = true;
+      }
+    } catch (err) {
+      const code = String(err?.code || "");
+      const permissionDenied = code.includes("permission-denied") || code.includes("unauthenticated");
+      if (!permissionDenied) throw err;
+
+      // queue fallback attempted above; keep existing state
+    }
+
+    if (!deliveredToInbox && !queuedFallback) {
+      setAddFriendError("Could not deliver this request due Firestore permissions. Enable friend request queue access in Firestore rules.");
+      return;
+    }
+
+    closeAddFriendModal(null, true);
+    await loadSentFriendRequests(user.uid);
+    showToast(deliveredToInbox
+      ? "Friend request sent. They will see it in-app on next login."
+      : "Friend request queued in-app. They will see it on next login.");
+  } catch (err) {
+    notifyFirestoreError(err);
+    setAddFriendError(err?.message || "Could not send friend request right now.");
+  } finally {
+    setAddFriendBusy(false);
+  }
+}
+
+async function respondToFriendRequest(requestEntry, action) {
+  const user = auth.currentUser;
+  const entry = typeof requestEntry === "object" && requestEntry ? requestEntry : null;
+  const fromUid = typeof requestEntry === "string"
+    ? requestEntry
+    : String(entry?.fromUid || "");
+  const source = typeof requestEntry === "string"
+    ? "legacy"
+    : String(entry?.source || "legacy");
+  const requestId = typeof requestEntry === "string"
+    ? fromUid
+    : String(entry?.requestId || entry?.id || fromUid);
+
+  if (!user?.uid || !fromUid) return;
+
+  const accepted = action === "accept";
+  try {
+    const requestRef = source === "queue"
+      ? doc(db, "friendRequestsQueue", requestId)
+      : source === "sentFeed"
+        ? doc(db, "users", fromUid, "friendRequestsSent", requestId)
+      : doc(db, "users", user.uid, "friendRequests", fromUid);
+    let requestData = entry || {};
+    if (source !== "sentFeed") {
+      const requestSnap = await getDoc(requestRef);
+      if (!requestSnap.exists()) return;
+      requestData = requestSnap.data() || {};
+    }
+
+    if (accepted) {
+      const currentFriendCount = await getActiveFriendCount(user.uid, user.email || "");
+      if (currentFriendCount >= MAX_FRIENDS) {
+        showToast(`Friend limit reached (${MAX_FRIENDS}). Unfriend someone first, then accept this request.`);
+        return;
+      }
+
+      const userEmail = String(user.email || "").trim().toLowerCase();
+      const myFallbackName = normalizeUsernameCandidate(user.displayName, userEmail)
+        || normalizeUsernameCandidate(accountName?.innerText || "", userEmail)
+        || await resolveUsernameFromDirectoryEmail(userEmail)
+        || "User";
+      const friendEmail = String(requestData.fromEmail || "").trim().toLowerCase();
+      const friendName = normalizeUsernameCandidate(requestData.fromName, friendEmail)
+        || await resolveUsernameFromDirectoryEmail(friendEmail)
+        || getFriendDisplayName({ uid: fromUid, email: friendEmail, name: requestData.fromName }, "Friend");
+
+      await setDoc(doc(db, "users", user.uid, "friends", fromUid), {
+        friendUid: fromUid,
+        friendEmail,
+        friendName,
+        status: "accepted",
+        since: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      await setDoc(doc(db, "users", fromUid, "friends", user.uid), {
+        friendUid: user.uid,
+        friendEmail: String(user.email || "").trim().toLowerCase(),
+        friendName: myFallbackName,
+        status: "accepted",
+        since: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true }).catch(() => {});
+    }
+
+    // Keep queue docs in sync so accepted/declined state is visible to both users.
+    const senderEmail = String(requestData.fromEmail || "").trim().toLowerCase();
+    const senderName = normalizeUsernameCandidate(requestData.fromName, senderEmail)
+      || getFriendDisplayName({ uid: fromUid, email: senderEmail, name: requestData.fromName }, "Friend");
+    const recipientEmail = String(user.email || requestData.toEmail || "").trim().toLowerCase();
+    const recipientName = normalizeUsernameCandidate(user.displayName, recipientEmail)
+      || normalizeUsernameCandidate(accountName?.innerText || "", recipientEmail)
+      || normalizeUsernameCandidate(requestData.toName, recipientEmail)
+      || "User";
+    const queueToUid = String(requestData.toUid || user.uid || "").trim();
+    const queueToEmail = String(requestData.toEmail || recipientEmail || "").trim().toLowerCase();
+    const queueMutablePayload = {
+      fromUid,
+      fromEmail: senderEmail,
+      fromName: senderName,
+      toUid: queueToUid,
+      toEmail: queueToEmail,
+      toName: recipientName,
+      status: accepted ? "accepted" : "declined",
+      respondedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      updatedAtMs: Date.now(),
+      requestNonce: String(requestData.requestNonce || "").trim()
+    };
+    const queueKeys = [];
+    if (queueToUid) queueKeys.push(queueToUid);
+    if (queueToEmail) queueKeys.push(`email_${encodeURIComponent(queueToEmail)}`);
+    const uniqueQueueKeys = [...new Set(queueKeys)];
+    await Promise.all(uniqueQueueKeys.map((key) => {
+      const queueId = `${fromUid}__${key}`;
+      return setDoc(doc(db, "friendRequestsQueue", queueId), {
+        ...queueMutablePayload,
+        queueId,
+        targetKey: key
+      }, { merge: true }).catch(() => {});
+    }));
+
+    await setDoc(requestRef, {
+      status: accepted ? "accepted" : "declined",
+      respondedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      updatedAtMs: Date.now()
+    }, { merge: true }).catch(() => {});
+
+    await setDoc(doc(db, "users", user.uid, "friendRequestDecisions", fromUid), {
+      fromUid,
+      status: accepted ? "accepted" : "declined",
+      respondedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      updatedAtMs: Date.now()
+    }, { merge: true }).catch(() => {});
+
+    await setDoc(doc(db, "users", user.uid, "friendRequests", fromUid), {
+      status: accepted ? "accepted" : "declined",
+      respondedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      updatedAtMs: Date.now()
+    }, { merge: true }).catch(() => {});
+
+    // Ensure sender-side pending list clears regardless of sent doc ID strategy.
+    const recipientEmailForSenderSync = recipientEmail;
+    try {
+      const senderSentSnap = await getDocs(collection(db, "users", fromUid, "friendRequestsSent"));
+      const senderUpdates = [];
+      senderSentSnap.docs.forEach((docSnap) => {
+        const data = docSnap.data() || {};
+        const toUidMatches = String(data.toUid || "") === user.uid;
+        const toEmailMatches = recipientEmailForSenderSync && String(data.toEmail || "").trim().toLowerCase() === recipientEmailForSenderSync;
+        if (!toUidMatches && !toEmailMatches) return;
+
+        senderUpdates.push(setDoc(docSnap.ref, {
+          status: accepted ? "accepted" : "declined",
+          respondedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          updatedAtMs: Date.now()
+        }, { merge: true }).catch(() => {}));
+      });
+      await Promise.all(senderUpdates);
+    } catch (_) {}
+
+    await loadFriendRequests(user.uid);
+    await loadSentFriendRequests(user.uid);
+    await loadFriendsInsights(user.uid);
+    showToast(accepted ? "Friend request accepted." : "Friend request declined.");
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+}
+
 // ---------- DASHBOARD JS ----------
 const moodHistory=[],waterHistory=[],sleepHistory=[];
 const moodDates=[];
@@ -3240,12 +5304,13 @@ const AI_MODE_PRESETS = {
 let aiReasoningMode = "creative";
 const AI_CASUAL_MODE = true;
 const AI_CLARIFY_INTENT_THRESHOLD = 0.74;
-const AI_COMMAND_HELP_LINE = "I can also do: add task ..., complete task 2, reopen task 2, set water goal 8, drink 2 water, log mood sad, log sleep 7h, set reminder call mom in 20 min, list tasks, list reminders, delete reminder 1.";
+const AI_COMMAND_HELP_LINE = "I can also do: add task ..., complete task 2, reopen task 2, set water goal 8, I drank 2 glasses just now, log mood sad, log sleep 7h, set reminder call mom in 2 days, list tasks, list reminders, delete reminder 1, i have exam next week.";
 const challengeDates=[];
 let dailyChallengeCompleted=false;
 let currentChallengeText="";
 let currentChallengeDateKey="";
 let challengeWatcherInterval=null;
+let friendInsightsWatcherIntervalId = null;
 let dailyChallengeResetTimeoutId = null;
 let weeklyGraphResetTimeoutId = null;
 let weeklyGraphCountdownIntervalId = null;
@@ -3276,7 +5341,9 @@ const TASK_DAILY_LIMIT = 50;
 const GRATITUDE_DAILY_LIMIT = 30;
 const WATER_DAILY_LIMIT = 40;
 const WATER_MAX_GLASSES_PER_ENTRY = 10;
-const REMINDER_MAX_MINUTES = 1440;
+const MAX_FRIENDS = 5;
+const FRIEND_REQUEST_EXPIRY_MS = 3 * 24 * 60 * 60 * 1000;
+const REMINDER_MAX_MINUTES = 43200;
 const REMINDER_MAX_TEXT_LENGTH = 140;
 const SLEEP_DAILY_LIMIT = 8;
 const STARTUP_PLAN_DAILY_LIMIT = 1;
@@ -3304,6 +5371,7 @@ let serverTimeSyncedAt = 0;
 let limitCountdownInterval = null;
 let lastFirestoreErrorAlertAt = 0;
 let persistedBarGraphs = null;
+let persistedBehaviorPatterns = null;
 const reminderIntervals = new Map();
 let uxToastTimer = null;
 let uxToastActionHandler = null;
@@ -3319,6 +5387,11 @@ let waterSubmitting = false;
 let sleepSubmitting = false;
 let gratitudeSubmitting = false;
 let importTransferSubmitting = false;
+let addFriendSubmitting = false;
+let friendRequestLoginAlertShown = false;
+let friendInsightProfiles = [];
+let lastFriendQueueProfileSyncAt = 0;
+const userDirectoryNameCache = new Map();
 let exportCooldownUntilMs = 0;
 let exportCooldownIntervalId = null;
 
@@ -4916,7 +6989,7 @@ async function applyRecoverySchedule() {
         targetAtMs,
         createdAt: serverTimestamp()
       });
-      renderReminder({ id: ref.id, text, minutes, targetAtMs });
+      renderReminder({ id: ref.id, text, minutes, targetAtMs }, { insertAtTop: true });
     }
     alert("✅ Recovery schedule applied with reminders.");
   } catch (err) {
@@ -4929,6 +7002,71 @@ function pickChallengeForDate(dateKey) {
   return dailyChallenges[sum % dailyChallenges.length];
 }
 
+async function syncSocialProfileToFriendQueue(user, socialProfile) {
+  const userId = String(user?.uid || "").trim();
+  const userEmail = String(user?.email || "").trim().toLowerCase();
+  if (!userId || !socialProfile || typeof socialProfile !== "object") return;
+
+  const safeProfile = {
+    uid: String(socialProfile.uid || userId),
+    email: String(socialProfile.email || user?.email || "").trim().toLowerCase(),
+    name: getFriendDisplayName({
+      uid: String(socialProfile.uid || userId),
+      email: String(socialProfile.email || user?.email || "").trim().toLowerCase(),
+      name: String(socialProfile.name || "")
+    }, "User"),
+    metrics: {
+      totalTasksLogged: Number(socialProfile?.metrics?.totalTasksLogged) || 0,
+      completedTasks: Number(socialProfile?.metrics?.completedTasks) || 0,
+      tasksToday: Number(socialProfile?.metrics?.tasksToday) || 0,
+      waterToday: Number(socialProfile?.metrics?.waterToday) || 0,
+      sleepToday: Number(socialProfile?.metrics?.sleepToday) || 0,
+      gratitudeToday: Number(socialProfile?.metrics?.gratitudeToday) || 0,
+      dailyChallengeCompletedToday: Number(socialProfile?.metrics?.dailyChallengeCompletedToday) || 0,
+      avgWaterDaily: Number(socialProfile?.metrics?.avgWaterDaily) || 0,
+      avgSleepHours: Number(socialProfile?.metrics?.avgSleepHours) || 0,
+      avgMoodScore: Number(socialProfile?.metrics?.avgMoodScore) || 0,
+      avgMoodLabel: String(socialProfile?.metrics?.avgMoodLabel || "Not enough data"),
+      avgTasksCompletedDaily: Number(socialProfile?.metrics?.avgTasksCompletedDaily) || 0,
+      sampleDays: Number(socialProfile?.metrics?.sampleDays) || 0
+    },
+    generatedAtMs: Number(socialProfile.generatedAtMs) || Date.now(),
+    updatedAtMs: Date.now()
+  };
+
+  try {
+    const [fromSnap, toSnap, toEmailSnap] = await Promise.all([
+      getDocs(query(collection(db, "friendRequestsQueue"), where("fromUid", "==", userId))),
+      getDocs(query(collection(db, "friendRequestsQueue"), where("toUid", "==", userId))),
+      userEmail
+        ? getDocs(query(collection(db, "friendRequestsQueue"), where("toEmail", "==", userEmail)))
+        : Promise.resolve({ docs: [] })
+    ]);
+
+    const updates = [];
+    fromSnap.docs.forEach((docSnap) => {
+      updates.push(setDoc(docSnap.ref, {
+        fromProfile: safeProfile,
+        updatedAt: serverTimestamp()
+      }, { merge: true }).catch(() => {}));
+    });
+    toSnap.docs.forEach((docSnap) => {
+      updates.push(setDoc(docSnap.ref, {
+        toProfile: safeProfile,
+        updatedAt: serverTimestamp()
+      }, { merge: true }).catch(() => {}));
+    });
+    toEmailSnap.docs.forEach((docSnap) => {
+      updates.push(setDoc(docSnap.ref, {
+        toProfile: safeProfile,
+        updatedAt: serverTimestamp()
+      }, { merge: true }).catch(() => {}));
+    });
+
+    await Promise.all(updates);
+  } catch (_) {}
+}
+
 function queueInsightsPersist(payload) {
   if (insightsPersistTimer) clearTimeout(insightsPersistTimer);
   insightsPersistTimer = setTimeout(async () => {
@@ -4937,6 +7075,9 @@ function queueInsightsPersist(payload) {
     try {
       if (payload?.barGraphs) {
         persistedBarGraphs = payload.barGraphs;
+      }
+      if (payload?.patternMemory) {
+        persistedBehaviorPatterns = payload.patternMemory;
       }
 
       await setDoc(doc(db, "users", user.uid, "insights", "current"), {
@@ -4949,6 +7090,19 @@ function queueInsightsPersist(payload) {
           ...payload.barGraphs,
           updatedAt: serverTimestamp()
         }, { merge: true });
+      }
+
+      if (payload?.socialProfile) {
+        await setDoc(doc(db, "users", user.uid, "social", "profile"), {
+          ...payload.socialProfile,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+
+        const nowMs = Date.now();
+        if (nowMs - lastFriendQueueProfileSyncAt > 12000) {
+          lastFriendQueueProfileSyncAt = nowMs;
+          await syncSocialProfileToFriendQueue(user, payload.socialProfile);
+        }
       }
     } catch (err) {
       notifyFirestoreError(err);
@@ -4963,12 +7117,14 @@ async function loadPersistedBarGraphs(userId) {
     const barGraphsSnap = await getDoc(doc(db, "users", userId, "insights", "barGraphs"));
     if (barGraphsSnap.exists()) {
       persistedBarGraphs = barGraphsSnap.data() || null;
-      return;
+    } else {
+      persistedBarGraphs = null;
     }
 
     const currentSnap = await getDoc(doc(db, "users", userId, "insights", "current"));
     const currentData = currentSnap.exists() ? currentSnap.data() : null;
-    persistedBarGraphs = currentData?.barGraphs || null;
+    if (!persistedBarGraphs) persistedBarGraphs = currentData?.barGraphs || null;
+    persistedBehaviorPatterns = currentData?.patternMemory || null;
   } catch (err) {
     notifyFirestoreError(err);
   }
@@ -5344,6 +7500,30 @@ function stopDailyChallengeWatcher() {
   if (challengeWatcherInterval) {
     clearInterval(challengeWatcherInterval);
     challengeWatcherInterval = null;
+  }
+}
+
+function startFriendInsightsWatcher(userId) {
+  stopFriendInsightsWatcher();
+  const targetUid = String(userId || "").trim();
+  if (!targetUid) return;
+
+  friendInsightsWatcherIntervalId = setInterval(async () => {
+    const activeUser = auth.currentUser;
+    if (!activeUser || activeUser.uid !== targetUid) {
+      stopFriendInsightsWatcher();
+      return;
+    }
+    await loadFriendRequests(targetUid);
+    await loadSentFriendRequests(targetUid);
+    await loadFriendsInsights(targetUid);
+  }, 12000);
+}
+
+function stopFriendInsightsWatcher() {
+  if (friendInsightsWatcherIntervalId) {
+    clearInterval(friendInsightsWatcherIntervalId);
+    friendInsightsWatcherIntervalId = null;
   }
 }
 
@@ -5817,7 +7997,7 @@ async function runCrashRescueFlow(options = {}) {
       targetAtMs,
       createdAt: serverTimestamp()
     });
-    renderReminder({ id: ref.id, text: reminderLabel, minutes: 20, targetAtMs });
+    renderReminder({ id: ref.id, text: reminderLabel, minutes: 20, targetAtMs }, { insertAtTop: true });
 
     const rescueRef = await addDoc(collection(db, "users", user.uid, "rescueEvents"), {
       level: snapshot.level,
@@ -5877,16 +8057,47 @@ function updateInsights() {
   const moodLabel = moodToday.includes("😊") ? "Happy" : moodToday.includes("😐") ? "Neutral" : moodToday.includes("😔") ? "Low" : "Not logged";
   const moodPercent = moodToday.includes("😊") ? 100 : moodToday.includes("😐") ? 66 : moodToday.includes("😔") ? 33 : 0;
 
+  const taskValues = Array.isArray(taskSeries?.values) ? taskSeries.values.map((value) => Number(value) || 0) : [];
+  const taskLabels = Array.isArray(taskSeries?.labels) ? taskSeries.labels : [];
+  let bestTaskIndex = -1;
+  let bestTaskValue = -1;
+  taskValues.forEach((value, index) => {
+    if (value > bestTaskValue) {
+      bestTaskValue = value;
+      bestTaskIndex = index;
+    }
+  });
+  const bestProductivityLabel = bestTaskValue > 0
+    ? `Best productivity day: ${taskLabels[bestTaskIndex] || "-"} (${Math.round(bestTaskValue)}% completion)`
+    : "Best productivity day: no completion data yet";
+
+  const sleepValues = Array.isArray(sleepSeries?.values)
+    ? sleepSeries.values.map((value) => Number(value) || 0).filter((value) => value > 0)
+    : [];
+  const weeklySleepAvg = safeAvg(sleepValues);
+  const weeklySleepLabel = `Average sleep this week: ${weeklySleepAvg.toFixed(1)} hrs`;
+
+  const { currentStart, currentEnd, previousStart, previousEnd } = getWeekRanges();
+  const currentWeekMetrics = computeWeekMetrics(currentStart, currentEnd);
+  const previousWeekMetrics = computeWeekMetrics(previousStart, previousEnd);
+  const moodChangePct = previousWeekMetrics.moodScore > 0
+    ? ((currentWeekMetrics.moodScore - previousWeekMetrics.moodScore) / previousWeekMetrics.moodScore) * 100
+    : (currentWeekMetrics.moodScore > 0 ? 100 : 0);
+  const roundedMoodChange = Math.round(moodChangePct);
+  const moodChangeLabel = previousWeekMetrics.moodScore > 0
+    ? `Mood ${roundedMoodChange >= 0 ? "improving" : "down"}: ${roundedMoodChange >= 0 ? "+" : ""}${roundedMoodChange}% vs last week`
+    : `Mood baseline this week: ${moodLabel}`;
+
   const metricViews = [
     {
       title: "Productivity Trend",
-      label: `Completion trend • ${taskCompletion}% current`,
+      label: bestProductivityLabel,
       percent: taskCompletion,
       series: taskSeries
     },
     {
       title: "Sleep Trend",
-      label: `Sleep trend • ${avgSleep.toFixed(1)} hrs avg`,
+      label: weeklySleepLabel,
       percent: sleepPercent,
       series: sleepSeries
     },
@@ -5898,7 +8109,7 @@ function updateInsights() {
     },
     {
       title: "Mood Trend",
-      label: `Mood direction • ${moodLabel}`,
+      label: moodChangeLabel,
       percent: moodPercent,
       series: moodSeries
     }
@@ -5908,6 +8119,7 @@ function updateInsights() {
   renderInsightMetricView(metricViews[insightMetricIndex]);
 
   updateWellnessScore();
+  renderFriendMetricCardInsights();
   updateCrashPreventionUI();
   updateBurnoutRadarUI();
   updateWeeklyReview();
@@ -5916,6 +8128,8 @@ function updateInsights() {
   const weekStartKey = weekRange.weekStartKey;
   const weekEndKey = weekRange.weekEndKey;
   const currentScore = Number((wellnessScoreEl?.innerText || "0/100").split("/")[0]) || 0;
+  const patternMemory = buildBehaviorPatternMemoryFromLocal(35);
+  const socialProfile = buildUserSocialProfileSnapshot(auth.currentUser);
   queueInsightsPersist({
     moodStreak,
     waterStreak,
@@ -5928,6 +8142,8 @@ function updateInsights() {
     wellnessStatus: wellnessStatusEl.innerText || "Needs Focus",
     dailyChallengeCompleted,
     dailyChallenge: currentChallengeText || "",
+    patternMemory,
+    socialProfile,
     barGraphs: {
       weekStartKey,
       weekEndKey,
@@ -6075,20 +8291,13 @@ function renderStartupBehaviorMemory() {
   const activeDays = dayKeys.filter((key) => moodByDay.has(key) || waterByDay.has(key) || sleepByDay.has(key) || tasksDoneByDay.has(key));
   memories.push(`Analyzed ${activeDays.length} active day${activeDays.length === 1 ? "" : "s"} from your recent logs.`);
 
-  const sleepMoodPairs = dayKeys
-    .filter((key) => sleepByDay.has(key) && moodByDay.has(key))
-    .map((key) => ({ sleep: Number(sleepByDay.get(key)) || 0, mood: Number(moodByDay.get(key)) || 0 }));
-  if (sleepMoodPairs.length) {
-    const highSleepMood = safeAvg(sleepMoodPairs.filter((pair) => pair.sleep >= 7).map((pair) => pair.mood));
-    const lowSleepMood = safeAvg(sleepMoodPairs.filter((pair) => pair.sleep < 7).map((pair) => pair.mood));
-    if (highSleepMood > 0 || lowSleepMood > 0) {
-      if (highSleepMood > lowSleepMood && lowSleepMood > 0) {
-        memories.push(`Mood score is higher on 7h+ sleep days (${highSleepMood.toFixed(2)} vs ${lowSleepMood.toFixed(2)}).`);
-      } else if (highSleepMood > 0) {
-        memories.push(`7h+ sleep days correlate with stronger mood stability (avg mood score ${highSleepMood.toFixed(2)}).`);
-      } else {
-        memories.push(`Current sleep-mood baseline: avg mood score ${lowSleepMood.toFixed(2)} on sub-7h sleep days.`);
-      }
+  const sleepMoodInsight = buildSleepMoodPatternInsight(14);
+  if (sleepMoodInsight) {
+    memories.push(sleepMoodInsight.summary);
+  } else {
+    const sleepMoodPairCount = dayKeys.filter((key) => sleepByDay.has(key) && moodByDay.has(key)).length;
+    if (sleepMoodPairCount > 0) {
+      memories.push(`Sleep-mood threshold is still forming (${sleepMoodPairCount} matched days). Keep logging to sharpen this pattern.`);
     }
   }
 
@@ -6396,10 +8605,11 @@ const LOCAL_INTENT_TEMPLATES = {
   "smalltalk-casual": ["lol", "sup", "wassup", "bro", "ikr"],
   "smalltalk-health": ["how are you", "how you doing"],
   "smalltalk-activity": ["what are you doing", "what are you up to"],
+  "date-local": ["what day is it", "what date is it", "today date", "today day", "what time is it"],
   bored: ["i am bored", "nothing to do"],
   celebrate: ["lets go", "yay"],
   "emotional-personal": ["i feel stuck", "i feel low", "i feel anxious"],
-  analysis: ["analyze my progress", "give me a summary"],
+  analysis: ["analyze my progress", "give me a summary", "find my patterns"],
   plan: ["make me a plan", "what should i do today"],
   decision: ["which option is better", "help me decide"],
   why: ["why this", "what caused this"],
@@ -6428,6 +8638,22 @@ function detectEmotionFromText(text) {
   return "neutral";
 }
 
+function buildDeviceLocalDateReply() {
+  const now = new Date();
+  const dayName = new Intl.DateTimeFormat(undefined, { weekday: "long" }).format(now);
+  const dateLabel = new Intl.DateTimeFormat(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric"
+  }).format(now);
+  const timeLabel = new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(now);
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "local timezone";
+  return `Today is ${dayName}, ${dateLabel}. Local time is ${timeLabel} (${timezone}).`;
+}
+
 function classifyIntent(input) {
   const msg = normalizeLocalIntentText(input);
   const hasAdviceHistory = Array.isArray(aiSessionState?.lastAdvice) && aiSessionState.lastAdvice.length > 0;
@@ -6439,9 +8665,15 @@ function classifyIntent(input) {
     { key: "celebrate", score: /\b(yay+|woo+|let'?s\s+go|nice+|awesome+)\b/.test(msg) ? 0.955 : 0 },
     { key: "smalltalk-health", score: /\b(how are you|how are u|how's it going|how you doing|how r you|hru)\b/.test(msg) ? 0.98 : 0 },
     { key: "smalltalk-activity", score: /\b(what are you doing|what are u doing|wyd|wyd rn|what you doing|what you up to)\b/.test(msg) ? 0.97 : 0 },
+    {
+      key: "date-local",
+      score: /\b(what(?:'s| is)\s+(?:the\s+)?(?:day|date|time)(?:\s+is)?(?:\s+it)?(?:\s+today)?|what\s+day\s+is\s+it|what\s+date\s+is\s+it|what\s+time\s+is\s+it|today(?:'s)?\s+(?:day|date)|which\s+(?:day|date)\s+is\s+it|day\s*\/\s*date\b)\b/.test(msg)
+        ? 0.995
+        : 0
+    },
     { key: "emotional-personal", score: /\b(i feel|i am feeling|feeling very|feeling really)\b.*\b(stuck|low|sad|angry|frustrated|lonely|empty|hopeless|scared|anxious|overwhelmed|lost|confused|unmotivated|drained)\b/.test(msg) ? 0.985 : 0 },
     { key: "identity", score: /who are you|what are you|your name|are you ai|are you real/.test(msg) ? 0.94 : 0 },
-    { key: "analysis", score: /analyze|analysis|report|conclude|insight|summary|score/.test(msg) ? 0.93 : 0 },
+    { key: "analysis", score: /analyze|analysis|report|conclude|insight|summary|score|pattern|patterns|trend/.test(msg) ? 0.93 : 0 },
     { key: "plan", score: /plan|routine|today|schedule|what should i do/.test(msg) ? 0.92 : 0 },
     { key: "decision", score: /decide|choose|which should i|best option|priority|first/.test(msg) ? 0.925 : 0 },
     { key: "why", score: /why|reason|because|explain|what caused/.test(msg) ? 0.915 : 0 },
@@ -6503,6 +8735,7 @@ function getIntentLabel(intentKey) {
     "smalltalk-casual": "casual chat",
     "smalltalk-health": "status check",
     "smalltalk-activity": "status check",
+    "date-local": "date/time",
     bored: "anti-bored ideas",
     celebrate: "motivation",
     "emotional-personal": "emotional support",
@@ -6671,6 +8904,8 @@ function buildCasualAiResponse(context) {
     deepPlan,
     trendSignals,
     priorityBoard,
+    sleepMoodInsight,
+    behaviorPatterns,
     knowledgeAnswer,
     compareRequest,
     mathResult
@@ -6678,6 +8913,7 @@ function buildCasualAiResponse(context) {
 
   const waterLeft = Math.max(0, (Number(snapshot.todayGoal) || 0) - (Number(snapshot.waterToday) || 0));
   const pending = Number(snapshot.pendingTasks) || 0;
+  const hydration = buildHydrationPaceInsight(snapshot);
   const followupFromHistory = buildLocalFollowupResponse(input);
 
   if (mathResult) {
@@ -6720,6 +8956,12 @@ function buildCasualAiResponse(context) {
         response: `Just hanging with your stats rn - tasks ${snapshot.doneTasks}/${snapshot.totalTasks}, water ${snapshot.waterToday}/${snapshot.todayGoal}, sleep ${snapshot.sleepToday || 0}h.`,
         isHtml: false
       };
+    case "date-local":
+      return {
+        lastIntent: key,
+        response: `${buildDeviceLocalDateReply()} (Using your device local clock.)`,
+        isHtml: false
+      };
     case "smalltalk-casual":
       if (/\bbrb|ttyl\b/.test(msg)) {
         return { lastIntent: key, response: `Bet, catch you in a bit 👋`, isHtml: false };
@@ -6760,12 +9002,20 @@ function buildCasualAiResponse(context) {
         isHtml: false
       };
     case "analysis":
+      {
+        const patternLines = Array.isArray(behaviorPatterns?.summaryLines)
+          ? behaviorPatterns.summaryLines.slice(0, 2)
+          : [];
+        const sleepMoodLine = patternLines.length
+          ? `<br>• ${escapeHtml(patternLines.join(" "))}`
+          : (sleepMoodInsight ? `<br>• pattern: mood tends to dip when sleep is under ${sleepMoodInsight.thresholdLabel}h` : "");
       return {
         lastIntent: key,
         advice: priorityBoard.slice(0, 3).map((entry) => entry.action),
-        response: `Quick read:<br>• score ${snapshot.score}/100<br>• tasks ${snapshot.doneTasks}/${snapshot.totalTasks}<br>• water ${snapshot.waterToday}/${snapshot.todayGoal}<br>• sleep ${snapshot.sleepToday || 0}h<br><br>Best move rn: ${priorityBoard[0].action}`,
+        response: `Quick read:<br>• score ${snapshot.score}/100<br>• tasks ${snapshot.doneTasks}/${snapshot.totalTasks}<br>• water ${snapshot.waterToday}/${snapshot.todayGoal}<br>• hydration pace: ${escapeHtml(hydration.summary)}<br>• sleep ${snapshot.sleepToday || 0}h${sleepMoodLine}<br><br>Best move rn: ${priorityBoard[0].action}`,
         isHtml: true
       };
+      }
     case "decision":
       return {
         lastIntent: key,
@@ -6774,7 +9024,10 @@ function buildCasualAiResponse(context) {
         isHtml: false
       };
     case "why": {
+      const firstPattern = Array.isArray(behaviorPatterns?.summaryLines) ? behaviorPatterns.summaryLines[0] : "";
       const reasonBits = [];
+      if (firstPattern) reasonBits.push(firstPattern);
+      if (sleepMoodInsight) reasonBits.push(`mood tends to dip under ${sleepMoodInsight.thresholdLabel}h sleep`);
       if (trendSignals.taskDelta < 0) reasonBits.push("tasks dipped recently");
       if (trendSignals.sleepDelta < 0) reasonBits.push("sleep trend dipped");
       if (trendSignals.waterDelta < 0) reasonBits.push("hydration slipped");
@@ -6799,23 +9052,41 @@ function buildCasualAiResponse(context) {
         isHtml: true
       };
     case "sleep":
+      {
+        const sleepPattern = behaviorPatterns?.sleepMood;
+        const thresholdLabel = sleepPattern?.threshold
+          ? (Number.isInteger(sleepPattern.threshold) ? String(sleepPattern.threshold) : String(sleepPattern.threshold).replace(/\.0$/, ""))
+          : "";
+        const patternHint = thresholdLabel
+          ? ` Pattern: mood tends to drop when sleep is below ${thresholdLabel}h.`
+          : (sleepMoodInsight ? ` Also, your logs suggest mood usually drops under ${sleepMoodInsight.thresholdLabel}h.` : "");
       return {
         lastIntent: key,
-        response: `Sleep vibe: low light 1 hour before bed, no doomscrolling in bed, caffeine cutoff after 2 PM.`,
+        response: `Sleep analysis: keep low light 1 hour pre-bed, avoid doomscrolling in bed, and cut caffeine after 2 PM.${patternHint}`,
         isHtml: false
       };
+      }
     case "water":
       return {
         lastIntent: key,
-        response: `Hydration check 💧 you are at ${snapshot.waterToday}/${snapshot.todayGoal}. left: ${waterLeft}. want me to set a reminder?`,
+        response: `Hydration check 💧 ${hydration.summary} You are at ${snapshot.waterToday}/${snapshot.todayGoal}, left ${waterLeft}. Want me to set reminders?`,
         isHtml: false
       };
     case "productivity":
+      {
+        const productivityPattern = behaviorPatterns?.sleepProductivity;
+        const thresholdLabel = productivityPattern?.threshold
+          ? (Number.isInteger(productivityPattern.threshold) ? String(productivityPattern.threshold) : String(productivityPattern.threshold).replace(/\.0$/, ""))
+          : "";
+        const productivityHint = thresholdLabel && Number(productivityPattern?.diff) >= 0
+          ? ` Your pattern says productivity improves at ${thresholdLabel}h+ sleep.`
+          : "";
       return {
         lastIntent: key,
-        response: `Focus move: pick one task, 25 min sprint, 5 min break. that is it.`,
+        response: `Focus move: pick one task, 25 min sprint, 5 min break.${productivityHint}`,
         isHtml: false
       };
+      }
     case "gratitude":
       return {
         lastIntent: key,
@@ -6916,10 +9187,15 @@ function buildKnowledgeAnswer(input) {
 
 function buildActionCoaching(snapshot) {
   const actions = [];
+  const hydration = buildHydrationPaceInsight(snapshot);
   if (snapshot.pendingTasks > 0) actions.push("Pick 1 pending task and do a focused 25-minute sprint.");
   if (snapshot.waterToday < snapshot.todayGoal) {
     const left = Math.max(0, snapshot.todayGoal - snapshot.waterToday);
-    actions.push(`Drink ${left} more glass${left === 1 ? "" : "es"} of water.`);
+    if (hydration.onTrack) {
+      actions.push(`Hydration pace is okay (${hydration.logged}/${hydration.goal} cups). Log ${Math.max(1, Math.ceil(left))} cup${Math.max(1, Math.ceil(left)) === 1 ? "" : "s"} to stay ahead.`);
+    } else {
+      actions.push(`${hydration.summary} Log ${Math.max(1, Math.ceil(left))} cup${Math.max(1, Math.ceil(left)) === 1 ? "" : "s"} now.`);
+    }
   }
   if (snapshot.sleepToday < 7) actions.push("Plan an earlier wind-down to target 7–8 hours sleep.");
   if (!snapshot.gratitudeToday) actions.push("Write one gratitude line before bed.");
@@ -6950,6 +9226,291 @@ function safeAvg(numbers) {
   const source = Array.isArray(numbers) ? numbers.filter((value) => Number.isFinite(Number(value))) : [];
   if (!source.length) return 0;
   return source.reduce((sum, value) => sum + Number(value), 0) / source.length;
+}
+
+function getRecentDayKeys(totalDays = 30) {
+  const days = Math.max(7, Math.min(120, Number(totalDays) || 30));
+  const todayDate = dateKeyToDate(getTodayKey()) || getServerNowDate();
+  todayDate.setUTCHours(0, 0, 0, 0);
+
+  const dayKeys = [];
+  for (let offset = days - 1; offset >= 0; offset -= 1) {
+    const day = new Date(todayDate);
+    day.setUTCDate(todayDate.getUTCDate() - offset);
+    const key = dateToKey(day);
+    if (key) dayKeys.push(key);
+  }
+  return dayKeys;
+}
+
+function buildSleepMoodPatternInsight(maxDays = 30) {
+  const dayKeys = getRecentDayKeys(maxDays);
+  if (!dayKeys.length) return null;
+  const daySet = new Set(dayKeys);
+
+  const moodBuckets = new Map();
+  moodHistory.forEach((entry, index) => {
+    const key = dateToKey(moodDates[index]);
+    if (!key || !daySet.has(key)) return;
+    const score = moodToScore(entry);
+    if (!score) return;
+    const bucket = moodBuckets.get(key) || { sum: 0, count: 0 };
+    bucket.sum += score;
+    bucket.count += 1;
+    moodBuckets.set(key, bucket);
+  });
+
+  const sleepByDay = new Map();
+  sleepHistory.forEach((entry, index) => {
+    const key = dateToKey(sleepDates[index]);
+    if (!key || !daySet.has(key)) return;
+    sleepByDay.set(key, Number(entry) || 0);
+  });
+
+  const pairs = dayKeys
+    .filter((key) => sleepByDay.has(key) && moodBuckets.has(key))
+    .map((key) => {
+      const bucket = moodBuckets.get(key);
+      const moodAvg = bucket && bucket.count ? bucket.sum / bucket.count : 0;
+      return {
+        key,
+        sleep: Number(sleepByDay.get(key)) || 0,
+        mood: Number(moodAvg) || 0
+      };
+    })
+    .filter((entry) => entry.mood > 0);
+
+  if (pairs.length < 5) return null;
+
+  const thresholds = [5.5, 6, 6.5, 7, 7.5, 8];
+  let best = null;
+
+  thresholds.forEach((threshold) => {
+    const lowMoods = pairs.filter((pair) => pair.sleep < threshold).map((pair) => pair.mood);
+    const highMoods = pairs.filter((pair) => pair.sleep >= threshold).map((pair) => pair.mood);
+    if (lowMoods.length < 2 || highMoods.length < 2) return;
+
+    const lowAvg = safeAvg(lowMoods);
+    const highAvg = safeAvg(highMoods);
+    const diff = highAvg - lowAvg;
+    const supportBalance = Math.min(lowMoods.length, highMoods.length) / pairs.length;
+    const signalScore = diff + (supportBalance * 0.35);
+
+    if (!best || signalScore > best.signalScore) {
+      best = {
+        threshold,
+        lowAvg,
+        highAvg,
+        diff,
+        lowCount: lowMoods.length,
+        highCount: highMoods.length,
+        pairCount: pairs.length,
+        signalScore
+      };
+    }
+  });
+
+  if (!best || best.diff < 0.18) return null;
+
+  const thresholdLabel = Number.isInteger(best.threshold)
+    ? String(best.threshold)
+    : best.threshold.toFixed(1).replace(/\.0$/, "");
+
+  return {
+    threshold: best.threshold,
+    thresholdLabel,
+    pairCount: best.pairCount,
+    lowAvg: best.lowAvg,
+    highAvg: best.highAvg,
+    diff: best.diff,
+    summary: `Your mood tends to drop when sleep is below ${thresholdLabel}h (avg mood ${best.lowAvg.toFixed(2)} below vs ${best.highAvg.toFixed(2)} at/above, based on ${best.pairCount} matched days).`,
+    shortSummary: `Mood usually dips when sleep is under ${thresholdLabel}h.`
+  };
+}
+
+function buildPatternMetricMaps(maxDays = 30) {
+  const dayKeys = getRecentDayKeys(maxDays);
+  const daySet = new Set(dayKeys);
+
+  const moodBuckets = new Map();
+  moodHistory.forEach((entry, index) => {
+    const key = dateToKey(moodDates[index]);
+    if (!key || !daySet.has(key)) return;
+    const score = moodToScore(entry);
+    if (!score) return;
+    const bucket = moodBuckets.get(key) || { sum: 0, count: 0 };
+    bucket.sum += score;
+    bucket.count += 1;
+    moodBuckets.set(key, bucket);
+  });
+
+  const moodByDay = new Map();
+  moodBuckets.forEach((bucket, key) => {
+    if (!bucket?.count) return;
+    moodByDay.set(key, bucket.sum / bucket.count);
+  });
+
+  const sleepByDay = new Map();
+  sleepHistory.forEach((entry, index) => {
+    const key = dateToKey(sleepDates[index]);
+    if (!key || !daySet.has(key)) return;
+    sleepByDay.set(key, Number(entry) || 0);
+  });
+
+  const waterByDay = new Map();
+  waterHistory.forEach((entry, index) => {
+    const key = dateToKey(waterDates[index]);
+    if (!key || !daySet.has(key)) return;
+    waterByDay.set(key, (waterByDay.get(key) || 0) + (Number(entry) || 0));
+  });
+
+  const tasksDoneByDay = new Map();
+  taskEntries.forEach((entry) => {
+    if (!entry?.completed) return;
+    const key = dateToKey(entry.completedAt || entry.time);
+    if (!key || !daySet.has(key)) return;
+    tasksDoneByDay.set(key, (tasksDoneByDay.get(key) || 0) + 1);
+  });
+
+  return {
+    dayKeys,
+    moodByDay,
+    sleepByDay,
+    waterByDay,
+    tasksDoneByDay
+  };
+}
+
+function findBestThresholdSplit(entries, thresholds, minPerSide = 2) {
+  if (!Array.isArray(entries) || entries.length < (minPerSide * 2)) return null;
+  let best = null;
+
+  thresholds.forEach((threshold) => {
+    const low = entries.filter((entry) => Number(entry.x) < threshold).map((entry) => Number(entry.y) || 0);
+    const high = entries.filter((entry) => Number(entry.x) >= threshold).map((entry) => Number(entry.y) || 0);
+    if (low.length < minPerSide || high.length < minPerSide) return;
+
+    const lowAvg = safeAvg(low);
+    const highAvg = safeAvg(high);
+    const diff = highAvg - lowAvg;
+    const support = Math.min(low.length, high.length) / entries.length;
+    const score = Math.abs(diff) * (1 + support);
+
+    if (!best || score > best.score) {
+      best = {
+        threshold,
+        lowAvg,
+        highAvg,
+        diff,
+        lowCount: low.length,
+        highCount: high.length,
+        total: entries.length,
+        score
+      };
+    }
+  });
+
+  return best;
+}
+
+function buildBehaviorPatternMemoryFromLocal(maxDays = 30) {
+  const { dayKeys, moodByDay, sleepByDay, waterByDay, tasksDoneByDay } = buildPatternMetricMaps(maxDays);
+  const activeDays = dayKeys.filter((key) => {
+    return moodByDay.has(key) || sleepByDay.has(key) || waterByDay.has(key) || tasksDoneByDay.has(key);
+  }).length;
+
+  const sleepMoodPairs = dayKeys
+    .filter((key) => sleepByDay.has(key) && moodByDay.has(key))
+    .map((key) => ({ x: Number(sleepByDay.get(key)) || 0, y: Number(moodByDay.get(key)) || 0 }));
+  const waterMoodPairs = dayKeys
+    .filter((key) => waterByDay.has(key) && moodByDay.has(key))
+    .map((key) => ({ x: Number(waterByDay.get(key)) || 0, y: Number(moodByDay.get(key)) || 0 }));
+  const sleepTaskPairs = dayKeys
+    .filter((key) => sleepByDay.has(key) && tasksDoneByDay.has(key))
+    .map((key) => ({ x: Number(sleepByDay.get(key)) || 0, y: Number(tasksDoneByDay.get(key)) || 0 }));
+  const waterTaskPairs = dayKeys
+    .filter((key) => waterByDay.has(key) && tasksDoneByDay.has(key))
+    .map((key) => ({ x: Number(waterByDay.get(key)) || 0, y: Number(tasksDoneByDay.get(key)) || 0 }));
+
+  const sleepMood = findBestThresholdSplit(sleepMoodPairs, [5.5, 6, 6.5, 7, 7.5, 8]);
+  const waterMood = findBestThresholdSplit(waterMoodPairs, [3, 4, 5, 6, 7, 8, 10]);
+  const sleepProductivity = findBestThresholdSplit(sleepTaskPairs, [5.5, 6, 6.5, 7, 7.5, 8]);
+  const waterProductivity = findBestThresholdSplit(waterTaskPairs, [3, 4, 5, 6, 7, 8, 10]);
+
+  const summaryLines = [];
+
+  if (sleepMood && Math.abs(sleepMood.diff) >= 0.12) {
+    const thresholdLabel = Number.isInteger(sleepMood.threshold)
+      ? String(sleepMood.threshold)
+      : String(sleepMood.threshold).replace(/\.0$/, "");
+    if (sleepMood.diff >= 0) {
+      summaryLines.push(`Mood tends to drop when sleep is below ${thresholdLabel}h (mood ${sleepMood.lowAvg.toFixed(2)} vs ${sleepMood.highAvg.toFixed(2)} at/above).`);
+    } else {
+      summaryLines.push(`Mood tends to improve when sleep is below ${thresholdLabel}h (mood ${sleepMood.lowAvg.toFixed(2)} vs ${sleepMood.highAvg.toFixed(2)} at/above).`);
+    }
+  }
+
+  if (waterMood && Math.abs(waterMood.diff) >= 0.1) {
+    const thresholdLabel = Number.isInteger(waterMood.threshold)
+      ? String(waterMood.threshold)
+      : waterMood.threshold.toFixed(1).replace(/\.0$/, "");
+    if (waterMood.diff >= 0) {
+      summaryLines.push(`Mood tends to dip when hydration is below ${thresholdLabel} cups/day.`);
+    } else {
+      summaryLines.push(`Mood tends to improve even below ${thresholdLabel} cups/day; current pattern may be influenced by other factors.`);
+    }
+  }
+
+  if (sleepProductivity && Math.abs(sleepProductivity.diff) >= 0.2) {
+    const thresholdLabel = Number.isInteger(sleepProductivity.threshold)
+      ? String(sleepProductivity.threshold)
+      : String(sleepProductivity.threshold).replace(/\.0$/, "");
+    if (sleepProductivity.diff >= 0) {
+      summaryLines.push(`Productivity tends to improve when sleep is at least ${thresholdLabel}h (tasks ${sleepProductivity.highAvg.toFixed(1)} vs ${sleepProductivity.lowAvg.toFixed(1)}).`);
+    } else {
+      summaryLines.push(`Productivity is currently higher below ${thresholdLabel}h sleep; workload timing may be skewing this pattern.`);
+    }
+  }
+
+  if (waterProductivity && Math.abs(waterProductivity.diff) >= 0.15) {
+    const thresholdLabel = Number.isInteger(waterProductivity.threshold)
+      ? String(waterProductivity.threshold)
+      : waterProductivity.threshold.toFixed(1).replace(/\.0$/, "");
+    if (waterProductivity.diff >= 0) {
+      summaryLines.push(`Task completion is stronger on ${thresholdLabel}+ cup hydration days.`);
+    }
+  }
+
+  if (!summaryLines.length && activeDays > 0) {
+    summaryLines.push(`Pattern confidence is still building from ${activeDays} active day${activeDays === 1 ? "" : "s"}.`);
+  }
+
+  return {
+    source: "live",
+    generatedAtMs: Date.now(),
+    windowDays: maxDays,
+    activeDays,
+    summaryLines: summaryLines.slice(0, 5),
+    sleepMood,
+    waterMood,
+    sleepProductivity,
+    waterProductivity
+  };
+}
+
+function getBehaviorPatternMemory(maxDays = 30) {
+  const live = buildBehaviorPatternMemoryFromLocal(maxDays);
+  if (live?.summaryLines?.length && live.activeDays >= 3) return live;
+
+  const stored = persistedBehaviorPatterns;
+  if (stored && Array.isArray(stored.summaryLines) && stored.summaryLines.length) {
+    return {
+      ...stored,
+      source: "stored"
+    };
+  }
+
+  return live;
 }
 
 function buildTrendSignals() {
@@ -7018,6 +9579,7 @@ function buildTrendSignals() {
 
 function buildPriorityBoard(snapshot, trends) {
   const waterLeft = Math.max(0, snapshot.todayGoal - snapshot.waterToday);
+  const hydration = buildHydrationPaceInsight(snapshot);
   const candidates = [
     {
       id: "task",
@@ -7028,7 +9590,11 @@ function buildPriorityBoard(snapshot, trends) {
     },
     {
       id: "water",
-      action: waterLeft > 0 ? `Drink ${waterLeft} glass${waterLeft === 1 ? "" : "es"} to hit hydration target.` : "Hydration is on track — maintain steady intake.",
+      action: waterLeft > 0
+        ? (hydration.onTrack
+          ? `You logged ${hydration.logged} cups today. Keep pace and add ${Math.max(1, Math.ceil(waterLeft))} cup${Math.max(1, Math.ceil(waterLeft)) === 1 ? "" : "s"} to stay on target.`
+          : `${hydration.summary} Add ${Math.max(1, Math.ceil(waterLeft))} cup${Math.max(1, Math.ceil(waterLeft)) === 1 ? "" : "s"} now.`)
+        : "Hydration is on track — maintain steady intake.",
       impact: waterLeft > 0 ? 74 : 44,
       urgency: waterLeft >= 3 ? 18 : waterLeft > 0 ? 10 : 0,
       trendBoost: trends.waterDelta < 0 ? 12 : 0
@@ -7063,9 +9629,13 @@ function buildPriorityBoard(snapshot, trends) {
 
 function buildWhySummary(snapshot, trends) {
   const drivers = [];
+  const hydration = buildHydrationPaceInsight(snapshot);
   if (snapshot.pendingTasks > 2) drivers.push("task load is currently high");
   if (snapshot.sleepToday < 7) drivers.push("sleep is below recovery zone");
-  if (snapshot.waterToday < snapshot.todayGoal) drivers.push("hydration is below target");
+  if (snapshot.waterToday < snapshot.todayGoal) {
+    if (hydration.onTrack) drivers.push("hydration is below target but pace is acceptable for this time");
+    else drivers.push(`hydration pace suggests you may miss goal by ~${hydration.missBy.toFixed(1)} cups`);
+  }
   if (!snapshot.moodToday) drivers.push("mood signal is missing for today");
   if (trends.taskDelta < 0) drivers.push("recent task completion trend is softening");
   if (trends.sleepDelta < 0) drivers.push("sleep trend dipped in the last few days");
@@ -7127,7 +9697,172 @@ function parseDurationToMinutes(amountRaw, unitRaw) {
   if (!Number.isFinite(amount) || amount <= 0) return 0;
   const unit = String(unitRaw || "m").toLowerCase();
   if (/^(h|hr|hrs|hour|hours)$/.test(unit)) return Math.round(amount * 60);
+  if (/^(d|day|days)$/.test(unit)) return Math.round(amount * 1440);
+  if (/^(w|wk|wks|week|weeks)$/.test(unit)) return Math.round(amount * 10080);
   return Math.round(amount);
+}
+
+function parseTimelineFromInput(text) {
+  const raw = String(text || "").toLowerCase();
+  if (!raw) return null;
+
+  if (/\btomorrow\b/.test(raw)) {
+    return { minutes: 24 * 60, label: "tomorrow" };
+  }
+  if (/\bnext\s+week\b/.test(raw)) {
+    return { minutes: 7 * 24 * 60, label: "next week" };
+  }
+
+  const durationMatch = raw.match(/\bin\s+(\d+(?:\.\d+)?)\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks)\b/i);
+  if (!durationMatch) return null;
+
+  const minutes = parseDurationToMinutes(durationMatch[1], durationMatch[2]);
+  if (!minutes) return null;
+
+  return {
+    minutes,
+    label: `in ${durationMatch[1]} ${durationMatch[2]}`
+  };
+}
+
+function extractPrepTopicFromInput(text) {
+  const raw = String(text || "").trim();
+  if (!raw) return "your goal";
+
+  const timelinePattern = "(?:tomorrow|next\\s+week|in\\s+\\d+(?:\\.\\d+)?\\s*(?:m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks))";
+  const patterns = [
+    new RegExp(`\\b(?:study|studying|prepare|preparing|prep|revision|revise)\\s+(?:for\\s+)?(.+?)\\s+${timelinePattern}`, "i"),
+    new RegExp(`\\bi\\s+(?:have|got)\\s+(?:an?\\s+)?(.+?)\\s+${timelinePattern}`, "i"),
+    new RegExp(`\\bfor\\s+(.+?)\\s+${timelinePattern}`, "i")
+  ];
+
+  let topic = "";
+  for (let index = 0; index < patterns.length; index += 1) {
+    const match = raw.match(patterns[index]);
+    if (match?.[1]) {
+      topic = match[1];
+      break;
+    }
+  }
+
+  if (!topic) {
+    const fallback = raw.match(/\b(exam|test|quiz|interview|presentation|assignment|project|deadline|meeting|course|certification|paper|module|subject)\b/i);
+    if (fallback?.[1]) topic = fallback[1];
+  }
+
+  const cleaned = String(topic || "your goal")
+    .replace(/\b(?:an?|the|my|for)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return cleaned || "your goal";
+}
+
+function buildHydrationPaceInsight(snapshot) {
+  const source = snapshot && typeof snapshot === "object" ? snapshot : getWellnessSnapshot();
+  const goal = Math.max(1, Number(source.todayGoal) || 8);
+  const logged = Math.max(0, Number(source.waterToday) || 0);
+  const remaining = Math.max(0, goal - logged);
+
+  const now = getServerNowDate();
+  const dayStart = new Date(now);
+  dayStart.setUTCHours(0, 0, 0, 0);
+  const elapsedHours = Math.max(0.25, (now.getTime() - dayStart.getTime()) / 3600000);
+  const projectedByDayEnd = logged * (24 / elapsedHours);
+  const missByRaw = Math.max(0, goal - projectedByDayEnd);
+  const missBy = Math.round(missByRaw * 10) / 10;
+  const onTrack = projectedByDayEnd >= goal || remaining <= 0;
+
+  const cupWord = logged === 1 ? "cup" : "cups";
+  const missCupWord = missBy === 1 ? "cup" : "cups";
+
+  const summary = onTrack
+    ? `You logged ${logged} ${cupWord} today and your pace looks on track.`
+    : `You logged only ${logged} ${cupWord} today. At this pace, you may miss your goal by about ${missBy.toFixed(1)} ${missCupWord}.`;
+
+  return {
+    goal,
+    logged,
+    remaining,
+    elapsedHours,
+    projectedByDayEnd,
+    missBy,
+    onTrack,
+    summary
+  };
+}
+
+async function addReminderFromAi(text, minutes) {
+  const safeText = String(text || "").trim();
+  const safeMinutes = Math.max(1, Math.min(REMINDER_MAX_MINUTES, Math.round(Number(minutes) || 0)));
+  if (!safeText || !safeMinutes) return false;
+
+  const beforeCount = reminders?.querySelectorAll?.(".item-row")?.length || 0;
+  reminderText.value = safeText;
+  reminderMinutes.value = String(safeMinutes);
+  await addReminder();
+  const afterCount = reminders?.querySelectorAll?.(".item-row")?.length || 0;
+  return afterCount > beforeCount;
+}
+
+async function createAutoPrepPlanFromAi(user, inputText) {
+  if (!user?.uid) return null;
+
+  if (/^\s*(?:set|add|create|remind|reminder)\b/i.test(String(inputText || ""))) {
+    return null;
+  }
+
+  const timeline = parseTimelineFromInput(inputText);
+  if (!timeline) return null;
+
+  const prepSignal = /\b(exam|test|quiz|interview|presentation|assignment|project|deadline|study|studying|prepare|preparing|prep|revision|course|certification|meeting|paper|module|subject)\b/i.test(inputText);
+  if (!prepSignal) return null;
+
+  const topic = extractPrepTopicFromInput(inputText);
+  const totalMinutes = Math.max(30, Number(timeline.minutes) || 0);
+
+  const taskTemplates = [
+    `Plan ${topic}: outline topics and priority weak spots (timeline ${timeline.label}).`,
+    `Run a 50-minute focused session for ${topic}, then review mistakes for 10 minutes.`,
+    `Create a one-page revision sheet for ${topic} and revise it once daily.`,
+    `Final review for ${topic} before ${timeline.label}.`
+  ];
+
+  let addedTasks = 0;
+  for (let index = 0; index < taskTemplates.length; index += 1) {
+    const beforeCount = taskEntries.length;
+    task.value = taskTemplates[index];
+    await addTask();
+    if (taskEntries.length > beforeCount) addedTasks += 1;
+  }
+
+  const midpointMinutes = Math.max(60, Math.round(totalMinutes * 0.5));
+  const sleepPrepMinutes = Math.max(90, totalMinutes - (8 * 60));
+  const reminderTemplates = [
+    { text: `Start ${topic}: first 50-minute focus block now.`, minutes: 15 },
+    { text: `Break schedule: take a 10-minute reset after this ${topic} focus block.`, minutes: 55 },
+    { text: `${topic} checkpoint: quick self-test and adjust weak areas.`, minutes: midpointMinutes },
+    { text: `Sleep reminder for ${topic}: wind down early and protect 7-8h sleep.`, minutes: sleepPrepMinutes },
+    { text: `Final prep window for ${topic} is now (${timeline.label}).`, minutes: totalMinutes }
+  ];
+
+  const seenMinutes = new Set();
+  let addedReminders = 0;
+  for (let index = 0; index < reminderTemplates.length; index += 1) {
+    const reminder = reminderTemplates[index];
+    const safeMinutes = Math.max(1, Math.min(REMINDER_MAX_MINUTES, Math.round(reminder.minutes)));
+    if (seenMinutes.has(safeMinutes)) continue;
+    seenMinutes.add(safeMinutes);
+    const ok = await addReminderFromAi(reminder.text, safeMinutes);
+    if (ok) addedReminders += 1;
+  }
+
+  return {
+    topic,
+    timelineLabel: timeline.label,
+    addedTasks,
+    addedReminders
+  };
 }
 
 function mapMoodFromInput(text) {
@@ -7276,15 +10011,16 @@ async function tryAiAction(input, user) {
     return `✅ Water goal updated to ${waterGoalInput.value} glasses.`;
   }
 
-  const waterLogMatch = lower.match(/(?:log|add|track|drink|drank)\s+(\d+(?:\.\d+)?)\s*(?:glass|glasses|cup|cups)?\s*(?:of\s+)?(?:water)?/i);
+  const waterLogMatch = lower.match(/(?:log|add|track|drink|drank|had|have\s+had)\s+(\d+(?:\.\d+)?)\s*(?:glass|glasses|cup|cups)?\s*(?:of\s+)?(?:water)?(?:\s+just\s+now)?/i)
+    || lower.match(/\bi\s+(?:just\s+)?(?:drank|drink|had)\s+(\d+(?:\.\d+)?)\s*(?:glass|glasses|cup|cups)(?:\s+of\s+water)?/i);
   const waterSignal = /\b(water|hydrate|hydration|glass|glasses|cup|cups|drink|drank)\b/.test(lower);
   if (waterLogMatch && waterSignal) {
     waterInput.value = String(Number(waterLogMatch[1]) || 0);
     await saveWater();
-    return `✅ Logged ${waterInput.value || waterLogMatch[1]} glasses of water.`;
+    return `✅ Logged ${waterInput.value || waterLogMatch[1]} cups of water.`;
   }
-  if (waterSignal && /\b(log|add|track|drink|drank)\b/.test(lower) && !waterLogMatch) {
-    return "ℹ️ Tell me how much water, like: drink 2 water.";
+  if (waterSignal && /\b(log|add|track|drink|drank|had)\b/.test(lower) && !waterLogMatch) {
+    return "ℹ️ Tell me how much water, like: I drank 2 glasses just now.";
   }
 
   const sleepMatch = lower.match(/(?:log|save|track|set)\s+(?:my\s+)?sleep\s*(?:for\s+)?(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)?/i)
@@ -7317,9 +10053,14 @@ async function tryAiAction(input, user) {
     return `✅ Gratitude saved.`;
   }
 
-  const reminderMatch = msg.match(/^remind\s+me\s+to\s+(.+?)\s+(?:in|after)\s+(\d+(?:\.\d+)?)\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours)$/i)
-    || msg.match(/^(?:set|add|create)\s+(?:a\s+)?reminder\s*(?:to)?\s*[:\-]?\s*(.+?)\s+(?:in|after)\s+(\d+(?:\.\d+)?)\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours)$/i)
-    || msg.match(/^reminder\s*[:\-]?\s*(.+?)\s+(?:in|after)\s+(\d+(?:\.\d+)?)\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours)$/i);
+  const autoPrepPlan = await createAutoPrepPlanFromAi(user, msg);
+  if (autoPrepPlan) {
+    return `✅ Auto prep plan created for ${autoPrepPlan.topic} (${autoPrepPlan.timelineLabel}). Added ${autoPrepPlan.addedTasks} tasks + ${autoPrepPlan.addedReminders} reminders (focus, breaks, sleep, final review).`;
+  }
+
+  const reminderMatch = msg.match(/^remind\s+me\s+to\s+(.+?)\s+(?:in|after)\s+(\d+(?:\.\d+)?)\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks)$/i)
+    || msg.match(/^(?:set|add|create)\s+(?:a\s+)?reminder\s*(?:to)?\s*[:\-]?\s*(.+?)\s+(?:in|after)\s+(\d+(?:\.\d+)?)\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks)$/i)
+    || msg.match(/^reminder\s*[:\-]?\s*(.+?)\s+(?:in|after)\s+(\d+(?:\.\d+)?)\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks)$/i);
   if (reminderMatch) {
     const reminderLabel = reminderMatch[1].trim();
     const minutes = parseDurationToMinutes(reminderMatch[2], reminderMatch[3]);
@@ -7327,7 +10068,7 @@ async function tryAiAction(input, user) {
     reminderText.value = reminderLabel;
     reminderMinutes.value = String(minutes);
     await addReminder();
-    return `✅ Reminder set: ${reminderLabel} in ${minutes} min.`;
+    return `✅ Reminder set: ${reminderLabel} in ${formatReminderDurationFromMinutes(minutes)}.`;
   }
   if (/^(?:remind\s+me\s+to|set\s+reminder|add\s+reminder|create\s+reminder|reminder\s*[:\-]?)/i.test(msg)) {
     return "ℹ️ Include time too, like: set reminder submit assignment in 45 min.";
@@ -7352,7 +10093,7 @@ async function tryAiAction(input, user) {
       const snapshot = await getDocs(collection(db, "users", user.uid, "reminders"));
       const items = snapshot.docs
         .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-        .sort((a, b) => (Number(a.targetAtMs) || 0) - (Number(b.targetAtMs) || 0));
+        .sort((a, b) => getReminderSortMs(b) - getReminderSortMs(a));
 
       if (!items.length) return "ℹ️ You have no reminders right now.";
 
@@ -7409,6 +10150,8 @@ async function buildSmartAiResponse(input, user) {
   const modePreset = getAiModePreset();
   const trendSignals = buildTrendSignals();
   const priorityBoard = buildPriorityBoard(snapshot, trendSignals);
+  const sleepMoodInsight = buildSleepMoodPatternInsight(30);
+  const behaviorPatterns = getBehaviorPatternMemory(35);
 
   aiSessionState.turnCount += 1;
   aiSessionState.lastUserMessage = input;
@@ -7443,6 +10186,8 @@ async function buildSmartAiResponse(input, user) {
       deepPlan,
       trendSignals,
       priorityBoard,
+      sleepMoodInsight,
+      behaviorPatterns,
       knowledgeAnswer,
       compareRequest,
       mathResult
@@ -7493,6 +10238,14 @@ async function buildSmartAiResponse(input, user) {
     aiSessionState.lastIntent = "smalltalk-activity";
     return {
       response: `${stylePrefix}I’m analyzing your dashboard state in real time: tasks (${snapshot.doneTasks}/${snapshot.totalTasks}), hydration (${snapshot.waterToday}/${snapshot.todayGoal}), sleep (${snapshot.sleepToday || 0}h), and mood. I can either reason deeply or execute direct commands for you.`,
+      isHtml: false
+    };
+  }
+
+  if (intent.key === "date-local") {
+    aiSessionState.lastIntent = "date-local";
+    return {
+      response: buildDeviceLocalDateReply(),
       isHtml: false
     };
   }
@@ -7597,9 +10350,13 @@ async function buildSmartAiResponse(input, user) {
     const waterPct = Math.round((snapshot.waterToday / snapshot.todayGoal) * 100);
     const taskPct = snapshot.totalTasks ? Math.round((snapshot.doneTasks / snapshot.totalTasks) * 100) : 0;
     const moodText = snapshot.moodToday || "Not logged";
+    const hydration = buildHydrationPaceInsight(snapshot);
 
     let actions = [];
-    if (snapshot.waterToday < snapshot.todayGoal) actions.push(`Drink ${Math.max(0, snapshot.todayGoal - snapshot.waterToday)} more glass${snapshot.todayGoal - snapshot.waterToday === 1 ? "" : "es"}.`);
+    if (snapshot.waterToday < snapshot.todayGoal) {
+      const remaining = Math.max(0, snapshot.todayGoal - snapshot.waterToday);
+      actions.push(`${hydration.summary} Log ${Math.max(1, Math.ceil(remaining))} cup${Math.max(1, Math.ceil(remaining)) === 1 ? "" : "s"} soon.`);
+    }
     if (snapshot.sleepToday < 7) actions.push("Target 7–8 hours sleep tonight.");
     if (snapshot.pendingTasks > 0) actions.push("Finish 1 pending task in the next 25 minutes.");
     if (!snapshot.gratitudeToday) actions.push("Add one gratitude line before bed.");
@@ -7608,9 +10365,18 @@ async function buildSmartAiResponse(input, user) {
 
     aiSessionState.lastIntent = "analysis";
     aiSessionState.lastAdvice = actions.slice(0, 3);
+    const patternLines = Array.isArray(behaviorPatterns?.summaryLines)
+      ? behaviorPatterns.summaryLines.slice(0, 3)
+      : [];
+    const sleepMoodPatternLine = sleepMoodInsight
+      ? `<br><br><b>Pattern observed</b><br>• ${escapeHtml(sleepMoodInsight.summary)}`
+      : "";
+    const behaviorPatternBlock = patternLines.length
+      ? `<br><br><b>Behavior patterns (${escapeHtml(behaviorPatterns?.source || "live")})</b><br>• ${patternLines.map((line) => escapeHtml(line)).join("<br>• ")}`
+      : "";
 
     return {
-      response: `📊 <b>Deep Wellness Analysis</b><br>⭐ Score: <b>${snapshot.score}/100</b><br>💧 Water: ${snapshot.waterToday}/${snapshot.todayGoal} (${Math.max(0, waterPct)}%)<br>💤 Sleep today: ${snapshot.sleepToday || 0} hrs<br>🧘 Mood: ${moodText}<br>📌 Tasks done: ${snapshot.doneTasks}/${snapshot.totalTasks} (${taskPct}%)<br>🙏 Gratitude today: ${snapshot.gratitudeToday ? "Yes" : "No"}<br><br><b>Priority ranking (smart order)</b><br>1) ${priorityBoard[0].action}<br>2) ${priorityBoard[1].action}<br>3) ${priorityBoard[2].action}<br><br><b>Best next moves</b><br>1) ${actions[0]}<br>2) ${actions[1]}<br>3) ${actions[2]}${recentContext ? `<br><br>🧠 Recent context: <i>${escapeHtml(recentContext)}</i>` : ""}`,
+      response: `📊 <b>Deep Wellness Analysis</b><br>⭐ Score: <b>${snapshot.score}/100</b><br>💧 Water: ${snapshot.waterToday}/${snapshot.todayGoal} (${Math.max(0, waterPct)}%)<br>💧 Pace signal: ${escapeHtml(hydration.summary)}<br>💤 Sleep trend avg: ${trendSignals.sleepAvg.toFixed(1)} hrs<br>🧘 Mood: ${moodText}<br>📌 Tasks done: ${snapshot.doneTasks}/${snapshot.totalTasks} (${taskPct}%)<br>🙏 Gratitude today: ${snapshot.gratitudeToday ? "Yes" : "No"}<br><br><b>Priority ranking (smart order)</b><br>1) ${priorityBoard[0].action}<br>2) ${priorityBoard[1].action}<br>3) ${priorityBoard[2].action}<br><br><b>Best next moves</b><br>1) ${actions[0]}<br>2) ${actions[1]}<br>3) ${actions[2]}${behaviorPatternBlock}${sleepMoodPatternLine}${recentContext ? `<br><br>🧠 Recent context: <i>${escapeHtml(recentContext)}</i>` : ""}`,
       isHtml: true
     };
   }
@@ -7628,8 +10394,14 @@ async function buildSmartAiResponse(input, user) {
     const reasons = buildWhySummary(snapshot, trendSignals);
     aiSessionState.lastIntent = "why";
     aiSessionState.lastAdvice = reasons;
+    const patternLine = Array.isArray(behaviorPatterns?.summaryLines) && behaviorPatterns.summaryLines.length
+      ? `<br>• ${escapeHtml(behaviorPatterns.summaryLines[0])}`
+      : "";
+    const sleepMoodPatternLine = sleepMoodInsight
+      ? `<br>• ${escapeHtml(sleepMoodInsight.shortSummary)} (${sleepMoodInsight.pairCount} matched days)`
+      : "";
     return {
-      response: `🔍 <b>Why this is your current state</b><br>• ${reasons.join("<br>• ")}<br><br><b>Trend signals</b><br>• Mood delta: ${trendSignals.moodDelta.toFixed(2)}<br>• Water delta: ${trendSignals.waterDelta.toFixed(2)}<br>• Sleep delta: ${trendSignals.sleepDelta.toFixed(2)}h<br>• Task delta: ${trendSignals.taskDelta.toFixed(2)} completed/day<br><br><b>Most leverage move</b>: ${priorityBoard[0].action}`,
+      response: `🔍 <b>Why this is your current state</b><br>• ${reasons.join("<br>• ")}<br><br><b>Trend signals</b><br>• Mood delta: ${trendSignals.moodDelta.toFixed(2)}<br>• Water delta: ${trendSignals.waterDelta.toFixed(2)}<br>• Sleep delta: ${trendSignals.sleepDelta.toFixed(2)}h<br>• Task delta: ${trendSignals.taskDelta.toFixed(2)} completed/day${patternLine}${sleepMoodPatternLine}<br><br><b>Most leverage move</b>: ${priorityBoard[0].action}`,
       isHtml: true
     };
   }
@@ -7680,25 +10452,47 @@ async function buildSmartAiResponse(input, user) {
 
   if (intent.key === "sleep") {
     aiSessionState.lastIntent = "sleep";
+    const sleepPattern = behaviorPatterns?.sleepMood;
+    const thresholdLabel = sleepPattern?.threshold
+      ? (Number.isInteger(sleepPattern.threshold) ? String(sleepPattern.threshold) : String(sleepPattern.threshold).replace(/\.0$/, ""))
+      : "";
+    const sleepPatternHint = thresholdLabel
+      ? ` Pattern: mood tends to drop when sleep is below ${thresholdLabel}h.`
+      : (sleepMoodInsight ? ` Your logs suggest mood tends to dip below ${sleepMoodInsight.thresholdLabel}h.` : "");
     return {
-      response: `Sleep protocol: no caffeine after 2 PM, dim lights 60 min pre-bed, and no scrolling in bed. Latest logged sleep: ${snapshot.sleepToday || (sleepHistory[sleepHistory.length-1] || 0)} hrs.`,
+      response: `Sleep analysis: no caffeine after 2 PM, dim lights 60 min pre-bed, and no scrolling in bed.${sleepPatternHint} Recent sleep average is ${trendSignals.sleepAvg.toFixed(1)}h.`,
       isHtml: false
     };
   }
 
   if (intent.key === "water") {
+    const hydration = buildHydrationPaceInsight(snapshot);
     const left = Math.max(0, snapshot.todayGoal - snapshot.waterToday);
+    const waterMood = behaviorPatterns?.waterMood;
+    const waterThresholdLabel = waterMood?.threshold
+      ? (Number.isInteger(waterMood.threshold) ? String(waterMood.threshold) : Number(waterMood.threshold).toFixed(1).replace(/\.0$/, ""))
+      : "";
+    const waterPatternHint = waterThresholdLabel
+      ? ` Pattern: mood tends to dip when water is below ${waterThresholdLabel} cups/day.`
+      : "";
     aiSessionState.lastIntent = "water";
     return {
-      response: `Hydration check 💧 You’re at ${snapshot.waterToday}/${snapshot.todayGoal}. Remaining: ${left} glass${left === 1 ? "" : "es"}. Want me to set a reminder right now?`,
+      response: `Hydration check 💧 ${hydration.summary}${waterPatternHint} You’re at ${snapshot.waterToday}/${snapshot.todayGoal}. Remaining: ${left} cup${left === 1 ? "" : "s"}. Want me to set a reminder right now?`,
       isHtml: false
     };
   }
 
   if (intent.key === "productivity") {
     aiSessionState.lastIntent = "productivity";
+    const sleepProductivity = behaviorPatterns?.sleepProductivity;
+    const productivityThresholdLabel = sleepProductivity?.threshold
+      ? (Number.isInteger(sleepProductivity.threshold) ? String(sleepProductivity.threshold) : String(sleepProductivity.threshold).replace(/\.0$/, ""))
+      : "";
+    const productivityPatternHint = productivityThresholdLabel && Number(sleepProductivity?.diff) >= 0
+      ? ` Pattern: task completion tends to improve at ${productivityThresholdLabel}h+ sleep.`
+      : "";
     return {
-      response: `Focus mode ⚡ Completed ${snapshot.doneTasks}/${snapshot.totalTasks}. Try: pick one pending task, 25-min timer, then 5-min break. Say “add task …” and I’ll add it instantly.`,
+      response: `Focus mode ⚡ Completed ${snapshot.doneTasks}/${snapshot.totalTasks}.${productivityPatternHint} Try: pick one pending task, 25-min timer, then 5-min break. Say “add task …” and I’ll add it instantly.`,
       isHtml: false
     };
   }
@@ -8198,12 +10992,52 @@ function clearAllReminderTimers() {
   reminderIntervals.clear();
 }
 
+function getReminderSortMs(entry) {
+  const createdMs = toDateSafe(entry?.createdAt)?.getTime?.()
+    || toDateSafe(entry?.time)?.getTime?.()
+    || 0;
+  if (createdMs) return createdMs;
+  return Number(entry?.targetAtMs) || 0;
+}
+
+function formatReminderDurationFromSeconds(totalSeconds) {
+  let remaining = Math.max(0, Math.ceil(Number(totalSeconds) || 0));
+  if (!remaining) return "0 sec";
+
+  const units = [
+    { label: "year", seconds: 365 * 24 * 60 * 60 },
+    { label: "month", seconds: 30 * 24 * 60 * 60 },
+    { label: "week", seconds: 7 * 24 * 60 * 60 },
+    { label: "day", seconds: 24 * 60 * 60 },
+    { label: "hr", seconds: 60 * 60 },
+    { label: "min", seconds: 60 },
+    { label: "sec", seconds: 1 }
+  ];
+
+  const parts = [];
+  for (const unit of units) {
+    if (remaining < unit.seconds) continue;
+    const value = Math.floor(remaining / unit.seconds);
+    remaining -= value * unit.seconds;
+    const suffix = value === 1 ? "" : "s";
+    parts.push(`${value} ${unit.label}${suffix}`);
+    if (parts.length >= 2) break;
+  }
+
+  return parts.length ? parts.join(" ") : "0 sec";
+}
+
+function formatReminderDurationFromMinutes(totalMinutes) {
+  const safeMinutes = Math.max(0, Number(totalMinutes) || 0);
+  return formatReminderDurationFromSeconds(safeMinutes * 60);
+}
+
 async function deleteReminderFromAi(userId, query) {
   try {
     const snapshot = await getDocs(collection(db, "users", userId, "reminders"));
     const remindersList = snapshot.docs
       .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-      .sort((a, b) => (Number(a.targetAtMs) || 0) - (Number(b.targetAtMs) || 0));
+      .sort((a, b) => getReminderSortMs(b) - getReminderSortMs(a));
 
     if (!remindersList.length) {
       return { ok: false, message: "No reminders found." };
@@ -8241,7 +11075,8 @@ async function deleteReminderFromAi(userId, query) {
   }
 }
 
-function renderReminder(entry) {
+function renderReminder(entry, options = {}) {
+  const insertAtTop = options.insertAtTop !== false;
   clearStatusState(reminders);
   const li = document.createElement("li");
   li.className = "item-row";
@@ -8259,6 +11094,7 @@ function renderReminder(entry) {
   deleteBtn.className = "remove-entry-btn";
   deleteBtn.textContent = "Delete";
   deleteBtn.onclick = async () => {
+    if (!confirm(`Delete reminder "${reminderTextValue}"?`)) return;
     const user = auth.currentUser;
     clearReminderTimer(entry.id);
 
@@ -8284,9 +11120,7 @@ function renderReminder(entry) {
       label.textContent = `• ${reminderTextValue} – Time's up!`;
       return;
     }
-    const mins = Math.floor(secondsLeft / 60);
-    const secs = secondsLeft % 60;
-    label.textContent = `• ${reminderTextValue} – ${mins}m ${secs}s`;
+    label.textContent = `• ${reminderTextValue} – ${formatReminderDurationFromSeconds(secondsLeft)} left`;
   };
 
   let secondsRemaining = Math.max(0, Math.ceil((targetAtMs - getServerNowDate().getTime()) / 1000));
@@ -8309,7 +11143,11 @@ function renderReminder(entry) {
 
   actions.append(deleteBtn);
   li.append(label, actions);
-  reminders.appendChild(li);
+  if (insertAtTop && reminders.firstChild) {
+    reminders.insertBefore(li, reminders.firstChild);
+  } else {
+    reminders.appendChild(li);
+  }
 }
 
 async function loadReminders(userId) {
@@ -8320,9 +11158,9 @@ async function loadReminders(userId) {
     const snapshot = await getDocs(collection(db, "users", userId, "reminders"));
     const docs = snapshot.docs
       .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-      .sort((a, b) => (Number(a.targetAtMs) || 0) - (Number(b.targetAtMs) || 0));
+      .sort((a, b) => getReminderSortMs(b) - getReminderSortMs(a));
 
-    docs.forEach((entry) => renderReminder(entry));
+    docs.forEach((entry) => renderReminder(entry, { insertAtTop: false }));
     if (!docs.length) {
       setEmptyState(reminders, "No reminders set yet — add one small prompt for today.");
     }
@@ -8378,7 +11216,7 @@ async function addReminder() {
         createdAt: serverTimestamp()
       });
 
-      renderReminder({ id: ref.id, text: t, minutes: m, targetAtMs });
+      renderReminder({ id: ref.id, text: t, minutes: m, targetAtMs }, { insertAtTop: true });
       reminderText.value = "";
       reminderMinutes.value = "";
       showToast(`Reminder set. ${getRandomCheer()}`);
@@ -8398,7 +11236,8 @@ async function addReminder() {
 }
 
 // Tasks
-function renderTask(entry) {
+function renderTask(entry, options = {}) {
+  const insertAtTop = options.insertAtTop !== false;
   clearStatusState(taskList);
   const li = document.createElement("li");
   li.className = "item-row";
@@ -8458,6 +11297,7 @@ function renderTask(entry) {
   deleteBtn.classList.add("remove-entry-btn");
   deleteBtn.textContent = "🗑️";
   deleteBtn.onclick = async () => {
+    if (!confirm(`Delete task "${entry.text || "Task"}"?`)) return;
     const user = auth.currentUser;
     if (!user || !entry.id) {
       const fallbackIndex = taskEntries.findIndex((taskItem) => taskItem.id === entry.id);
@@ -8483,7 +11323,11 @@ function renderTask(entry) {
 
   actions.append(toggleBtn, editBtn, deleteBtn);
   li.append(span, actions);
-  taskList.appendChild(li);
+  if (insertAtTop && taskList.firstChild) {
+    taskList.insertBefore(li, taskList.firstChild);
+  } else {
+    taskList.appendChild(li);
+  }
 }
 
 async function loadTasks(userId) {
@@ -8496,7 +11340,7 @@ async function loadTasks(userId) {
       .sort((a, b) => {
         const aTime = a.time?.toMillis?.() ?? new Date(a.time || 0).getTime();
         const bTime = b.time?.toMillis?.() ?? new Date(b.time || 0).getTime();
-        return aTime - bTime;
+        return bTime - aTime;
       });
     docs.forEach((entry) => {
       const normalized = {
@@ -8505,7 +11349,7 @@ async function loadTasks(userId) {
         completedAt: toDateSafe(entry.completedAt)
       };
       taskEntries.push(normalized);
-      renderTask(normalized);
+      renderTask(normalized, { insertAtTop: false });
     });
     if (!docs.length) {
       setEmptyState(taskList, "No tasks yet — add one quick win to begin.");
@@ -8549,8 +11393,8 @@ async function addTask(){
         time: serverTimestamp()
       });
       const newTask = { id: ref.id, text: t, completed: false, completedAt: null, time: getServerNowDate() };
-      taskEntries.push(newTask);
-      renderTask(newTask);
+      taskEntries.unshift(newTask);
+      renderTask(newTask, { insertAtTop: true });
       showToast(`Task added. ${getRandomCheer()}`);
       updateInsights();
       task.value="";
@@ -9289,6 +12133,17 @@ function getOptionalTimestampMs(value) {
   return null;
 }
 
+function isFriendRequestExpired(entry, nowMs = getServerNowDate().getTime()) {
+  const createdMs = Number(entry?.createdAtMs)
+    || Number(entry?.updatedAtMs)
+    || getOptionalTimestampMs(entry?.createdAt)
+    || getOptionalTimestampMs(entry?.updatedAt)
+    || getOptionalTimestampMs(entry?.time)
+    || 0;
+  if (!createdMs) return false;
+  return (nowMs - createdMs) > FRIEND_REQUEST_EXPIRY_MS;
+}
+
 function applyExportCooldownUI(remainingMs) {
   if (!exportDataBtn) return;
   const safeRemaining = Math.max(0, Number(remainingMs) || 0);
@@ -9704,6 +12559,7 @@ async function applyImportPayloadToCurrentUser(user, payload) {
   await deleteDoc(doc(db, "users", user.uid, "insights", "current")).catch(() => {});
   await deleteDoc(doc(db, "users", user.uid, "insights", "barGraphs")).catch(() => {});
   persistedBarGraphs = null;
+  persistedBehaviorPatterns = null;
 
   const moods = Array.isArray(payload.moods) ? payload.moods : [];
   const tasks = Array.isArray(payload.tasks) ? payload.tasks : [];
@@ -10084,6 +12940,9 @@ Object.assign(window, {
   startImportData,
   closeImportTransferModal,
   submitImportTransfer,
+  startAddFriendRequest,
+  closeAddFriendModal,
+  submitAddFriendRequest,
   importDataFileChange,
   nextWelcomeGuideStep,
   skipWelcomeGuide,
