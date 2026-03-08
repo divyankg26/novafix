@@ -3062,6 +3062,8 @@ let usernameLiveCheckTimer = null;
 let usernameLiveCheckSequence = 0;
 let googleIdentitySetupInProgress = false;
 let googleIdentitySetupUserId = "";
+let googleIdentityUsernameLiveCheckTimer = null;
+let googleIdentityUsernameLiveCheckSequence = 0;
 
 function showAuthModalError(message, kind = "generic", color = "#ff6b6b") {
   const error = document.getElementById("signInError");
@@ -3287,10 +3289,69 @@ function hideGoogleIdentityError() {
 function closeGoogleIdentitySetupModal() {
   if (googleIdentityModal) googleIdentityModal.style.display = "none";
   hideGoogleIdentityError();
+  if (googleIdentityUsernameLiveCheckTimer) {
+    clearTimeout(googleIdentityUsernameLiveCheckTimer);
+    googleIdentityUsernameLiveCheckTimer = null;
+  }
+  googleIdentityUsernameLiveCheckSequence += 1;
   if (googleIdentityUsernameInput) googleIdentityUsernameInput.value = "";
   if (googleIdentityDisplayNameInput) googleIdentityDisplayNameInput.value = "";
   googleIdentitySetupInProgress = false;
   googleIdentitySetupUserId = "";
+}
+
+function scheduleGoogleIdentityUsernameAvailabilityCheck() {
+  if (googleIdentityUsernameLiveCheckTimer) {
+    clearTimeout(googleIdentityUsernameLiveCheckTimer);
+    googleIdentityUsernameLiveCheckTimer = null;
+  }
+
+  const localSeq = ++googleIdentityUsernameLiveCheckSequence;
+  googleIdentityUsernameLiveCheckTimer = setTimeout(async () => {
+    if (!googleIdentitySetupInProgress || !googleIdentityModal || googleIdentityModal.style.display !== "flex") return;
+    const validation = validateSignupUsername(googleIdentityUsernameInput?.value || "");
+    const hasAnyText = String(googleIdentityUsernameInput?.value || "").trim().length > 0;
+    if (!validation.ok) {
+      if (hasAnyText) {
+        showGoogleIdentityError(validation.message);
+      } else {
+        hideGoogleIdentityError();
+      }
+      return;
+    }
+
+    const usernameKey = validation.normalized;
+    if (!usernameKey) return;
+    showGoogleIdentityError("Checking username...", "#9fd0ff");
+
+    try {
+      const exists = await usernameExistsLiveInFirestore(usernameKey);
+      if (localSeq !== googleIdentityUsernameLiveCheckSequence || !googleIdentitySetupInProgress) return;
+
+      if (!exists) {
+        showGoogleIdentityError("Username is available.", "#7CFFB2");
+        return;
+      }
+
+      const activeUid = String(auth.currentUser?.uid || "").trim();
+      const resolvedUsername = await resolveUserDirectoryByUsername(usernameKey, {
+        forceRefresh: true,
+        preferServer: true
+      }).catch(() => null);
+      if (localSeq !== googleIdentityUsernameLiveCheckSequence || !googleIdentitySetupInProgress) return;
+
+      const ownerUid = String(resolvedUsername?.uid || "").trim();
+      if (ownerUid && activeUid && ownerUid === activeUid) {
+        showGoogleIdentityError("Username is available.", "#7CFFB2");
+        return;
+      }
+
+      showGoogleIdentityError("Username is taken.");
+    } catch (err) {
+      if (localSeq !== googleIdentityUsernameLiveCheckSequence || !googleIdentitySetupInProgress) return;
+      showGoogleIdentityError(err?.message || "Could not verify username right now.");
+    }
+  }, 320);
 }
 
 function openGoogleIdentitySetupModal(user, options = {}) {
@@ -3314,6 +3375,7 @@ function openGoogleIdentitySetupModal(user, options = {}) {
   signInModal.style.display = "none";
   googleIdentitySetupInProgress = true;
   googleIdentitySetupUserId = activeUserId;
+  scheduleGoogleIdentityUsernameAvailabilityCheck();
 }
 
 async function ensureGoogleIdentitySetupIfNeeded(user) {
@@ -3438,14 +3500,24 @@ async function submitGoogleIdentitySetup() {
   hideGoogleIdentityError();
 
   try {
-    const resolvedUsername = await resolveUserDirectoryByUsername(usernameKey, {
-      forceRefresh: true,
-      preferServer: true
-    }).catch(() => null);
-
-    if (resolvedUsername?.uid && resolvedUsername.uid !== user.uid) {
-      showGoogleIdentityError("This username already exists. Choose a different username.");
-      return;
+    try {
+      const usernameExists = await usernameExistsLiveInFirestore(usernameKey);
+      if (usernameExists) {
+        const resolvedUsername = await resolveUserDirectoryByUsername(usernameKey, {
+          forceRefresh: true,
+          preferServer: true
+        }).catch(() => null);
+        if (resolvedUsername?.uid && resolvedUsername.uid !== user.uid) {
+          showGoogleIdentityError("This username already exists. Choose a different username.");
+          return;
+        }
+      }
+    } catch (lookupErr) {
+      if (!isFirestorePermissionDeniedError(lookupErr)) {
+        showGoogleIdentityError(lookupErr?.message || "Could not verify username right now.");
+        return;
+      }
+      // If pre-check is blocked by rules, transactional claim below is still the source of truth.
     }
 
     const safeEmail = String(user.email || "").trim().toLowerCase();
@@ -3486,7 +3558,9 @@ async function cancelGoogleIdentitySetup() {
 }
 
 if (googleIdentityUsernameInput) {
-  googleIdentityUsernameInput.addEventListener("input", () => hideGoogleIdentityError());
+  googleIdentityUsernameInput.addEventListener("input", () => {
+    scheduleGoogleIdentityUsernameAvailabilityCheck();
+  });
 }
 if (googleIdentityDisplayNameInput) {
   googleIdentityDisplayNameInput.addEventListener("input", () => hideGoogleIdentityError());
@@ -15130,6 +15204,8 @@ Object.assign(window, {
   nextWelcomeGuideStep,
   skipWelcomeGuide,
   handleGoogleAuth,
+  submitGoogleIdentitySetup,
+  cancelGoogleIdentitySetup,
   sendResetPasswordEmail,
   sendAccountResetPasswordEmail,
   editAccountDisplayName,
