@@ -95,6 +95,45 @@ body::before{
   align-items: center;
   z-index: 10000;
 }
+
+#googleIdentityModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.85);
+  justify-content:center;
+  align-items:center;
+  z-index:10020;
+}
+
+#googleIdentityModal .identity-setup-note{
+  margin:0 0 12px;
+  font-size:13px;
+  line-height:1.45;
+  opacity:.94;
+}
+
+#googleIdentityModal .identity-setup-actions{
+  display:flex;
+  gap:10px;
+  margin-top:10px;
+}
+
+#googleIdentityModal .identity-setup-actions button{
+  width:calc(50% - 5px);
+  margin-top:0;
+}
+
+#googleIdentityCancelBtn{
+  background:rgba(255,255,255,0.28) !important;
+}
+
+#googleIdentityError{
+  margin-top:10px;
+  font-size:13px;
+  color:#ff6b6b;
+  display:none;
+}
 .modal-content {
   background: rgba(255,255,255,0.15);
   backdrop-filter: blur(14px);
@@ -1706,6 +1745,20 @@ textarea:focus-visible{
   </div>
 </div>
 
+<div id="googleIdentityModal">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <h2>Set Your Profile</h2>
+    <p class="identity-setup-note">For Google sign-up, choose your own username and display name before continuing.</p>
+    <input id="googleIdentityUsernameInput" type="text" placeholder="Choose username">
+    <input id="googleIdentityDisplayNameInput" type="text" placeholder="Choose display name">
+    <div class="identity-setup-actions">
+      <button id="googleIdentitySaveBtn" onclick="submitGoogleIdentitySetup()">Continue</button>
+      <button id="googleIdentityCancelBtn" onclick="cancelGoogleIdentitySetup()">Sign Out</button>
+    </div>
+    <p id="googleIdentityError"></p>
+  </div>
+</div>
+
 <div id="welcomeGuideModal">
   <div class="welcome-guide-card">
     <div class="welcome-guide-top">
@@ -2171,6 +2224,11 @@ const emailInput = document.getElementById("emailInput");
 const passwordInput = document.getElementById("passwordInput");
 const usernameInput = document.getElementById("usernameInput");
 const displayNameInput = document.getElementById("displayNameInput");
+const googleIdentityModal = document.getElementById("googleIdentityModal");
+const googleIdentityUsernameInput = document.getElementById("googleIdentityUsernameInput");
+const googleIdentityDisplayNameInput = document.getElementById("googleIdentityDisplayNameInput");
+const googleIdentitySaveBtn = document.getElementById("googleIdentitySaveBtn");
+const googleIdentityError = document.getElementById("googleIdentityError");
 const googleAuthButton = document.getElementById("googleAuthButton");
 const resendVerificationButton = document.getElementById("resendVerificationButton");
 const splash = document.getElementById("splash");
@@ -2711,58 +2769,12 @@ try {
           return;
         }
 
-        dashboard.style.display = "grid";
-        setPageTitle("dashboard");
-        accountBtn.style.display = "block";
-        closeAccountPanel();
-        updateAccountPanel(user);
-        signInModal.style.display = "none";
-        setInitialLoadingStates();
-        updateClearDataButtonState();
-        await Promise.allSettled([
-          syncServerClock(user.uid),
-          refreshExportCooldownState(user.uid),
-          upsertUserDirectoryProfile(user),
-          loadPersistedBarGraphs(user.uid)
-        ]);
-        updateAccountPanel(user);
-        const initialDataLoadPromises = [
-          loadDailyChallenge(user.uid),
-          loadDailyUsage(user.uid),
-          loadMoods(user.uid),
-          loadAiUsage(user.uid),
-          loadAiChats(user.uid),
-          loadTasks(user.uid),
-          loadReminders(user.uid),
-          loadWeeklyTargets(user.uid),
-          loadRescueEvents(user.uid),
-          loadHabitQuest(user.uid),
-          loadStartupUsageState(user.uid),
-          loadStartupFeatureState(user.uid),
-          loadWaterData(user.uid),
-          loadSleepData(user.uid),
-          loadGratitude(user.uid)
-        ];
-        friendRequestLoginAlertShown = false;
-        loadFriendRequests(user.uid, true);
-        loadSentFriendRequests(user.uid);
-        loadFriendsInsights(user.uid);
-        startFriendInsightsWatcher(user.uid);
-        showPendingImportSecurityWarnings(user.uid);
-        startDailyChallengeWatcher();
-        scheduleDailyChallengeReset(user.uid);
-        scheduleDailyQuestReset(user.uid);
-        startWeeklyGraphResetCountdown();
-        startStartupResetCountdown();
-        scheduleWeeklyGraphReset(user.uid);
-        scheduleWaterGoalReset(user.uid);
-        void Promise.allSettled(initialDataLoadPromises).then(async () => {
-          const activeUser = auth.currentUser;
-          if (!activeUser?.uid || activeUser.uid !== user.uid) return;
-          await forceSyncFriendProfileFromLocalSnapshot(activeUser);
-          await loadFriendsInsights(activeUser.uid);
-        }).catch(() => {});
-        await maybeShowWelcomeGuide(user.uid).catch(() => {});
+        const googleIdentityReady = await ensureGoogleIdentitySetupIfNeeded(user);
+        if (!googleIdentityReady) {
+          return;
+        }
+
+        await initializeAuthenticatedSession(user);
       } else {
         stopSentRequestExpiryTicker();
         stopDailyChallengeWatcher();
@@ -2776,6 +2788,7 @@ try {
         clearWaterGoalResetSchedule();
         closeAccountPanel();
         closeAddFriendModal(null, true);
+        closeGoogleIdentitySetupModal();
         friendRequestLoginAlertShown = false;
         updateAccountPanel(null);
         signInModal.style.display = "flex";
@@ -3047,6 +3060,8 @@ let signupFlowInProgress = false;
 let suppressUnverifiedSigninPromptUntilMs = 0;
 let usernameLiveCheckTimer = null;
 let usernameLiveCheckSequence = 0;
+let googleIdentitySetupInProgress = false;
+let googleIdentitySetupUserId = "";
 
 function showAuthModalError(message, kind = "generic", color = "#ff6b6b") {
   const error = document.getElementById("signInError");
@@ -3248,6 +3263,235 @@ function setPageTitle(view = "signin") {
 }
 
 setPageTitle("signin");
+
+function isGoogleProviderUser(user) {
+  const providerIds = Array.isArray(user?.providerData)
+    ? user.providerData.map((entry) => String(entry?.providerId || "").trim().toLowerCase())
+    : [];
+  return providerIds.includes("google.com");
+}
+
+function showGoogleIdentityError(message, color = "#ff6b6b") {
+  if (!googleIdentityError) return;
+  googleIdentityError.style.display = "block";
+  googleIdentityError.style.color = color;
+  googleIdentityError.innerText = String(message || "Please review your details and try again.");
+}
+
+function hideGoogleIdentityError() {
+  if (!googleIdentityError) return;
+  googleIdentityError.style.display = "none";
+  googleIdentityError.innerText = "";
+}
+
+function closeGoogleIdentitySetupModal() {
+  if (googleIdentityModal) googleIdentityModal.style.display = "none";
+  hideGoogleIdentityError();
+  if (googleIdentityUsernameInput) googleIdentityUsernameInput.value = "";
+  if (googleIdentityDisplayNameInput) googleIdentityDisplayNameInput.value = "";
+  googleIdentitySetupInProgress = false;
+  googleIdentitySetupUserId = "";
+}
+
+function openGoogleIdentitySetupModal(user, options = {}) {
+  const activeUserId = String(user?.uid || "").trim();
+  if (!googleIdentityModal || !activeUserId) return;
+  const safeEmail = String(user?.email || "").trim().toLowerCase();
+  const emailLocalIdentity = getEmailLocalIdentity(safeEmail);
+
+  const rawUsername = normalizeUsernameForLookup(options.username || "");
+  const prefillUsername = (rawUsername && rawUsername !== emailLocalIdentity)
+    ? rawUsername
+    : (buildUsernameSeedFromDisplayName(user?.displayName) || "");
+  const prefillDisplayName = normalizeDisplayNameValue(options.displayName)
+    || normalizeDisplayNameValue(user?.displayName)
+    || "";
+
+  if (googleIdentityUsernameInput) googleIdentityUsernameInput.value = prefillUsername;
+  if (googleIdentityDisplayNameInput) googleIdentityDisplayNameInput.value = prefillDisplayName;
+  hideGoogleIdentityError();
+  googleIdentityModal.style.display = "flex";
+  signInModal.style.display = "none";
+  googleIdentitySetupInProgress = true;
+  googleIdentitySetupUserId = activeUserId;
+}
+
+async function ensureGoogleIdentitySetupIfNeeded(user) {
+  const activeUserId = String(user?.uid || "").trim();
+  if (!activeUserId) return true;
+  if (!isGoogleProviderUser(user)) return true;
+
+  if (googleIdentitySetupInProgress && googleIdentitySetupUserId === activeUserId) {
+    return false;
+  }
+
+  let profileData = {};
+  try {
+    const profileSnap = await getDoc(doc(db, "users", activeUserId, "settings", "profile"));
+    if (profileSnap.exists()) {
+      profileData = profileSnap.data() || {};
+    }
+  } catch (_) {
+    profileData = {};
+  }
+
+  if (profileData.googleIdentitySetupCompleted === true) {
+    return true;
+  }
+
+  const fallbackUsername = normalizeUsernameForLookup(profileData.username || profileData.name || "");
+  const fallbackDisplayName = normalizeDisplayNameValue(profileData.displayName)
+    || normalizeDisplayNameValue(user?.displayName)
+    || "";
+  openGoogleIdentitySetupModal(user, {
+    username: fallbackUsername,
+    displayName: fallbackDisplayName
+  });
+  return false;
+}
+
+async function initializeAuthenticatedSession(user) {
+  dashboard.style.display = "grid";
+  setPageTitle("dashboard");
+  accountBtn.style.display = "block";
+  closeAccountPanel();
+  closeGoogleIdentitySetupModal();
+  updateAccountPanel(user);
+  signInModal.style.display = "none";
+  setInitialLoadingStates();
+  updateClearDataButtonState();
+  await Promise.allSettled([
+    syncServerClock(user.uid),
+    refreshExportCooldownState(user.uid),
+    upsertUserDirectoryProfile(user),
+    loadPersistedBarGraphs(user.uid)
+  ]);
+  updateAccountPanel(user);
+  const initialDataLoadPromises = [
+    loadDailyChallenge(user.uid),
+    loadDailyUsage(user.uid),
+    loadMoods(user.uid),
+    loadAiUsage(user.uid),
+    loadAiChats(user.uid),
+    loadTasks(user.uid),
+    loadReminders(user.uid),
+    loadWeeklyTargets(user.uid),
+    loadRescueEvents(user.uid),
+    loadHabitQuest(user.uid),
+    loadStartupUsageState(user.uid),
+    loadStartupFeatureState(user.uid),
+    loadWaterData(user.uid),
+    loadSleepData(user.uid),
+    loadGratitude(user.uid)
+  ];
+  friendRequestLoginAlertShown = false;
+  loadFriendRequests(user.uid, true);
+  loadSentFriendRequests(user.uid);
+  loadFriendsInsights(user.uid);
+  startFriendInsightsWatcher(user.uid);
+  showPendingImportSecurityWarnings(user.uid);
+  startDailyChallengeWatcher();
+  scheduleDailyChallengeReset(user.uid);
+  scheduleDailyQuestReset(user.uid);
+  startWeeklyGraphResetCountdown();
+  startStartupResetCountdown();
+  scheduleWeeklyGraphReset(user.uid);
+  scheduleWaterGoalReset(user.uid);
+  void Promise.allSettled(initialDataLoadPromises).then(async () => {
+    const activeUser = auth.currentUser;
+    if (!activeUser?.uid || activeUser.uid !== user.uid) return;
+    await forceSyncFriendProfileFromLocalSnapshot(activeUser);
+    await loadFriendsInsights(activeUser.uid);
+  }).catch(() => {});
+  await maybeShowWelcomeGuide(user.uid).catch(() => {});
+}
+
+async function submitGoogleIdentitySetup() {
+  const user = auth.currentUser;
+  if (!user?.uid) {
+    showGoogleIdentityError("Your session expired. Please sign in again.");
+    return;
+  }
+
+  const usernameRaw = String(googleIdentityUsernameInput?.value || "").trim();
+  const displayNameRaw = String(googleIdentityDisplayNameInput?.value || "").trim();
+  const usernameValidation = validateSignupUsername(usernameRaw);
+  if (!usernameValidation.ok) {
+    showGoogleIdentityError(usernameValidation.message);
+    return;
+  }
+
+  const displayValidation = validateSignupDisplayName(displayNameRaw);
+  if (!displayValidation.ok) {
+    showGoogleIdentityError(displayValidation.message);
+    return;
+  }
+
+  const usernameKey = usernameValidation.normalized;
+  const normalizedDisplayName = normalizeDisplayNameValue(displayValidation.normalized);
+  if (!usernameKey || !normalizedDisplayName) {
+    showGoogleIdentityError("Please enter valid profile details.");
+    return;
+  }
+
+  if (googleIdentitySaveBtn) googleIdentitySaveBtn.disabled = true;
+  hideGoogleIdentityError();
+
+  try {
+    const resolvedUsername = await resolveUserDirectoryByUsername(usernameKey, {
+      forceRefresh: true,
+      preferServer: true
+    }).catch(() => null);
+
+    if (resolvedUsername?.uid && resolvedUsername.uid !== user.uid) {
+      showGoogleIdentityError("This username already exists. Choose a different username.");
+      return;
+    }
+
+    const safeEmail = String(user.email || "").trim().toLowerCase();
+    await claimUsernameDirectoryEntry(user.uid, usernameKey, safeEmail, normalizedDisplayName);
+    await updateProfile(user, { displayName: normalizedDisplayName });
+    await upsertUserDirectoryProfile(user, {
+      username: usernameKey,
+      displayName: normalizedDisplayName
+    });
+
+    await setDoc(doc(db, "users", user.uid, "settings", "profile"), {
+      googleIdentitySetupCompleted: true,
+      googleIdentitySetupCompletedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    await user.reload().catch(() => {});
+    await initializeAuthenticatedSession(user);
+  } catch (err) {
+    const claimCode = String(err?.message || "");
+    if (claimCode === "USERNAME_TAKEN") {
+      showGoogleIdentityError("This username already exists. Choose a different username.");
+      return;
+    }
+    if (isFirestorePermissionDeniedError(err)) {
+      showGoogleIdentityError("Identity setup is blocked by Firestore rules. Allow writes to usernameDirectory/profile and try again.");
+      return;
+    }
+    showGoogleIdentityError(err?.message || "Could not save your profile right now.");
+  } finally {
+    if (googleIdentitySaveBtn) googleIdentitySaveBtn.disabled = false;
+  }
+}
+
+async function cancelGoogleIdentitySetup() {
+  closeGoogleIdentitySetupModal();
+  await signOut(auth).catch(() => {});
+}
+
+if (googleIdentityUsernameInput) {
+  googleIdentityUsernameInput.addEventListener("input", () => hideGoogleIdentityError());
+}
+if (googleIdentityDisplayNameInput) {
+  googleIdentityDisplayNameInput.addEventListener("input", () => hideGoogleIdentityError());
+}
+
 let verificationCooldownTimer = null;
 let verificationCooldownRemaining = 0;
 const VERIFICATION_AUTO_RESEND_WINDOW_MS = 10 * 60 * 1000;
