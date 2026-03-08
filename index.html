@@ -2371,7 +2371,13 @@ function updateAccountPanel(user) {
     return;
   }
 
-  const fallbackName = (user.email || "").split("@")[0] || "User";
+  const providerIds = Array.isArray(user.providerData)
+    ? user.providerData.map((entry) => String(entry?.providerId || "").trim().toLowerCase())
+    : [];
+  const isGoogleAccount = providerIds.includes("google.com");
+  const fallbackName = (isGoogleAccount
+    ? (buildUsernameSeedFromDisplayName(user.displayName) || "user")
+    : ((user.email || "").split("@")[0] || "User"));
   if (accountName) accountName.innerText = fallbackName;
   if (accountDisplayName) accountDisplayName.innerText = normalizeDisplayNameValue(user.displayName) || fallbackName;
   if (accountEmail) accountEmail.innerText = user.email || "Not available";
@@ -2386,9 +2392,21 @@ async function syncAccountIdentityFromProfile(user) {
   if (!activeUid) return;
 
   const safeEmail = String(user?.email || "").trim().toLowerCase();
+  const providerIds = Array.isArray(user?.providerData)
+    ? user.providerData.map((entry) => String(entry?.providerId || "").trim().toLowerCase())
+    : [];
+  const isGoogleAccount = providerIds.includes("google.com");
   const emailLocal = safeEmail.split("@")[0] || "User";
-  let usernameValue = getNormalizedUsernameIdentity(accountName?.innerText || "", safeEmail)
-    || emailLocal
+  const emailLocalIdentity = getEmailLocalIdentity(safeEmail);
+  const googleSeed = buildUsernameSeedFromDisplayName(user?.displayName) || "user";
+  const normalizeResolvedUsername = (value) => {
+    const normalized = normalizeUsernameForLookup(value);
+    if (!normalized) return "";
+    if (isGoogleAccount && emailLocalIdentity && normalized === emailLocalIdentity) return "";
+    return normalized;
+  };
+  let usernameValue = normalizeResolvedUsername(accountName?.innerText || "")
+    || (isGoogleAccount ? googleSeed : normalizeUsernameForLookup(emailLocal))
     || "user";
   let displayNameValue = normalizeDisplayNameValue(user?.displayName) || usernameValue;
 
@@ -2396,7 +2414,7 @@ async function syncAccountIdentityFromProfile(user) {
     const profileSnap = await getDoc(doc(db, "users", activeUid, "settings", "profile"));
     if (profileSnap.exists()) {
       const profileData = profileSnap.data() || {};
-      usernameValue = getNormalizedUsernameIdentity(profileData.username || accountName?.innerText || "", safeEmail)
+      usernameValue = normalizeResolvedUsername(profileData.username || profileData.name || "")
         || usernameValue;
       displayNameValue = normalizeDisplayNameValue(profileData.displayName)
         || normalizeDisplayNameValue(user?.displayName)
@@ -2408,8 +2426,11 @@ async function syncAccountIdentityFromProfile(user) {
       collection(db, "usernameDirectory"),
       where("uid", "==", activeUid)
     ));
-    const canonicalDoc = usernameByUidSnap.docs[0];
-    const canonicalUsername = getNormalizedUsernameIdentity(canonicalDoc?.id || "", safeEmail);
+    const canonicalDoc = usernameByUidSnap.docs.find((docSnap) => {
+      const candidate = normalizeResolvedUsername(docSnap?.id || "");
+      return !!candidate;
+    }) || usernameByUidSnap.docs[0];
+    const canonicalUsername = normalizeResolvedUsername(canonicalDoc?.id || "");
     if (canonicalUsername) {
       usernameValue = canonicalUsername;
     }
@@ -2704,6 +2725,7 @@ try {
           upsertUserDirectoryProfile(user),
           loadPersistedBarGraphs(user.uid)
         ]);
+        updateAccountPanel(user);
         const initialDataLoadPromises = [
           loadDailyChallenge(user.uid),
           loadDailyUsage(user.uid),
@@ -4237,6 +4259,26 @@ function formatUsernameHandle(usernameValue, emailValue = "") {
   return normalized ? `@${normalized}` : "@friend";
 }
 
+function getSafeUsernameForAuthenticatedUser(user, usernameCandidate = "", emailCandidate = "") {
+  const safeEmail = String(emailCandidate || user?.email || "").trim().toLowerCase();
+  const normalizedCandidate = normalizeUsernameForLookup(usernameCandidate);
+  const providerIds = Array.isArray(user?.providerData)
+    ? user.providerData.map((entry) => String(entry?.providerId || "").trim().toLowerCase())
+    : [];
+  const isGoogleAccount = providerIds.includes("google.com");
+  const emailLocalIdentity = getEmailLocalIdentity(safeEmail);
+
+  if (normalizedCandidate && !(isGoogleAccount && emailLocalIdentity && normalizedCandidate === emailLocalIdentity)) {
+    return normalizedCandidate;
+  }
+
+  if (isGoogleAccount) {
+    return buildUsernameSeedFromDisplayName(user?.displayName) || "user";
+  }
+
+  return emailLocalIdentity || "user";
+}
+
 function normalizeUsernameForLookup(usernameValue) {
   const raw = String(usernameValue || "").trim();
   if (!raw) return "";
@@ -4687,10 +4729,7 @@ async function resolveDirectoryIdentityByEmail(emailValue) {
 function buildUserSocialProfileSnapshot(user = auth.currentUser) {
   const activeUser = user || auth.currentUser;
   const email = String(activeUser?.email || "").trim().toLowerCase();
-  const username = getNormalizedUsernameIdentity(
-    normalizeUsernameCandidate(accountName?.innerText || "", email),
-    email
-  ) || "user";
+  const username = getSafeUsernameForAuthenticatedUser(activeUser, accountName?.innerText || "", email);
   const displayName = normalizeDisplayNameValue(activeUser?.displayName)
     || normalizeDisplayNameValue(accountDisplayName?.innerText || "")
     || username;
@@ -5685,6 +5724,10 @@ async function upsertUserDirectoryProfile(user, options = {}) {
       allowSuffixFallback: isGoogleAccount && !!googleNameSeed
     });
 
+    if (accountName && claimedUsername) {
+      accountName.innerText = claimedUsername;
+    }
+
     if (claimedUsername && claimedUsername !== safeUsername) {
       const mergedProfilePayload = {
         ...profilePayload,
@@ -5696,7 +5739,6 @@ async function upsertUserDirectoryProfile(user, options = {}) {
       if (safeEmail) {
         await setDoc(doc(db, "userDirectory", safeEmail), mergedProfilePayload, { merge: true }).catch(() => {});
       }
-      if (accountName) accountName.innerText = claimedUsername;
     }
   } catch (claimErr) {
     const claimCode = String(claimErr?.message || "");
@@ -5977,10 +6019,9 @@ async function loadFriendsInsights(userId) {
 
     // Self-heal one-sided friendships: if I have an accepted friend doc,
     // try to ensure the reciprocal accepted doc also exists.
-    const myUsername = getNormalizedUsernameIdentity(accountName?.innerText || "", userEmail)
-      || await resolveUsernameFromDirectoryEmail(userEmail)
-      || getEmailLocalIdentity(userEmail)
-      || "user";
+    const resolvedMyUsername = normalizeUsernameForLookup(await resolveUsernameFromDirectoryEmail(userEmail));
+    const myUsername = resolvedMyUsername
+      || getSafeUsernameForAuthenticatedUser(auth.currentUser, accountName?.innerText || "", userEmail);
     const myDisplayName = normalizeDisplayNameValue(accountDisplayName?.innerText || "")
       || normalizeDisplayNameValue(auth.currentUser?.displayName)
       || myUsername;
@@ -6660,10 +6701,9 @@ async function submitAddFriendRequest() {
       } catch (_) {}
     }
 
-    const fromUsername = getNormalizedUsernameIdentity(accountName?.innerText || "", senderEmail)
-      || await resolveUsernameFromDirectoryEmail(senderEmail)
-      || getEmailLocalIdentity(senderEmail)
-      || "user";
+    const resolvedFromUsername = normalizeUsernameForLookup(await resolveUsernameFromDirectoryEmail(senderEmail));
+    const fromUsername = resolvedFromUsername
+      || getSafeUsernameForAuthenticatedUser(user, accountName?.innerText || "", senderEmail);
     const fromDisplayName = normalizeDisplayNameValue(accountDisplayName?.innerText || "")
       || normalizeDisplayNameValue(user.displayName)
       || fromUsername;
@@ -6803,10 +6843,9 @@ async function respondToFriendRequest(requestEntry, action) {
       }
 
       const userEmail = String(user.email || "").trim().toLowerCase();
-      const myUsername = getNormalizedUsernameIdentity(accountName?.innerText || "", userEmail)
-        || await resolveUsernameFromDirectoryEmail(userEmail)
-        || getEmailLocalIdentity(userEmail)
-        || "user";
+      const resolvedMyUsername = normalizeUsernameForLookup(await resolveUsernameFromDirectoryEmail(userEmail));
+      const myUsername = resolvedMyUsername
+        || getSafeUsernameForAuthenticatedUser(user, accountName?.innerText || "", userEmail);
       const myDisplayName = normalizeDisplayNameValue(accountDisplayName?.innerText || "")
         || normalizeDisplayNameValue(user.displayName)
         || myUsername;
@@ -6902,11 +6941,10 @@ async function respondToFriendRequest(requestEntry, action) {
       || senderUsername;
     const senderName = senderDisplayName;
     const recipientEmail = String(user.email || requestData.toEmail || "").trim().toLowerCase();
-    const recipientUsername = getNormalizedUsernameIdentity(
-      accountName?.innerText || requestData.toUsername || requestData.toName,
-      recipientEmail
-    ) || getEmailLocalIdentity(recipientEmail)
-      || "user";
+    const recipientCandidateUsername = normalizeUsernameForLookup(accountName?.innerText || requestData.toUsername || requestData.toName);
+    const resolvedRecipientUsername = normalizeUsernameForLookup(await resolveUsernameFromDirectoryEmail(recipientEmail));
+    const recipientUsername = resolvedRecipientUsername
+      || getSafeUsernameForAuthenticatedUser(user, recipientCandidateUsername, recipientEmail);
     const recipientDisplayName = normalizeDisplayNameValue(accountDisplayName?.innerText || "")
       || normalizeDisplayNameValue(user.displayName)
       || normalizeDisplayNameValue(requestData.toDisplayName)
