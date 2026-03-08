@@ -107,8 +107,11 @@ body::before{
   box-shadow: 0 12px 30px rgba(0,0,0,0.3);
 }
 .modal-content input {
+  display:block;
   width: 100%;
-  margin: 10px 0;
+  margin: 0;
+  box-sizing: border-box;
+  max-width: 100%;
   padding: 12px;
   border-radius: 12px;
   border: none;
@@ -116,8 +119,15 @@ body::before{
   color: #fff;
   font-size: 16px;
 }
+
+.modal-content h2 + input,
+.modal-content input + input {
+  margin-top: 14px;
+}
 .modal-content button {
   width: 100%;
+  box-sizing: border-box;
+  max-width: 100%;
   padding: 12px;
   margin-top: 10px;
   border-radius: 12px;
@@ -152,6 +162,17 @@ body::before{
   justify-content:center;
   align-items:center;
   z-index:10036;
+  padding:16px;
+}
+
+#reverseFriendRequestModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.78);
+  justify-content:center;
+  align-items:center;
+  z-index:10037;
   padding:16px;
 }
 
@@ -508,6 +529,11 @@ header p{margin:8px 0 0;opacity:.94}
 #accountResetPasswordBtn{
   width:100%;
   margin-top:10px;
+}
+
+#editDisplayNameBtn{
+  width:100%;
+  margin:8px 0;
 }
 
 #signOutBtn{
@@ -1668,6 +1694,7 @@ textarea:focus-visible{
   <div class="modal-content">
     <h2 id="modalTitle">Welcome to NovaFix 🌟</h2>
     <input id="usernameInput" type="text" placeholder="Enter username" style="display:none;">
+    <input id="displayNameInput" type="text" placeholder="Enter display name" style="display:none;">
     <input id="emailInput" type="email" placeholder="Enter email">
     <input id="passwordInput" type="password" placeholder="Enter password">
     <button id="actionButton" onclick="handleAuth()">Sign In</button>
@@ -1708,6 +1735,8 @@ textarea:focus-visible{
   <h3 class="account-title">👤 Account</h3>
   <p class="account-subtitle">Manage your profile and data controls</p>
   <div class="account-row"><b>Username:</b> <span id="accountName">-</span></div>
+  <div class="account-row"><b>Display Name:</b> <span id="accountDisplayName">-</span></div>
+  <button id="editDisplayNameBtn" onclick="editAccountDisplayName()">Edit Display Name</button>
   <div class="account-row"><b>Email:</b> <span id="accountEmail">-</span></div>
   <div class="account-row"><b>Verification:</b> <span id="accountVerifyStatus">-</span></div>
   <button id="accountResetPasswordBtn" onclick="sendAccountResetPasswordEmail()">Change Password</button>
@@ -1768,6 +1797,14 @@ textarea:focus-visible{
       <button id="addFriendCancelBtn" class="import-transfer-cancel" onclick="closeAddFriendModal()">Cancel</button>
       <button id="addFriendConfirmBtn" onclick="submitAddFriendRequest()">Send Request</button>
     </div>
+  </div>
+</div>
+
+<div id="reverseFriendRequestModal" onclick="closeReverseFriendRequestModal(event)">
+  <div class="import-transfer-card" onclick="event.stopPropagation()">
+    <h3>Pending Friend Request</h3>
+    <p class="import-transfer-note">This user has already sent you a request. Accept or decline now.</p>
+    <div id="reverseFriendRequestPreview" class="friends-list-box"></div>
   </div>
 </div>
 
@@ -2133,6 +2170,7 @@ function getTransferClients() {
 const emailInput = document.getElementById("emailInput");
 const passwordInput = document.getElementById("passwordInput");
 const usernameInput = document.getElementById("usernameInput");
+const displayNameInput = document.getElementById("displayNameInput");
 const googleAuthButton = document.getElementById("googleAuthButton");
 const resendVerificationButton = document.getElementById("resendVerificationButton");
 const splash = document.getElementById("splash");
@@ -2154,6 +2192,8 @@ const addFriendError = document.getElementById("addFriendError");
 const addFriendConfirmBtn = document.getElementById("addFriendConfirmBtn");
 const addFriendCancelBtn = document.getElementById("addFriendCancelBtn");
 const addFriendsBtn = document.getElementById("addFriendsBtn");
+const reverseFriendRequestModal = document.getElementById("reverseFriendRequestModal");
+const reverseFriendRequestPreview = document.getElementById("reverseFriendRequestPreview");
 const friendRequestsList = document.getElementById("friendRequestsList");
 const sentRequestsList = document.getElementById("sentRequestsList");
 const currentFriendsList = document.getElementById("currentFriendsList");
@@ -2192,6 +2232,7 @@ const burnoutWindowEl = document.getElementById("burnoutWindow");
 const burnoutReasonEl = document.getElementById("burnoutReason");
 const burnoutScheduleEl = document.getElementById("burnoutSchedule");
 const accountName = document.getElementById("accountName");
+const accountDisplayName = document.getElementById("accountDisplayName");
 const accountEmail = document.getElementById("accountEmail");
 const accountVerifyStatus = document.getElementById("accountVerifyStatus");
 const accountUid = document.getElementById("accountUid");
@@ -2319,6 +2360,7 @@ function closeAccountPanel() {
 function updateAccountPanel(user) {
   if (!user) {
     if (accountName) accountName.innerText = "-";
+    if (accountDisplayName) accountDisplayName.innerText = "-";
     if (accountEmail) accountEmail.innerText = "-";
     if (accountVerifyStatus) accountVerifyStatus.innerText = "-";
     if (accountUid) accountUid.innerText = "-";
@@ -2330,10 +2372,56 @@ function updateAccountPanel(user) {
   }
 
   const fallbackName = (user.email || "").split("@")[0] || "User";
-  if (accountName) accountName.innerText = user.displayName || fallbackName;
+  if (accountName) accountName.innerText = fallbackName;
+  if (accountDisplayName) accountDisplayName.innerText = normalizeDisplayNameValue(user.displayName) || fallbackName;
   if (accountEmail) accountEmail.innerText = user.email || "Not available";
   if (accountVerifyStatus) accountVerifyStatus.innerText = user.emailVerified ? "Verified ✅" : "Not verified ⚠️";
   if (accountUid) accountUid.innerText = user.uid || "Not available";
+
+  void syncAccountIdentityFromProfile(user);
+}
+
+async function syncAccountIdentityFromProfile(user) {
+  const activeUid = String(user?.uid || "").trim();
+  if (!activeUid) return;
+
+  const safeEmail = String(user?.email || "").trim().toLowerCase();
+  const emailLocal = safeEmail.split("@")[0] || "User";
+  let usernameValue = getNormalizedUsernameIdentity(accountName?.innerText || "", safeEmail)
+    || emailLocal
+    || "user";
+  let displayNameValue = normalizeDisplayNameValue(user?.displayName) || usernameValue;
+
+  try {
+    const profileSnap = await getDoc(doc(db, "users", activeUid, "settings", "profile"));
+    if (profileSnap.exists()) {
+      const profileData = profileSnap.data() || {};
+      usernameValue = getNormalizedUsernameIdentity(profileData.username || accountName?.innerText || "", safeEmail)
+        || usernameValue;
+      displayNameValue = normalizeDisplayNameValue(profileData.displayName)
+        || normalizeDisplayNameValue(user?.displayName)
+        || usernameValue;
+    }
+
+    // Canonical source of truth for username is usernameDirectory doc id.
+    const usernameByUidSnap = await getDocs(query(
+      collection(db, "usernameDirectory"),
+      where("uid", "==", activeUid)
+    ));
+    const canonicalDoc = usernameByUidSnap.docs[0];
+    const canonicalUsername = getNormalizedUsernameIdentity(canonicalDoc?.id || "", safeEmail);
+    if (canonicalUsername) {
+      usernameValue = canonicalUsername;
+    }
+  } catch (_) {
+    // Non-blocking: keep fallback values.
+  }
+
+  const stillActive = String(auth.currentUser?.uid || "").trim() === activeUid;
+  if (!stillActive) return;
+
+  if (accountName) accountName.innerText = usernameValue;
+  if (accountDisplayName) accountDisplayName.innerText = displayNameValue;
 }
 
 document.addEventListener("click", (event) => {
@@ -2981,6 +3069,42 @@ function canOverrideAuthUsernameMessage() {
     || authModalErrorKind === "username_available";
 }
 
+function validateSignupUsername(usernameValue) {
+  const raw = String(usernameValue || "").trim();
+  if (!raw) {
+    return { ok: false, message: "Username is required for sign up!", normalized: "" };
+  }
+
+  if (raw.length < 1 || raw.length > 20) {
+    return { ok: false, message: "Username must be 1-20 characters.", normalized: "" };
+  }
+
+  const allowedPattern = /^[A-Za-z0-9 _-]+$/;
+  if (!allowedPattern.test(raw)) {
+    return { ok: false, message: "Username can only use letters, numbers, spaces, underscores, and dashes.", normalized: "" };
+  }
+
+  return { ok: true, message: "", normalized: normalizeUsernameForLookup(raw) };
+}
+
+function validateSignupDisplayName(displayNameValue) {
+  const raw = String(displayNameValue || "").trim();
+  if (!raw) {
+    return { ok: false, message: "Display name is required for sign up!", normalized: "" };
+  }
+
+  if (raw.length < 1 || raw.length > 20) {
+    return { ok: false, message: "Display name must be 1-20 characters.", normalized: "" };
+  }
+
+  const allowedPattern = /^[A-Za-z0-9 _-]+$/;
+  if (!allowedPattern.test(raw)) {
+    return { ok: false, message: "Display name can only use letters, numbers, spaces, underscores, and dashes.", normalized: "" };
+  }
+
+  return { ok: true, message: "", normalized: raw };
+}
+
 async function getDocWithFreshFallback(ref) {
   try {
     return await getDocFromServer(ref);
@@ -3032,7 +3156,15 @@ function scheduleLiveUsernameAvailabilityCheck() {
   const localSeq = ++usernameLiveCheckSequence;
   usernameLiveCheckTimer = setTimeout(async () => {
     if (authMode !== "signup") return;
-    const usernameKey = normalizeUsernameForLookup(usernameInput?.value || "");
+    const validation = validateSignupUsername(usernameInput?.value || "");
+    if (!validation.ok) {
+      const hasAnyText = String(usernameInput?.value || "").trim().length > 0;
+      if (hasAnyText && canOverrideAuthUsernameMessage()) {
+        showAuthModalError(validation.message, "username");
+      }
+      return;
+    }
+    const usernameKey = validation.normalized;
     if (!usernameKey) return;
 
     if (canOverrideAuthUsernameMessage()) {
@@ -3070,6 +3202,9 @@ if (usernameInput) {
       scheduleLiveUsernameAvailabilityCheck();
     }
   });
+}
+if (displayNameInput) {
+  displayNameInput.addEventListener("input", () => clearAuthModalErrorOnInput("display_name"));
 }
 
 const PAGE_TITLES = {
@@ -3458,6 +3593,7 @@ function toggleAuth(){
     googleAuthButton.innerText = "Sign Up with Google";
     toggleText.innerText="Already have an account? Sign In";
     usernameInput.style.display = "block";
+    if (displayNameInput) displayNameInput.style.display = "block";
     setPageTitle("signup");
   } else {
     title.innerText="Welcome to NovaFix 🌟";
@@ -3465,6 +3601,10 @@ function toggleAuth(){
     googleAuthButton.innerText = "Sign In with Google";
     toggleText.innerText="Don't have an account? Sign Up";
     usernameInput.style.display = "none";
+    if (displayNameInput) {
+      displayNameInput.style.display = "none";
+      displayNameInput.value = "";
+    }
     setPageTitle("signin");
   }
   setResendVerificationButtonState();
@@ -3518,7 +3658,8 @@ async function resendVerificationEmailFromModal() {
 
 async function handleAuth() {
   const username = usernameInput.value.trim();
-  const usernameKey = normalizeUsernameForLookup(username);
+  const displayNameRaw = String(displayNameInput?.value || "").trim();
+  let usernameKey = normalizeUsernameForLookup(username);
   const email = emailInput.value.trim().toLowerCase();
   const password = passwordInput.value.trim();
   const error = document.getElementById("signInError");
@@ -3529,15 +3670,21 @@ async function handleAuth() {
     return;
   }
 
-  if (authMode === "signup" && !username) {
-    showAuthModalError("Username is required for sign up!", "username");
-    return;
+  if (authMode === "signup") {
+    const validation = validateSignupUsername(username);
+    if (!validation.ok) {
+      showAuthModalError(validation.message, "username");
+      return;
+    }
+    const displayValidation = validateSignupDisplayName(displayNameRaw);
+    if (!displayValidation.ok) {
+      showAuthModalError(displayValidation.message, "display_name");
+      return;
+    }
+    usernameKey = validation.normalized;
   }
 
-  if (authMode === "signup" && !usernameKey) {
-    showAuthModalError("Please enter a valid username.", "username");
-    return;
-  }
+  const signupDisplayName = normalizeDisplayNameValue(displayNameRaw);
 
   if (authMode === "signin") {
     const remaining = getAuthBackoffRemainingMs("signin", email);
@@ -3569,7 +3716,7 @@ async function handleAuth() {
       startedSignupAuthFlow = true;
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       try {
-        await claimUsernameDirectoryEntry(userCredential.user.uid, usernameKey, email, username);
+        await claimUsernameDirectoryEntry(userCredential.user.uid, usernameKey, email, signupDisplayName);
       } catch (claimErr) {
         const claimCode = String(claimErr?.message || "");
         if (claimCode === "USERNAME_TAKEN") {
@@ -3587,8 +3734,11 @@ async function handleAuth() {
         throw claimErr;
       }
 
-      await updateProfile(userCredential.user, { displayName: username.trim() });
-      await upsertUserDirectoryProfile(userCredential.user);
+      await updateProfile(userCredential.user, { displayName: signupDisplayName });
+      await upsertUserDirectoryProfile(userCredential.user, {
+        username,
+        displayName: signupDisplayName
+      });
       const verifyResult = await sendVerificationEmailReliable(userCredential.user);
 
       await signOut(auth);
@@ -3601,6 +3751,10 @@ async function handleAuth() {
       googleAuthButton.innerText = "Sign In with Google";
       toggleText.innerText = "Don't have an account? Sign Up";
       usernameInput.style.display = "none";
+      if (displayNameInput) {
+        displayNameInput.style.display = "none";
+        displayNameInput.value = "";
+      }
       setPageTitle("signin");
 
       authModalErrorKind = "";
@@ -3774,6 +3928,74 @@ async function sendAccountResetPasswordEmail() {
   }
 }
 
+async function editAccountDisplayName() {
+  const user = auth.currentUser;
+  if (!user?.uid) {
+    showToast("Please sign in first.");
+    return;
+  }
+
+  const currentDisplayName = normalizeDisplayNameValue(accountDisplayName?.innerText || user.displayName || "")
+    || "";
+  const nextRaw = prompt(
+    "Enter display name (1-20 chars; letters, numbers, spaces, underscores, dashes).",
+    currentDisplayName
+  );
+  if (nextRaw === null) return;
+
+  const nextTrimmed = String(nextRaw || "").trim();
+  if (!nextTrimmed) {
+    showToast("Display name is required.");
+    return;
+  }
+
+  const validation = validateSignupDisplayName(nextTrimmed);
+  if (!validation.ok) {
+    showToast(validation.message || "Invalid display name.");
+    return;
+  }
+
+  const nextDisplayName = validation.normalized || normalizeDisplayNameValue(nextTrimmed);
+  if (!nextDisplayName) {
+    showToast("Display name is required.");
+    return;
+  }
+
+  if (nextDisplayName === currentDisplayName) {
+    showToast("Display name is unchanged.");
+    return;
+  }
+
+  try {
+    await updateProfile(user, { displayName: nextDisplayName });
+    if (accountDisplayName) accountDisplayName.innerText = nextDisplayName;
+
+    await upsertUserDirectoryProfile(user, {
+      displayName: nextDisplayName
+    });
+
+    const socialProfile = buildUserSocialProfileSnapshot(user);
+    await Promise.allSettled([
+      setDoc(doc(db, "users", user.uid, "social", "profile"), {
+        ...socialProfile,
+        updatedAt: serverTimestamp()
+      }, { merge: true }),
+      syncSocialProfileToFriendQueue(user, socialProfile),
+      syncSocialProfileToFriendsMirror(user, socialProfile)
+    ]);
+
+    await Promise.allSettled([
+      loadFriendRequests(user.uid),
+      loadSentFriendRequests(user.uid),
+      loadFriendsInsights(user.uid)
+    ]);
+
+    showToast("Display name updated.");
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+}
+
 function setAddFriendError(message = "") {
   if (!addFriendError) return;
   addFriendError.innerText = String(message || "");
@@ -3810,6 +4032,103 @@ function startAddFriendRequest() {
     addFriendEmailInput.value = "";
     addFriendEmailInput.focus();
   }
+}
+
+function setReverseFriendRequestPromptBusy(isBusy) {
+  reverseFriendRequestPromptBusy = !!isBusy;
+  if (!reverseFriendRequestPreview) return;
+  const actionButtons = reverseFriendRequestPreview.querySelectorAll("button[data-reverse-request-action]");
+  actionButtons.forEach((button) => {
+    button.disabled = !!isBusy;
+  });
+}
+
+function closeReverseFriendRequestModal(event, force = false, result = "dismiss") {
+  if (event?.target && event.target !== reverseFriendRequestModal) return;
+  if (reverseFriendRequestPromptBusy && !force) return;
+  if (reverseFriendRequestModal) reverseFriendRequestModal.style.display = "none";
+  if (reverseFriendRequestPreview) reverseFriendRequestPreview.innerHTML = "";
+  setReverseFriendRequestPromptBusy(false);
+
+  if (typeof reverseFriendRequestPromptResolver === "function") {
+    const resolver = reverseFriendRequestPromptResolver;
+    reverseFriendRequestPromptResolver = null;
+    resolver(String(result || "dismiss"));
+  }
+}
+
+async function openReverseFriendRequestPrompt(requestEntry) {
+  const entry = requestEntry && typeof requestEntry === "object" ? requestEntry : null;
+  if (!entry?.fromUid) return "dismiss";
+
+  // Hide Add Friend overlay so app background remains visible behind this prompt.
+  if (addFriendModal) addFriendModal.style.display = "none";
+
+  if (!reverseFriendRequestModal || !reverseFriendRequestPreview) {
+    const fallbackSenderName = getFriendDisplayName({
+      uid: entry.fromUid,
+      email: entry.fromEmail,
+      name: entry.fromName
+    }, "Friend");
+    const shouldAcceptNow = confirm(`${fallbackSenderName} has already sent you a friend request. Accept it now?`);
+    if (shouldAcceptNow) {
+      await respondToFriendRequest(entry, "accept");
+      return "accept";
+    }
+    return "dismiss";
+  }
+
+  if (typeof reverseFriendRequestPromptResolver === "function") {
+    closeReverseFriendRequestModal(null, true, "dismiss");
+  }
+
+  return new Promise((resolve) => {
+    reverseFriendRequestPromptResolver = resolve;
+    setReverseFriendRequestPromptBusy(false);
+
+    const senderName = escapeHtml(getFriendDisplayName({
+      displayName: entry.fromDisplayName,
+      uid: entry.fromUid,
+      email: entry.fromEmail,
+      name: entry.fromName
+    }, "Friend"));
+    const senderHandle = escapeHtml(formatUsernameHandle(entry.fromUsername, entry.fromEmail));
+
+    const row = document.createElement("div");
+    row.className = "friend-row";
+    row.innerHTML = `<strong>${senderName}</strong><small>${senderHandle}</small><small>Pending friend request</small>`;
+
+    const actions = document.createElement("div");
+    actions.className = "friend-actions";
+
+    const acceptBtn = document.createElement("button");
+    acceptBtn.innerText = "Accept";
+    acceptBtn.setAttribute("data-reverse-request-action", "accept");
+    acceptBtn.onclick = async () => {
+      if (reverseFriendRequestPromptBusy) return;
+      setReverseFriendRequestPromptBusy(true);
+      await respondToFriendRequest(entry, "accept");
+      closeReverseFriendRequestModal(null, true, "accept");
+    };
+
+    const declineBtn = document.createElement("button");
+    declineBtn.className = "import-transfer-cancel";
+    declineBtn.innerText = "Decline";
+    declineBtn.setAttribute("data-reverse-request-action", "decline");
+    declineBtn.onclick = async () => {
+      if (reverseFriendRequestPromptBusy) return;
+      setReverseFriendRequestPromptBusy(true);
+      await respondToFriendRequest(entry, "decline");
+      closeReverseFriendRequestModal(null, true, "decline");
+    };
+
+    actions.append(acceptBtn, declineBtn);
+    row.append(actions);
+
+    reverseFriendRequestPreview.innerHTML = "";
+    reverseFriendRequestPreview.appendChild(row);
+    reverseFriendRequestModal.style.display = "flex";
+  });
 }
 
 async function getActiveFriendCount(userId, userEmail = "") {
@@ -3891,6 +4210,32 @@ function normalizeUsernameCandidate(nameValue, relatedEmail = "") {
   return text;
 }
 
+function normalizeDisplayNameValue(displayNameValue) {
+  const text = String(displayNameValue || "").trim();
+  if (!text) return "";
+  const sliced = text.slice(0, 20);
+  const allowedPattern = /^[A-Za-z0-9 _-]+$/;
+  if (!allowedPattern.test(sliced)) return "";
+  return sliced;
+}
+
+function getEmailLocalIdentity(emailValue) {
+  const safeEmail = String(emailValue || "").trim().toLowerCase();
+  if (!safeEmail.includes("@")) return "";
+  return normalizeUsernameForLookup(safeEmail.split("@")[0] || "");
+}
+
+function getNormalizedUsernameIdentity(usernameValue, emailValue = "") {
+  const fromUsername = normalizeUsernameForLookup(usernameValue);
+  if (fromUsername) return fromUsername;
+  return getEmailLocalIdentity(emailValue);
+}
+
+function formatUsernameHandle(usernameValue, emailValue = "") {
+  const normalized = getNormalizedUsernameIdentity(usernameValue, emailValue);
+  return normalized ? `@${normalized}` : "@friend";
+}
+
 function normalizeUsernameForLookup(usernameValue) {
   const raw = String(usernameValue || "").trim();
   if (!raw) return "";
@@ -3916,11 +4261,16 @@ async function resolveUserDirectoryByUsername(usernameValue, options = {}) {
     const email = String(data.email || "").trim().toLowerCase();
     const uid = String(data.uid || "").trim();
     if (!uid) return null;
+    const normalizedUsername = normalizeUsernameForLookup(data.username || data.name || fallbackUsername) || fallbackUsername;
+    const displayName = normalizeDisplayNameValue(data.displayName)
+      || normalizeDisplayNameValue(data.name)
+      || normalizedUsername;
     return {
       uid,
       email,
-      name: normalizeUsernameCandidate(data.name, email) || fallbackUsername,
-      username: normalizeUsernameForLookup(data.username || fallbackUsername) || fallbackUsername
+      name: normalizedUsername,
+      username: normalizedUsername,
+      displayName
     };
   };
 
@@ -3950,8 +4300,11 @@ async function resolveUserDirectoryByUsername(usernameValue, options = {}) {
                 resolved = {
                   uid: fallbackUid,
                   email: fallbackEmail,
-                  name: normalizeUsernameCandidate(usernameData.name, fallbackEmail) || usernameKey,
-                  username: usernameKey
+                  name: usernameKey,
+                  username: usernameKey,
+                  displayName: normalizeDisplayNameValue(usernameData.displayName)
+                    || normalizeDisplayNameValue(usernameData.name)
+                    || usernameKey
                 };
               }
             }
@@ -4000,8 +4353,11 @@ async function resolveUserDirectoryByUsername(usernameValue, options = {}) {
           resolved = {
             uid,
             email,
-            name: normalizeUsernameCandidate(data.name, email) || usernameKey,
-            username: usernameKey
+            name: usernameKey,
+            username: usernameKey,
+            displayName: normalizeDisplayNameValue(data.displayName)
+              || normalizeDisplayNameValue(data.name)
+              || usernameKey
           };
           break;
         }
@@ -4028,8 +4384,11 @@ async function resolveUserDirectoryByUsername(usernameValue, options = {}) {
           resolved = {
             uid,
             email,
-            name: normalizeUsernameCandidate(data.name, email) || rawWithoutAt,
-            username: usernameKey
+            name: usernameKey,
+            username: usernameKey,
+            displayName: normalizeDisplayNameValue(data.displayName)
+              || normalizeDisplayNameValue(data.name)
+              || rawWithoutAt
           };
           break;
         }
@@ -4057,8 +4416,11 @@ async function resolveUserDirectoryByUsername(usernameValue, options = {}) {
           resolved = {
             uid,
             email,
-            name: normalizeUsernameCandidate(data.name, email) || usernameKey,
-            username: usernameKey
+            name: usernameKey,
+            username: usernameKey,
+            displayName: normalizeDisplayNameValue(data.displayName)
+              || normalizeDisplayNameValue(data.name)
+              || usernameKey
           };
           break;
         }
@@ -4092,7 +4454,8 @@ async function claimUsernameDirectoryEntry(userId, usernameValue, emailValue, di
   const safeUserId = String(userId || "").trim();
   const usernameKey = normalizeUsernameForLookup(usernameValue);
   const safeEmail = String(emailValue || "").trim().toLowerCase();
-  const safeName = normalizeUsernameCandidate(displayNameValue, safeEmail) || usernameKey;
+  const safeUsername = normalizeUsernameForLookup(usernameValue) || usernameKey;
+  const safeDisplayName = normalizeDisplayNameValue(displayNameValue) || safeUsername;
   if (!safeUserId || !usernameKey) {
     throw new Error("INVALID_USERNAME");
   }
@@ -4113,8 +4476,9 @@ async function claimUsernameDirectoryEntry(userId, usernameValue, emailValue, di
     transaction.set(usernameRef, {
       uid: safeUserId,
       email: safeEmail,
-      name: safeName,
+      name: safeUsername,
       username: usernameKey,
+      displayName: safeDisplayName,
       createdAt: existingData?.createdAt || serverTimestamp(),
       updatedAt: serverTimestamp()
     }, { merge: true });
@@ -4123,8 +4487,9 @@ async function claimUsernameDirectoryEntry(userId, usernameValue, emailValue, di
   usernameDirectoryCache.set(usernameKey, {
     uid: safeUserId,
     email: safeEmail,
-    name: safeName,
-    username: usernameKey
+    name: safeUsername,
+    username: usernameKey,
+    displayName: safeDisplayName
   });
 
   try {
@@ -4163,11 +4528,14 @@ async function claimUsernameDirectoryEntry(userId, usernameValue, emailValue, di
 
 function getFriendDisplayName(profileLike, fallbackName = "") {
   const safeEmail = String(profileLike?.email || "").trim().toLowerCase();
+  const normalizedDisplayName = normalizeDisplayNameValue(profileLike?.displayName);
+  const isGenericDisplayName = /^(friend|unknown|your friend|user)$/i.test(String(normalizedDisplayName || "").trim());
   const normalizedProfileName = normalizeUsernameCandidate(profileLike?.name, safeEmail);
   const isGenericProfileName = /^(friend|unknown|your friend|user)$/i.test(String(normalizedProfileName || "").trim());
   const normalizedFallback = normalizeUsernameCandidate(fallbackName, safeEmail);
   const isGenericFallback = /^(friend|unknown|your friend|user)$/i.test(String(normalizedFallback || "").trim());
-  const preferred = (isGenericProfileName ? "" : normalizedProfileName)
+  const preferred = (isGenericDisplayName ? "" : normalizedDisplayName)
+    || (isGenericProfileName ? "" : normalizedProfileName)
     || (isGenericFallback ? "" : normalizedFallback);
   if (preferred) return preferred;
 
@@ -4180,33 +4548,52 @@ function getFriendDisplayName(profileLike, fallbackName = "") {
 }
 
 async function resolveUsernameFromDirectoryEmail(emailValue) {
+  const identity = await resolveDirectoryIdentityByEmail(emailValue);
+  return String(identity?.username || "");
+}
+
+async function resolveDirectoryIdentityByEmail(emailValue) {
   const safeEmail = String(emailValue || "").trim().toLowerCase();
-  if (!safeEmail) return "";
-  if (userDirectoryNameCache.has(safeEmail)) {
-    return userDirectoryNameCache.get(safeEmail) || "";
+  if (!safeEmail) {
+    return { username: "", displayName: "" };
+  }
+  if (userDirectoryIdentityCache.has(safeEmail)) {
+    return userDirectoryIdentityCache.get(safeEmail) || { username: "", displayName: "" };
   }
 
-  let resolvedName = "";
+  let identity = { username: "", displayName: "" };
   try {
     const directorySnap = await getDoc(doc(db, "userDirectory", safeEmail));
     if (directorySnap.exists()) {
       const data = directorySnap.data() || {};
-      resolvedName = normalizeUsernameCandidate(data.name, safeEmail);
+      const resolvedUsername = getNormalizedUsernameIdentity(data.username || data.name, safeEmail);
+      const resolvedDisplayName = normalizeDisplayNameValue(data.displayName)
+        || normalizeDisplayNameValue(data.name)
+        || resolvedUsername;
+      identity = {
+        username: resolvedUsername,
+        displayName: resolvedDisplayName
+      };
     }
   } catch (_) {
-    resolvedName = "";
+    identity = { username: "", displayName: "" };
   }
 
-  userDirectoryNameCache.set(safeEmail, resolvedName || "");
-  return resolvedName || "";
+  userDirectoryNameCache.set(safeEmail, identity.username || "");
+  userDirectoryIdentityCache.set(safeEmail, identity);
+  return identity;
 }
 
 function buildUserSocialProfileSnapshot(user = auth.currentUser) {
   const activeUser = user || auth.currentUser;
   const email = String(activeUser?.email || "").trim().toLowerCase();
-  const displayName = normalizeUsernameCandidate(activeUser?.displayName, email)
-    || normalizeUsernameCandidate(accountName?.innerText || "", email)
-    || "User";
+  const username = getNormalizedUsernameIdentity(
+    normalizeUsernameCandidate(accountName?.innerText || "", email),
+    email
+  ) || "user";
+  const displayName = normalizeDisplayNameValue(activeUser?.displayName)
+    || normalizeDisplayNameValue(accountDisplayName?.innerText || "")
+    || username;
   const uid = String(activeUser?.uid || "").trim();
 
   const maps = buildPatternMetricMaps(14);
@@ -4239,6 +4626,8 @@ function buildUserSocialProfileSnapshot(user = auth.currentUser) {
     uid,
     email,
     name: displayName,
+    username,
+    displayName,
     metrics: {
       totalTasksLogged,
       completedTasks,
@@ -4526,12 +4915,14 @@ function renderFriendRequests(rows) {
   rows.forEach((entry) => {
     const row = document.createElement("div");
     row.className = "friend-row";
-    const senderName = escapeHtml(getFriendDisplayName({
+    const senderDisplayName = escapeHtml(getFriendDisplayName({
+      displayName: entry.fromDisplayName,
       name: entry.fromName,
-      email: "",
+      email: entry.fromEmail,
       uid: entry.fromUid
     }, "Unknown"));
-    row.innerHTML = `<strong>${senderName}</strong><small>Pending friend request</small>`;
+    const senderHandle = escapeHtml(formatUsernameHandle(entry.fromUsername, entry.fromEmail));
+    row.innerHTML = `<strong>${senderDisplayName}</strong><small>${senderHandle}</small><small>Pending friend request</small>`;
 
     const actions = document.createElement("div");
     actions.className = "friend-actions";
@@ -4595,12 +4986,14 @@ function renderCurrentFriends(rows) {
   rows.forEach((entry) => {
     const row = document.createElement("div");
     row.className = "friend-row";
-    const friendName = escapeHtml(getFriendDisplayName({
+    const friendDisplayName = escapeHtml(getFriendDisplayName({
+      displayName: entry.friendDisplayName,
       uid: entry.friendUid,
-      email: "",
+      email: entry.friendEmail,
       name: entry.friendName
     }, "Friend"));
-    row.innerHTML = `<strong>${friendName}</strong><small>Connected friend</small>`;
+    const friendHandle = escapeHtml(formatUsernameHandle(entry.friendUsername, entry.friendEmail));
+    row.innerHTML = `<strong>${friendDisplayName}</strong><small>${friendHandle}</small><small>Connected friend</small>`;
 
     const actions = document.createElement("div");
     actions.className = "friend-actions";
@@ -4609,7 +5002,7 @@ function renderCurrentFriends(rows) {
     unfriendBtn.className = "import-transfer-cancel";
     unfriendBtn.innerText = "Unfriend";
     unfriendBtn.onclick = async () => {
-      const confirmText = `Remove ${friendName.replace(/&amp;/g, "&")} from your friends list?`;
+      const confirmText = `Remove ${friendDisplayName.replace(/&amp;/g, "&")} from your friends list?`;
       if (!confirm(confirmText)) return;
       await unfriendByUid(String(entry.friendUid || ""));
     };
@@ -4688,18 +5081,20 @@ function renderSentFriendRequests(rows) {
   rows.forEach((entry) => {
     const row = document.createElement("div");
     row.className = "friend-row";
-    const friendName = escapeHtml(getFriendDisplayName({
+    const friendDisplayName = escapeHtml(getFriendDisplayName({
+      displayName: entry.toDisplayName,
       uid: entry.toUid,
-      email: "",
+      email: entry.toEmail,
       name: entry.toName
     }, "Friend"));
+    const friendHandle = escapeHtml(formatUsernameHandle(entry.toUsername, entry.toEmail));
     const createdMs = Number(entry?.createdAtMs)
       || getOptionalTimestampMs(entry?.createdAt)
       || Number(entry?.updatedAtMs)
       || getOptionalTimestampMs(entry?.updatedAt)
       || getServerNowDate().getTime();
     const expiry = escapeHtml(formatRequestExpiryLabel({ createdAtMs: createdMs }));
-    row.innerHTML = `<strong>${friendName}</strong><small>Pending request • Expires in <span class="sent-request-expiry" data-created-ms="${createdMs}">${expiry}</span></small>`;
+    row.innerHTML = `<strong>${friendDisplayName}</strong><small>${friendHandle}</small><small>Pending request • Expires in <span class="sent-request-expiry" data-created-ms="${createdMs}">${expiry}</span></small>`;
 
     const actions = document.createElement("div");
     actions.className = "friend-actions";
@@ -4708,7 +5103,7 @@ function renderSentFriendRequests(rows) {
     cancelBtn.className = "import-transfer-cancel";
     cancelBtn.innerText = "Cancel Request";
     cancelBtn.onclick = async () => {
-      if (!confirm(`Cancel request to ${friendName.replace(/&amp;/g, "&")}?`)) return;
+      if (!confirm(`Cancel request to ${friendDisplayName.replace(/&amp;/g, "&")}?`)) return;
       await cancelSentFriendRequest(entry);
     };
 
@@ -4883,19 +5278,34 @@ async function loadSentFriendRequests(userId) {
     const emailSet = [...new Set(rows
       .map((entry) => String(entry.toEmail || "").trim().toLowerCase())
       .filter(Boolean))];
-    const toEmailNameMap = new Map();
+    const toEmailIdentityMap = new Map();
     await Promise.all(emailSet.map(async (email) => {
-      const resolved = await resolveUsernameFromDirectoryEmail(email);
-      toEmailNameMap.set(email, resolved || "");
+      const identity = await resolveDirectoryIdentityByEmail(email);
+      toEmailIdentityMap.set(email, identity || { username: "", displayName: "" });
     }));
 
     rows = rows.map((entry) => {
       const toEmail = String(entry.toEmail || "").trim().toLowerCase();
-      const toName = normalizeUsernameCandidate(entry.toName, toEmail)
-        || toEmailNameMap.get(toEmail)
+      const identity = toEmailIdentityMap.get(toEmail) || { username: "", displayName: "" };
+      const toUsername = getNormalizedUsernameIdentity(
+        entry.toUsername || entry?.toProfile?.username || identity.username,
+        toEmail
+      ) || identity.username
+        || getEmailLocalIdentity(toEmail);
+      const toDisplayName = normalizeDisplayNameValue(entry.toDisplayName)
+        || normalizeDisplayNameValue(entry?.toProfile?.displayName)
+        || normalizeDisplayNameValue(entry.toName)
+        || identity.displayName
         || (toEmail === userEmail ? "You" : "")
+        || toUsername
         || "Friend";
-      return { ...entry, toEmail, toName };
+      return {
+        ...entry,
+        toEmail,
+        toUsername,
+        toDisplayName,
+        toName: toDisplayName
+      };
     });
 
     renderSentFriendRequests(rows);
@@ -5074,17 +5484,60 @@ async function unfriendByUid(friendUid) {
   }
 }
 
-async function upsertUserDirectoryProfile(user) {
+async function upsertUserDirectoryProfile(user, options = {}) {
   if (!user?.uid) return;
   const safeEmail = String(user.email || "").trim().toLowerCase();
-  const safeName = normalizeUsernameCandidate(user.displayName, safeEmail)
-    || normalizeUsernameCandidate(accountName?.innerText || "", safeEmail)
-    || "User";
+
+  let existingProfileData = {};
+  try {
+    const existingProfileSnap = await getDoc(doc(db, "users", user.uid, "settings", "profile"));
+    if (existingProfileSnap.exists()) {
+      existingProfileData = existingProfileSnap.data() || {};
+    }
+  } catch (_) {
+    existingProfileData = {};
+  }
+
+  let existingUsernameFromDirectory = "";
+  let existingDisplayNameFromDirectory = "";
+  if (!normalizeUsernameCandidate(existingProfileData.username, safeEmail)
+    && !normalizeUsernameCandidate(existingProfileData.name, safeEmail)) {
+    try {
+      const usernameByUidSnap = await getDocs(query(
+        collection(db, "usernameDirectory"),
+        where("uid", "==", user.uid)
+      ));
+      const firstMatch = usernameByUidSnap.docs[0];
+      if (firstMatch) {
+        const usernameData = firstMatch.data() || {};
+        existingUsernameFromDirectory = getNormalizedUsernameIdentity(usernameData.username || usernameData.name || firstMatch.id, safeEmail);
+        existingDisplayNameFromDirectory = normalizeDisplayNameValue(usernameData.displayName);
+      }
+    } catch (_) {
+      existingUsernameFromDirectory = "";
+      existingDisplayNameFromDirectory = "";
+    }
+  }
+
+  const safeUsername = getNormalizedUsernameIdentity(options?.username, safeEmail)
+    || getNormalizedUsernameIdentity(existingProfileData.username || existingProfileData.name, safeEmail)
+    || existingUsernameFromDirectory
+    || getNormalizedUsernameIdentity(accountName?.innerText || "", safeEmail)
+    || getEmailLocalIdentity(safeEmail)
+    || "user";
+
+  const safeDisplayName = normalizeDisplayNameValue(options?.displayName)
+    || normalizeDisplayNameValue(existingProfileData.displayName)
+    || existingDisplayNameFromDirectory
+    || normalizeDisplayNameValue(user.displayName)
+    || safeUsername;
 
   const profilePayload = {
     uid: user.uid,
     email: safeEmail,
-    name: safeName,
+    name: safeUsername,
+    username: safeUsername,
+    displayName: safeDisplayName,
     updatedAt: serverTimestamp()
   };
 
@@ -5104,7 +5557,7 @@ async function upsertUserDirectoryProfile(user) {
   }
 
   try {
-    await claimUsernameDirectoryEntry(user.uid, safeName, safeEmail, safeName);
+    await claimUsernameDirectoryEntry(user.uid, safeUsername, safeEmail, safeDisplayName);
   } catch (claimErr) {
     const claimCode = String(claimErr?.message || "");
     if (claimCode === "USERNAME_TAKEN" || isFirestorePermissionDeniedError(claimErr)) {
@@ -5291,18 +5744,33 @@ async function loadFriendRequests(userId, showLoginAlert = false) {
     const fromEmails = [...new Set(rows
       .map((entry) => String(entry.fromEmail || "").trim().toLowerCase())
       .filter(Boolean))];
-    const fromEmailNameMap = new Map();
+    const fromEmailIdentityMap = new Map();
     await Promise.all(fromEmails.map(async (email) => {
-      const resolved = await resolveUsernameFromDirectoryEmail(email);
-      fromEmailNameMap.set(email, resolved || "");
+      const identity = await resolveDirectoryIdentityByEmail(email);
+      fromEmailIdentityMap.set(email, identity || { username: "", displayName: "" });
     }));
 
     rows = rows.map((entry) => {
       const fromEmail = String(entry.fromEmail || "").trim().toLowerCase();
-      const normalized = normalizeUsernameCandidate(entry.fromName, fromEmail)
-        || fromEmailNameMap.get(fromEmail)
+      const identity = fromEmailIdentityMap.get(fromEmail) || { username: "", displayName: "" };
+      const fromUsername = getNormalizedUsernameIdentity(
+        entry.fromUsername || entry?.fromProfile?.username || identity.username,
+        fromEmail
+      ) || identity.username
+        || getEmailLocalIdentity(fromEmail);
+      const fromDisplayName = normalizeDisplayNameValue(entry.fromDisplayName)
+        || normalizeDisplayNameValue(entry?.fromProfile?.displayName)
+        || normalizeDisplayNameValue(entry.fromName)
+        || identity.displayName
+        || fromUsername
         || "Friend";
-      return { ...entry, fromName: normalized };
+      return {
+        ...entry,
+        fromEmail,
+        fromUsername,
+        fromDisplayName,
+        fromName: fromDisplayName
+      };
     });
 
     renderFriendRequests(rows);
@@ -5369,10 +5837,13 @@ async function loadFriendsInsights(userId) {
 
     // Self-heal one-sided friendships: if I have an accepted friend doc,
     // try to ensure the reciprocal accepted doc also exists.
-    const myDisplayName = normalizeUsernameCandidate(auth.currentUser?.displayName, userEmail)
-      || normalizeUsernameCandidate(accountName?.innerText || "", userEmail)
+    const myUsername = getNormalizedUsernameIdentity(accountName?.innerText || "", userEmail)
       || await resolveUsernameFromDirectoryEmail(userEmail)
-      || "User";
+      || getEmailLocalIdentity(userEmail)
+      || "user";
+    const myDisplayName = normalizeDisplayNameValue(accountDisplayName?.innerText || "")
+      || normalizeDisplayNameValue(auth.currentUser?.displayName)
+      || myUsername;
     await Promise.all(friends.map((entry) => {
       const friendUid = String(entry.friendUid || "").trim();
       if (!friendUid || friendUid === userId) return Promise.resolve();
@@ -5380,6 +5851,8 @@ async function loadFriendsInsights(userId) {
         friendUid: userId,
         friendEmail: userEmail,
         friendName: myDisplayName,
+        friendUsername: myUsername,
+        friendDisplayName: myDisplayName,
         status: "accepted",
         updatedAt: serverTimestamp()
       }, { merge: true }).catch(() => {});
@@ -5417,6 +5890,8 @@ async function loadFriendsInsights(userId) {
             ? {
               uid: String(sharedProfileRaw.uid || friendUid || ""),
               email: String(sharedProfileRaw.email || (isSender ? entry.toEmail : entry.fromEmail) || "").trim().toLowerCase(),
+              username: getNormalizedUsernameIdentity(sharedProfileRaw.username || sharedProfileRaw.name, String(sharedProfileRaw.email || (isSender ? entry.toEmail : entry.fromEmail) || "").trim().toLowerCase()),
+              displayName: normalizeDisplayNameValue(sharedProfileRaw.displayName || sharedProfileRaw.name),
               name: String(sharedProfileRaw.name || "").trim(),
               metrics: {
                 totalTasksLogged: Number(sharedProfileRaw?.metrics?.totalTasksLogged) || 0,
@@ -5447,7 +5922,9 @@ async function loadFriendsInsights(userId) {
             sharedProfile,
             updatedAtMs,
             friendEmail: String(isSender ? entry.toEmail : entry.fromEmail || "").trim().toLowerCase(),
-            friendName: String(isSender ? (entry.toName || entry.toEmail || "Friend") : (entry.fromName || entry.fromEmail || "Friend"))
+            friendName: String(isSender ? (entry.toName || entry.toEmail || "Friend") : (entry.fromName || entry.fromEmail || "Friend")),
+            friendUsername: String(isSender ? (entry.toUsername || "") : (entry.fromUsername || "")).trim(),
+            friendDisplayName: String(isSender ? (entry.toDisplayName || "") : (entry.fromDisplayName || "")).trim()
           };
         })
         .filter((entry) => !!entry.friendUid || !!entry.friendEmail);
@@ -5505,6 +5982,8 @@ async function loadFriendsInsights(userId) {
           friendUid: String(entry.friendUid || ""),
           friendEmail: String(entry.friendEmail || "").trim().toLowerCase(),
           friendName: String(entry.friendName || "Friend"),
+          friendUsername: String(entry.friendUsername || "").trim(),
+          friendDisplayName: String(entry.friendDisplayName || "").trim(),
           status: "accepted",
           sharedProfile: pickBetterSharedProfile(
             entry.sharedProfile || null,
@@ -5540,6 +6019,8 @@ async function loadFriendsInsights(userId) {
           friendUid,
           friendEmail: String(entry.friendEmail || "").trim().toLowerCase(),
           friendName: fallbackName,
+          friendUsername: getNormalizedUsernameIdentity(entry.friendUsername || fallbackName, entry.friendEmail),
+          friendDisplayName: normalizeDisplayNameValue(entry.friendDisplayName || fallbackName) || fallbackName,
           status: "accepted",
           updatedAt: serverTimestamp()
         }, { merge: true }).catch(() => {});
@@ -5566,6 +6047,8 @@ async function loadFriendsInsights(userId) {
           friendUid: String(entry.fromUid || entry.id || "").trim(),
           friendEmail: String(entry.fromEmail || "").trim().toLowerCase(),
           friendName: String(entry.fromName || "").trim(),
+          friendUsername: String(entry.fromUsername || "").trim(),
+          friendDisplayName: String(entry.fromDisplayName || "").trim(),
           status: "accepted"
         }));
 
@@ -5576,6 +6059,8 @@ async function loadFriendsInsights(userId) {
           friendUid: String(entry.toUid || "").trim(),
           friendEmail: String(entry.toEmail || "").trim().toLowerCase(),
           friendName: String(entry.toName || "").trim(),
+          friendUsername: String(entry.toUsername || "").trim(),
+          friendDisplayName: String(entry.toDisplayName || "").trim(),
           status: "accepted"
         }));
 
@@ -5607,6 +6092,8 @@ async function loadFriendsInsights(userId) {
           friendUid,
           friendEmail: String(entry.friendEmail || "").trim().toLowerCase(),
           friendName: fallbackName,
+          friendUsername: getNormalizedUsernameIdentity(entry.friendUsername || fallbackName, entry.friendEmail),
+          friendDisplayName: normalizeDisplayNameValue(entry.friendDisplayName || fallbackName) || fallbackName,
           status: "accepted",
           updatedAt: serverTimestamp()
         }, { merge: true }).catch(() => {});
@@ -5620,6 +6107,8 @@ async function loadFriendsInsights(userId) {
           friendUid: uid,
           friendEmail: String(entry.friendEmail || "").trim().toLowerCase(),
           friendName: String(entry.friendName || "").trim(),
+          friendUsername: String(entry.friendUsername || "").trim(),
+          friendDisplayName: String(entry.friendDisplayName || "").trim(),
           status: "accepted"
         });
       });
@@ -5643,6 +6132,8 @@ async function loadFriendsInsights(userId) {
         ...entry,
         friendEmail: String(entry.friendEmail || existing.friendEmail || ""),
         friendName: String(entry.friendName || existing.friendName || ""),
+        friendUsername: String(entry.friendUsername || existing.friendUsername || ""),
+        friendDisplayName: String(entry.friendDisplayName || existing.friendDisplayName || ""),
         sharedProfile: pickBetterSharedProfile(
           pickBetterSharedProfile(existing.sharedProfile || null, entry.sharedProfile || null),
           queueProfile
@@ -5671,17 +6162,26 @@ async function loadFriendsInsights(userId) {
       }
 
       const friendEmail = String(entry.friendEmail || profile?.email || "").trim().toLowerCase();
-      const directoryName = await resolveUsernameFromDirectoryEmail(friendEmail);
-      const resolvedFriendName = normalizeUsernameCandidate(profile?.name, friendEmail)
-        || normalizeUsernameCandidate(entry.friendName, friendEmail)
-        || directoryName
+      const directoryIdentity = await resolveDirectoryIdentityByEmail(friendEmail);
+      const resolvedFriendUsername = getNormalizedUsernameIdentity(
+        profile?.username || entry.friendUsername || entry.friendName,
+        friendEmail
+      ) || directoryIdentity.username || "friend";
+      const resolvedFriendDisplayName = normalizeDisplayNameValue(profile?.displayName)
+        || normalizeDisplayNameValue(entry.friendDisplayName)
+        || normalizeDisplayNameValue(profile?.name)
+        || normalizeDisplayNameValue(entry.friendName)
+        || directoryIdentity.displayName
+        || resolvedFriendUsername
         || "Friend";
 
       if (!profile) {
         profile = {
           uid: entry.friendUid,
           email: friendEmail || entry.friendEmail || "",
-          name: resolvedFriendName,
+          name: resolvedFriendDisplayName,
+          username: resolvedFriendUsername,
+          displayName: resolvedFriendDisplayName,
           metrics: {
             totalTasksLogged: 0,
             avgTasksCompletedDaily: 0,
@@ -5700,17 +6200,30 @@ async function loadFriendsInsights(userId) {
         profile = {
           ...profile,
           email: friendEmail || String(profile.email || "").trim().toLowerCase(),
-          name: resolvedFriendName
+          name: resolvedFriendDisplayName,
+          username: resolvedFriendUsername,
+          displayName: resolvedFriendDisplayName
         };
       }
 
-      return { ...entry, profile };
+      return {
+        ...entry,
+        friendUsername: resolvedFriendUsername,
+        friendDisplayName: resolvedFriendDisplayName,
+        profile
+      };
     }));
 
     renderCurrentFriends(enriched.map((entry) => ({
       friendUid: String(entry.friendUid || entry.profile?.uid || ""),
       friendEmail: String(entry.profile?.email || entry.friendEmail || "").trim().toLowerCase(),
+      friendUsername: getNormalizedUsernameIdentity(
+        entry.friendUsername || entry.profile?.username || entry.friendName,
+        entry.profile?.email || entry.friendEmail
+      ),
+      friendDisplayName: normalizeDisplayNameValue(entry.friendDisplayName || entry.profile?.displayName || entry.profile?.name || entry.friendName),
       friendName: getFriendDisplayName({
+        displayName: entry.profile?.displayName || entry.friendDisplayName,
         uid: entry.profile?.uid || entry.friendUid,
         email: entry.profile?.email || entry.friendEmail,
         name: entry.profile?.name || entry.friendName
@@ -5721,7 +6234,10 @@ async function loadFriendsInsights(userId) {
       ...(entry.profile || {}),
       uid: String(entry?.profile?.uid || entry?.friendUid || ""),
       email: String(entry?.profile?.email || entry?.friendEmail || "").trim().toLowerCase(),
+      username: getNormalizedUsernameIdentity(entry?.profile?.username || entry?.friendUsername || entry?.profile?.name, entry?.profile?.email || entry?.friendEmail),
+      displayName: normalizeDisplayNameValue(entry?.profile?.displayName || entry?.friendDisplayName || entry?.profile?.name),
       name: getFriendDisplayName({
+        displayName: entry?.profile?.displayName || entry?.friendDisplayName,
         uid: entry?.profile?.uid || entry?.friendUid,
         email: entry?.profile?.email || entry?.friendEmail,
         name: entry?.profile?.name || entry?.friendName
@@ -5765,6 +6281,8 @@ async function submitAddFriendRequest() {
 
     let targetUid = "";
     let targetName = "Friend";
+    let targetUsername = targetUsernameKey;
+    let targetDisplayName = "Friend";
     let targetEmail = "";
     const targetDirectory = await resolveUserDirectoryByUsername(targetUsernameKey, {
       forceRefresh: true,
@@ -5773,16 +6291,21 @@ async function submitAddFriendRequest() {
     if (targetDirectory) {
       targetUid = String(targetDirectory.uid || "").trim();
       targetEmail = String(targetDirectory.email || "").trim().toLowerCase();
-      targetName = normalizeUsernameCandidate(targetDirectory.name, targetEmail)
-        || targetUsernameKey
+      targetUsername = getNormalizedUsernameIdentity(targetDirectory.username || targetDirectory.name || targetUsernameKey, targetEmail)
+        || targetUsernameKey;
+      targetDisplayName = normalizeDisplayNameValue(targetDirectory.displayName)
+        || normalizeDisplayNameValue(targetDirectory.name)
+        || targetUsername
         || "Friend";
+      targetName = targetDisplayName;
 
       // Best-effort session self-heal: keep alias cache warm for legacy usernames.
       usernameDirectoryCache.set(targetUsernameKey, {
         uid: targetUid,
         email: targetEmail,
-        name: targetName,
-        username: targetUsernameKey
+        name: targetUsername,
+        username: targetUsername,
+        displayName: targetDisplayName
       });
     }
 
@@ -5912,23 +6435,18 @@ async function submitAddFriendRequest() {
       const reverseRequest = await getDoc(doc(db, "users", user.uid, "friendRequests", targetUid));
       const reverseData = reverseRequest.exists() ? (reverseRequest.data() || {}) : null;
       if (reverseData && String(reverseData.status || "") === "pending" && !isFriendRequestExpired(reverseData)) {
-        const incomingName = getFriendDisplayName({
-          uid: targetUid,
-          email: reverseData.fromEmail || targetEmail,
-          name: reverseData.fromName || targetName
-        }, "Friend");
-        const shouldAcceptNow = confirm(`${incomingName} has already sent you a friend request. Accept it now?`);
-        if (shouldAcceptNow) {
-          await respondToFriendRequest({
-            ...reverseData,
-            fromUid: targetUid,
-            source: "legacy",
-            requestId: targetUid
-          }, "accept");
+        const reverseAction = await openReverseFriendRequestPrompt({
+          ...reverseData,
+          fromUid: targetUid,
+          source: "legacy",
+          requestId: targetUid,
+          fromEmail: reverseData.fromEmail || targetEmail,
+          fromName: reverseData.fromName || targetName
+        });
+        if (reverseAction === "accept" || reverseAction === "decline") {
           closeAddFriendModal(null, true);
           return;
         }
-        setAddFriendError("This user already sent you a request. Open Friend Requests to accept it.");
         return;
       }
       if (reverseData && String(reverseData.status || "") === "pending" && isFriendRequestExpired(reverseData)) {
@@ -5963,22 +6481,18 @@ async function submitAddFriendRequest() {
             return fromUidMatches && pending;
           });
         if (reversePendingEntry) {
-          const incomingName = getFriendDisplayName({
-            uid: String(reversePendingEntry.fromUid || targetUid),
-            email: reversePendingEntry.fromEmail || targetEmail,
-            name: reversePendingEntry.fromName || targetName
-          }, "Friend");
-          const shouldAcceptNow = confirm(`${incomingName} has already sent you a friend request. Accept it now?`);
-          if (shouldAcceptNow) {
-            await respondToFriendRequest({
-              ...reversePendingEntry,
-              source: "queue",
-              requestId: String(reversePendingEntry.id || "")
-            }, "accept");
+          const reverseAction = await openReverseFriendRequestPrompt({
+            ...reversePendingEntry,
+            fromUid: String(reversePendingEntry.fromUid || targetUid),
+            fromEmail: reversePendingEntry.fromEmail || targetEmail,
+            fromName: reversePendingEntry.fromName || targetName,
+            source: "queue",
+            requestId: String(reversePendingEntry.id || "")
+          });
+          if (reverseAction === "accept" || reverseAction === "decline") {
             closeAddFriendModal(null, true);
             return;
           }
-          setAddFriendError("This user already sent you a request. Open Friend Requests to accept it.");
           return;
         }
         const hasReversePending = [...reverseQueueByUid.docs, ...reverseQueueByEmail.docs].some((docSnap) => {
@@ -6005,10 +6519,14 @@ async function submitAddFriendRequest() {
       } catch (_) {}
     }
 
-    const fromName = normalizeUsernameCandidate(user.displayName, senderEmail)
-      || normalizeUsernameCandidate(accountName?.innerText || "", senderEmail)
+    const fromUsername = getNormalizedUsernameIdentity(accountName?.innerText || "", senderEmail)
       || await resolveUsernameFromDirectoryEmail(senderEmail)
-      || "User";
+      || getEmailLocalIdentity(senderEmail)
+      || "user";
+    const fromDisplayName = normalizeDisplayNameValue(accountDisplayName?.innerText || "")
+      || normalizeDisplayNameValue(user.displayName)
+      || fromUsername;
+    const fromName = fromDisplayName;
     const fromProfileSnapshot = buildUserSocialProfileSnapshot(user);
     const requestNowMs = Date.now();
     const requestNonce = `${user.uid}_${requestNowMs}_${Math.random().toString(36).slice(2, 8)}`;
@@ -6016,10 +6534,14 @@ async function submitAddFriendRequest() {
       fromUid: user.uid,
       fromEmail: senderEmail,
       fromName,
+      fromUsername,
+      fromDisplayName,
       fromProfile: fromProfileSnapshot,
       toUid: targetUid,
       toEmail: targetEmail,
       toName: targetName,
+      toUsername: targetUsername,
+      toDisplayName: targetDisplayName,
       status: "pending",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -6140,21 +6662,35 @@ async function respondToFriendRequest(requestEntry, action) {
       }
 
       const userEmail = String(user.email || "").trim().toLowerCase();
-      const myFallbackName = normalizeUsernameCandidate(user.displayName, userEmail)
-        || normalizeUsernameCandidate(accountName?.innerText || "", userEmail)
+      const myUsername = getNormalizedUsernameIdentity(accountName?.innerText || "", userEmail)
         || await resolveUsernameFromDirectoryEmail(userEmail)
-        || "User";
+        || getEmailLocalIdentity(userEmail)
+        || "user";
+      const myDisplayName = normalizeDisplayNameValue(accountDisplayName?.innerText || "")
+        || normalizeDisplayNameValue(user.displayName)
+        || myUsername;
       const myProfileSnapshot = buildUserSocialProfileSnapshot(user);
       const friendEmail = String(requestData.fromEmail || "").trim().toLowerCase();
-      const friendName = normalizeUsernameCandidate(requestData.fromName, friendEmail)
-        || await resolveUsernameFromDirectoryEmail(friendEmail)
-        || getFriendDisplayName({ uid: fromUid, email: friendEmail, name: requestData.fromName }, "Friend");
+      const friendUsername = getNormalizedUsernameIdentity(
+        requestData.fromUsername || requestData?.fromProfile?.username || requestData.fromName,
+        friendEmail
+      ) || await resolveUsernameFromDirectoryEmail(friendEmail)
+        || getEmailLocalIdentity(friendEmail)
+        || "friend";
+      const friendDisplayName = normalizeDisplayNameValue(requestData.fromDisplayName)
+        || normalizeDisplayNameValue(requestData?.fromProfile?.displayName)
+        || normalizeDisplayNameValue(requestData.fromName)
+        || friendUsername;
+      const friendName = friendDisplayName;
       const senderProfileSnapshot = (requestData?.fromProfile && typeof requestData.fromProfile === "object")
         ? {
           ...requestData.fromProfile,
           uid: String(requestData.fromProfile.uid || fromUid || "").trim(),
           email: String(requestData.fromProfile.email || friendEmail || "").trim().toLowerCase(),
+          username: getNormalizedUsernameIdentity(requestData.fromProfile.username || friendUsername, friendEmail) || friendUsername,
+          displayName: normalizeDisplayNameValue(requestData.fromProfile.displayName) || friendDisplayName,
           name: getFriendDisplayName({
+            displayName: requestData.fromProfile.displayName || friendDisplayName,
             uid: String(requestData.fromProfile.uid || fromUid || "").trim(),
             email: String(requestData.fromProfile.email || friendEmail || "").trim().toLowerCase(),
             name: String(requestData.fromProfile.name || friendName || "")
@@ -6163,6 +6699,8 @@ async function respondToFriendRequest(requestEntry, action) {
         : {
           uid: fromUid,
           email: friendEmail,
+          username: friendUsername,
+          displayName: friendDisplayName,
           name: friendName,
           metrics: {
             totalTasksLogged: 0,
@@ -6186,6 +6724,8 @@ async function respondToFriendRequest(requestEntry, action) {
         friendUid: fromUid,
         friendEmail,
         friendName,
+        friendUsername,
+        friendDisplayName,
         sharedProfile: senderProfileSnapshot,
         status: "accepted",
         since: serverTimestamp(),
@@ -6195,7 +6735,9 @@ async function respondToFriendRequest(requestEntry, action) {
       await setDoc(doc(db, "users", fromUid, "friends", user.uid), {
         friendUid: user.uid,
         friendEmail: String(user.email || "").trim().toLowerCase(),
-        friendName: myFallbackName,
+        friendName: myDisplayName,
+        friendUsername: myUsername,
+        friendDisplayName: myDisplayName,
         sharedProfile: myProfileSnapshot,
         status: "accepted",
         since: serverTimestamp(),
@@ -6208,23 +6750,42 @@ async function respondToFriendRequest(requestEntry, action) {
 
     // Keep queue docs in sync so accepted/declined state is visible to both users.
     const senderEmail = String(requestData.fromEmail || "").trim().toLowerCase();
-    const senderName = normalizeUsernameCandidate(requestData.fromName, senderEmail)
-      || getFriendDisplayName({ uid: fromUid, email: senderEmail, name: requestData.fromName }, "Friend");
+    const senderUsername = getNormalizedUsernameIdentity(
+      requestData.fromUsername || requestData?.fromProfile?.username || requestData.fromName,
+      senderEmail
+    ) || getEmailLocalIdentity(senderEmail)
+      || "friend";
+    const senderDisplayName = normalizeDisplayNameValue(requestData.fromDisplayName)
+      || normalizeDisplayNameValue(requestData?.fromProfile?.displayName)
+      || normalizeDisplayNameValue(requestData.fromName)
+      || senderUsername;
+    const senderName = senderDisplayName;
     const recipientEmail = String(user.email || requestData.toEmail || "").trim().toLowerCase();
-    const recipientName = normalizeUsernameCandidate(user.displayName, recipientEmail)
-      || normalizeUsernameCandidate(accountName?.innerText || "", recipientEmail)
-      || normalizeUsernameCandidate(requestData.toName, recipientEmail)
-      || "User";
+    const recipientUsername = getNormalizedUsernameIdentity(
+      accountName?.innerText || requestData.toUsername || requestData.toName,
+      recipientEmail
+    ) || getEmailLocalIdentity(recipientEmail)
+      || "user";
+    const recipientDisplayName = normalizeDisplayNameValue(accountDisplayName?.innerText || "")
+      || normalizeDisplayNameValue(user.displayName)
+      || normalizeDisplayNameValue(requestData.toDisplayName)
+      || normalizeDisplayNameValue(requestData.toName)
+      || recipientUsername;
+    const recipientName = recipientDisplayName;
     const queueToUid = String(requestData.toUid || user.uid || "").trim();
     const queueToEmail = String(requestData.toEmail || recipientEmail || "").trim().toLowerCase();
     const queueMutablePayload = {
       fromUid,
       fromEmail: senderEmail,
       fromName: senderName,
+      fromUsername: senderUsername,
+      fromDisplayName: senderDisplayName,
       fromProfile: requestData.fromProfile || null,
       toUid: queueToUid,
       toEmail: queueToEmail,
       toName: recipientName,
+      toUsername: recipientUsername,
+      toDisplayName: recipientDisplayName,
       toProfile: requestData.toProfile || null,
       status: accepted ? "accepted" : "declined",
       respondedAt: serverTimestamp(),
@@ -6424,7 +6985,10 @@ let friendRequestLoginAlertShown = false;
 let friendInsightProfiles = [];
 let lastFriendQueueProfileSyncAt = 0;
 let sentRequestExpiryTicker = null;
+let reverseFriendRequestPromptResolver = null;
+let reverseFriendRequestPromptBusy = false;
 const userDirectoryNameCache = new Map();
+const userDirectoryIdentityCache = new Map();
 const usernameDirectoryCache = new Map();
 let exportCooldownUntilMs = 0;
 let exportCooldownIntervalId = null;
@@ -8105,7 +8669,10 @@ async function syncSocialProfileToFriendQueue(user, socialProfile) {
   const safeProfile = {
     uid: String(socialProfile.uid || userId),
     email: String(socialProfile.email || user?.email || "").trim().toLowerCase(),
+    username: getNormalizedUsernameIdentity(socialProfile.username || socialProfile.name, String(socialProfile.email || user?.email || "").trim().toLowerCase()),
+    displayName: normalizeDisplayNameValue(socialProfile.displayName || socialProfile.name),
     name: getFriendDisplayName({
+      displayName: String(socialProfile.displayName || ""),
       uid: String(socialProfile.uid || userId),
       email: String(socialProfile.email || user?.email || "").trim().toLowerCase(),
       name: String(socialProfile.name || "")
@@ -8141,18 +8708,27 @@ async function syncSocialProfileToFriendQueue(user, socialProfile) {
     const updates = [];
     fromSnap.docs.forEach((docSnap) => {
       updates.push(setDoc(docSnap.ref, {
+        fromName: safeProfile.name,
+        fromUsername: safeProfile.username,
+        fromDisplayName: safeProfile.displayName || safeProfile.name,
         fromProfile: safeProfile,
         updatedAt: serverTimestamp()
       }, { merge: true }).catch(() => {}));
     });
     toSnap.docs.forEach((docSnap) => {
       updates.push(setDoc(docSnap.ref, {
+        toName: safeProfile.name,
+        toUsername: safeProfile.username,
+        toDisplayName: safeProfile.displayName || safeProfile.name,
         toProfile: safeProfile,
         updatedAt: serverTimestamp()
       }, { merge: true }).catch(() => {}));
     });
     toEmailSnap.docs.forEach((docSnap) => {
       updates.push(setDoc(docSnap.ref, {
+        toName: safeProfile.name,
+        toUsername: safeProfile.username,
+        toDisplayName: safeProfile.displayName || safeProfile.name,
         toProfile: safeProfile,
         updatedAt: serverTimestamp()
       }, { merge: true }).catch(() => {}));
@@ -8170,7 +8746,10 @@ async function syncSocialProfileToFriendsMirror(user, socialProfile) {
   const safeProfile = {
     uid: String(socialProfile.uid || userId),
     email: String(socialProfile.email || user?.email || "").trim().toLowerCase(),
+    username: getNormalizedUsernameIdentity(socialProfile.username || socialProfile.name, String(socialProfile.email || user?.email || "").trim().toLowerCase()),
+    displayName: normalizeDisplayNameValue(socialProfile.displayName || socialProfile.name),
     name: getFriendDisplayName({
+      displayName: String(socialProfile.displayName || ""),
       uid: String(socialProfile.uid || userId),
       email: String(socialProfile.email || user?.email || "").trim().toLowerCase(),
       name: String(socialProfile.name || "")
@@ -8207,6 +8786,8 @@ async function syncSocialProfileToFriendsMirror(user, socialProfile) {
         friendUid: userId,
         friendEmail: userEmail,
         friendName: safeProfile.name,
+        friendUsername: safeProfile.username,
+        friendDisplayName: safeProfile.displayName || safeProfile.name,
         status: "accepted",
         sharedProfile: safeProfile,
         updatedAt: serverTimestamp()
@@ -14120,6 +14701,7 @@ Object.assign(window, {
   submitImportTransfer,
   startAddFriendRequest,
   closeAddFriendModal,
+  closeReverseFriendRequestModal,
   submitAddFriendRequest,
   importDataFileChange,
   nextWelcomeGuideStep,
@@ -14127,6 +14709,7 @@ Object.assign(window, {
   handleGoogleAuth,
   sendResetPasswordEmail,
   sendAccountResetPasswordEmail,
+  editAccountDisplayName,
   refreshStartupPlan,
   applyStartupPlanAsTasks,
   generateStartupWeeklyReport,
