@@ -5587,6 +5587,7 @@ async function unfriendByUid(friendUid) {
 async function upsertUserDirectoryProfile(user, options = {}) {
   if (!user?.uid) return;
   const safeEmail = String(user.email || "").trim().toLowerCase();
+  const emailLocalIdentity = getEmailLocalIdentity(safeEmail);
   const providerIds = Array.isArray(user.providerData)
     ? user.providerData.map((entry) => String(entry?.providerId || "").trim().toLowerCase())
     : [];
@@ -5623,14 +5624,24 @@ async function upsertUserDirectoryProfile(user, options = {}) {
     }
   }
 
-  const optionUsername = getNormalizedUsernameIdentity(options?.username, safeEmail);
-  const existingProfileUsername = getNormalizedUsernameIdentity(existingProfileData.username || existingProfileData.name, safeEmail);
+  const isEmailLocalUsername = (value) => {
+    const normalized = getNormalizedUsernameIdentity(value, safeEmail);
+    return !!normalized && !!emailLocalIdentity && normalized === emailLocalIdentity;
+  };
+
+  const optionUsernameRaw = getNormalizedUsernameIdentity(options?.username, safeEmail);
+  const existingProfileUsernameRaw = getNormalizedUsernameIdentity(existingProfileData.username || existingProfileData.name, safeEmail);
+  const existingDirectoryUsernameRaw = getNormalizedUsernameIdentity(existingUsernameFromDirectory, safeEmail);
+
+  const optionUsername = (isGoogleAccount && isEmailLocalUsername(optionUsernameRaw)) ? "" : optionUsernameRaw;
+  const existingProfileUsername = (isGoogleAccount && isEmailLocalUsername(existingProfileUsernameRaw)) ? "" : existingProfileUsernameRaw;
+  const existingDirectoryUsername = (isGoogleAccount && isEmailLocalUsername(existingDirectoryUsernameRaw)) ? "" : existingDirectoryUsernameRaw;
+
   const googleNameSeed = isGoogleAccount ? buildUsernameSeedFromDisplayName(user.displayName) : "";
-  const hasPreexistingUsername = !!(optionUsername || existingProfileUsername || existingUsernameFromDirectory);
 
   const safeUsername = optionUsername
     || existingProfileUsername
-    || existingUsernameFromDirectory
+    || existingDirectoryUsername
     || googleNameSeed
     || (!isGoogleAccount ? getEmailLocalIdentity(safeEmail) : "")
     || "user";
@@ -5671,7 +5682,7 @@ async function upsertUserDirectoryProfile(user, options = {}) {
       email: safeEmail,
       displayName: safeDisplayName,
       preferredUsername: safeUsername,
-      allowSuffixFallback: isGoogleAccount && !hasPreexistingUsername && !!googleNameSeed
+      allowSuffixFallback: isGoogleAccount && !!googleNameSeed
     });
 
     if (claimedUsername && claimedUsername !== safeUsername) {
