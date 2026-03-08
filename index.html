@@ -3354,22 +3354,11 @@ function scheduleGoogleIdentityUsernameAvailabilityCheck() {
   }, 320);
 }
 
-function openGoogleIdentitySetupModal(user, options = {}) {
+function openGoogleIdentitySetupModal(user) {
   const activeUserId = String(user?.uid || "").trim();
   if (!googleIdentityModal || !activeUserId) return;
-  const safeEmail = String(user?.email || "").trim().toLowerCase();
-  const emailLocalIdentity = getEmailLocalIdentity(safeEmail);
-
-  const rawUsername = normalizeUsernameForLookup(options.username || "");
-  const prefillUsername = (rawUsername && rawUsername !== emailLocalIdentity)
-    ? rawUsername
-    : (buildUsernameSeedFromDisplayName(user?.displayName) || "");
-  const prefillDisplayName = normalizeDisplayNameValue(options.displayName)
-    || normalizeDisplayNameValue(user?.displayName)
-    || "";
-
-  if (googleIdentityUsernameInput) googleIdentityUsernameInput.value = prefillUsername;
-  if (googleIdentityDisplayNameInput) googleIdentityDisplayNameInput.value = prefillDisplayName;
+  if (googleIdentityUsernameInput) googleIdentityUsernameInput.value = "";
+  if (googleIdentityDisplayNameInput) googleIdentityDisplayNameInput.value = "";
   hideGoogleIdentityError();
   googleIdentityModal.style.display = "flex";
   signInModal.style.display = "none";
@@ -7156,7 +7145,22 @@ async function respondToFriendRequest(requestEntry, action) {
     if (accepted) {
       const currentFriendCount = await getActiveFriendCount(user.uid, user.email || "");
       if (currentFriendCount >= MAX_FRIENDS) {
-        showToast(`Friend limit reached (${MAX_FRIENDS}). Unfriend someone first, then accept this request.`);
+        showToast(`Failed to accept. You have hit your friend list limit (${MAX_FRIENDS}).`);
+        return;
+      }
+
+      const senderEmailForLimitCheck = String(requestData.fromEmail || "").trim().toLowerCase();
+      const senderFriendCount = await getActiveFriendCount(fromUid, senderEmailForLimitCheck);
+      if (senderFriendCount >= MAX_FRIENDS) {
+        let senderUsernameForLimit = getNormalizedUsernameIdentity(
+          requestData.fromUsername || requestData?.fromProfile?.username || "",
+          senderEmailForLimitCheck
+        );
+        if (!senderUsernameForLimit && senderEmailForLimitCheck) {
+          senderUsernameForLimit = normalizeUsernameForLookup(await resolveUsernameFromDirectoryEmail(senderEmailForLimitCheck));
+        }
+        senderUsernameForLimit = normalizeUsernameForLookup(senderUsernameForLimit) || "friend";
+        showToast(`Failed to accept. @${senderUsernameForLimit} has hit their friend list limit (${MAX_FRIENDS}).`);
         return;
       }
 
@@ -7429,8 +7433,8 @@ const TASK_DAILY_LIMIT = 50;
 const GRATITUDE_DAILY_LIMIT = 30;
 const WATER_DAILY_LIMIT = 40;
 const WATER_MAX_GLASSES_PER_ENTRY = 10;
-const MAX_FRIENDS = 5;
-const MAX_PENDING_SENT_REQUESTS = 5;
+const MAX_FRIENDS = 10;
+const MAX_PENDING_SENT_REQUESTS = 10;
 const FRIEND_REQUEST_EXPIRY_MS = 3 * 24 * 60 * 60 * 1000;
 const REMINDER_MAX_MINUTES = 43200;
 const REMINDER_MAX_TEXT_LENGTH = 140;
