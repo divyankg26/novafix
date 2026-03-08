@@ -1726,7 +1726,7 @@ textarea:focus-visible{
     <div class="export-actions" style="margin-bottom:8px;">
       <button id="addFriendsBtn" onclick="startAddFriendRequest()">Add Friends</button>
     </div>
-    <p class="export-note">Send a friend request by email, then compare progress and motivate each other.</p>
+    <p class="export-note">Send a friend request by username, then compare progress and motivate each other.</p>
     <div id="friendRequestsList" class="friends-list-box"></div>
   </div>
 
@@ -1761,8 +1761,8 @@ textarea:focus-visible{
 <div id="addFriendModal" onclick="closeAddFriendModal(event)">
   <div class="import-transfer-card" onclick="event.stopPropagation()">
     <h3>Add Friend</h3>
-    <p class="import-transfer-note">Enter your friend's email to send a request. They will see an accept/decline prompt on next login.</p>
-    <input id="addFriendEmail" type="email" placeholder="Friend account email">
+    <p class="import-transfer-note">Enter your friend's username to send a request. They will see an accept/decline prompt on next login.</p>
+    <input id="addFriendEmail" type="text" placeholder="Friend username">
     <p id="addFriendError" class="import-transfer-error"></p>
     <div class="import-transfer-actions">
       <button id="addFriendCancelBtn" class="import-transfer-cancel" onclick="closeAddFriendModal()">Cancel</button>
@@ -2070,7 +2070,7 @@ textarea:focus-visible{
 <script type="module">
   // 🔥 Firebase Imports
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { initializeFirestore, persistentLocalCache, getFirestore, collection, collectionGroup, addDoc, getDocs, serverTimestamp, deleteDoc, doc, updateDoc, setDoc, getDoc, runTransaction, query, where } 
+import { initializeFirestore, persistentLocalCache, getFirestore, collection, collectionGroup, addDoc, getDocs, getDocsFromServer, serverTimestamp, deleteDoc, doc, updateDoc, setDoc, getDoc, getDocFromServer, runTransaction, query, where } 
 from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { 
   getAuth,
@@ -2081,6 +2081,7 @@ import {
   sendEmailVerification,
   sendPasswordResetEmail,
   fetchSignInMethodsForEmail,
+  deleteUser,
   updateProfile,
   GoogleAuthProvider,
   signInWithPopup
@@ -2582,8 +2583,15 @@ try {
 
     setTimeout(async () => {
       if (user) {
+        if (signupFlowInProgress) {
+          return;
+        }
         await user.reload();
         if (!user.emailVerified) {
+          const suppressUnverifiedPrompt = Date.now() < Number(suppressUnverifiedSigninPromptUntilMs || 0);
+          if (suppressUnverifiedPrompt) {
+            return;
+          }
           const verificationError = document.getElementById("signInError");
           if (verificationError) {
             verificationError.style.display = "block";
@@ -2602,25 +2610,29 @@ try {
         signInModal.style.display = "none";
         setInitialLoadingStates();
         updateClearDataButtonState();
-        await syncServerClock(user.uid);
-        await refreshExportCooldownState(user.uid);
-        await upsertUserDirectoryProfile(user);
-        await loadPersistedBarGraphs(user.uid);
-        loadDailyChallenge(user.uid);
-        loadDailyUsage(user.uid);
-        loadMoods(user.uid);
-        loadAiUsage(user.uid);
-        loadAiChats(user.uid);
-        loadTasks(user.uid);
-        loadReminders(user.uid);
-        loadWeeklyTargets(user.uid);
-        loadRescueEvents(user.uid);
-        loadHabitQuest(user.uid);
-        loadStartupUsageState(user.uid);
-        loadStartupFeatureState(user.uid);
-        loadWaterData(user.uid);
-        loadSleepData(user.uid);
-        loadGratitude(user.uid);
+        await Promise.allSettled([
+          syncServerClock(user.uid),
+          refreshExportCooldownState(user.uid),
+          upsertUserDirectoryProfile(user),
+          loadPersistedBarGraphs(user.uid)
+        ]);
+        const initialDataLoadPromises = [
+          loadDailyChallenge(user.uid),
+          loadDailyUsage(user.uid),
+          loadMoods(user.uid),
+          loadAiUsage(user.uid),
+          loadAiChats(user.uid),
+          loadTasks(user.uid),
+          loadReminders(user.uid),
+          loadWeeklyTargets(user.uid),
+          loadRescueEvents(user.uid),
+          loadHabitQuest(user.uid),
+          loadStartupUsageState(user.uid),
+          loadStartupFeatureState(user.uid),
+          loadWaterData(user.uid),
+          loadSleepData(user.uid),
+          loadGratitude(user.uid)
+        ];
         friendRequestLoginAlertShown = false;
         loadFriendRequests(user.uid, true);
         loadSentFriendRequests(user.uid);
@@ -2634,8 +2646,15 @@ try {
         startStartupResetCountdown();
         scheduleWeeklyGraphReset(user.uid);
         scheduleWaterGoalReset(user.uid);
-        await maybeShowWelcomeGuide(user.uid);
+        void Promise.allSettled(initialDataLoadPromises).then(async () => {
+          const activeUser = auth.currentUser;
+          if (!activeUser?.uid || activeUser.uid !== user.uid) return;
+          await forceSyncFriendProfileFromLocalSnapshot(activeUser);
+          await loadFriendsInsights(activeUser.uid);
+        }).catch(() => {});
+        await maybeShowWelcomeGuide(user.uid).catch(() => {});
       } else {
+        stopSentRequestExpiryTicker();
         stopDailyChallengeWatcher();
         stopFriendInsightsWatcher();
         clearDailyChallengeResetSchedule();
@@ -2913,6 +2932,145 @@ setTimeout(rotateWave, WAVE_HOLD_MS);
 
 // ---------- SIGN-IN / SIGN-UP ----------
 let authMode="signin";
+let authModalErrorKind = "";
+let signupFlowInProgress = false;
+let suppressUnverifiedSigninPromptUntilMs = 0;
+let usernameLiveCheckTimer = null;
+let usernameLiveCheckSequence = 0;
+
+function showAuthModalError(message, kind = "generic", color = "#ff6b6b") {
+  const error = document.getElementById("signInError");
+  if (!error) return;
+  authModalErrorKind = String(kind || "generic");
+  error.style.display = "block";
+  error.style.color = color;
+  error.innerText = String(message || "Something went wrong.");
+}
+
+function hideAuthModalError() {
+  const error = document.getElementById("signInError");
+  if (!error) return;
+  authModalErrorKind = "";
+  error.style.display = "none";
+  error.innerText = "";
+}
+
+function clearAuthModalErrorOnInput(fieldName) {
+  const field = String(fieldName || "");
+  const error = document.getElementById("signInError");
+  if (!error || error.style.display === "none") return;
+
+  if (authModalErrorKind === "username_exists") {
+    if (field === "username") hideAuthModalError();
+    return;
+  }
+
+  if (authModalErrorKind === "credentials") {
+    if (field === "email" || field === "password") hideAuthModalError();
+    return;
+  }
+
+  hideAuthModalError();
+}
+
+function canOverrideAuthUsernameMessage() {
+  return !authModalErrorKind
+    || authModalErrorKind === "username"
+    || authModalErrorKind === "username_exists"
+    || authModalErrorKind === "username_check"
+    || authModalErrorKind === "username_available";
+}
+
+async function getDocWithFreshFallback(ref) {
+  try {
+    return await getDocFromServer(ref);
+  } catch (err) {
+    const code = String(err?.code || "").toLowerCase();
+    const fallbackAllowed = code.includes("unavailable")
+      || code.includes("deadline-exceeded")
+      || code.includes("failed-precondition");
+    if (!fallbackAllowed) throw err;
+    return getDoc(ref);
+  }
+}
+
+async function getDocsWithFreshFallback(q) {
+  try {
+    return await getDocsFromServer(q);
+  } catch (err) {
+    const code = String(err?.code || "").toLowerCase();
+    const fallbackAllowed = code.includes("unavailable")
+      || code.includes("deadline-exceeded")
+      || code.includes("failed-precondition");
+    if (!fallbackAllowed) throw err;
+    return getDocs(q);
+  }
+}
+
+async function usernameExistsLiveInFirestore(usernameKey) {
+  if (!usernameKey) return false;
+  const normalized = normalizeUsernameForLookup(usernameKey);
+  if (!normalized) return false;
+  try {
+    const resolved = await resolveUserDirectoryByUsername(normalized, {
+      forceRefresh: true,
+      preferServer: true
+    });
+    return !!resolved;
+  } catch (err) {
+    if (isFirestorePermissionDeniedError(err)) return false;
+    throw err;
+  }
+}
+
+function scheduleLiveUsernameAvailabilityCheck() {
+  if (usernameLiveCheckTimer) {
+    clearTimeout(usernameLiveCheckTimer);
+    usernameLiveCheckTimer = null;
+  }
+
+  const localSeq = ++usernameLiveCheckSequence;
+  usernameLiveCheckTimer = setTimeout(async () => {
+    if (authMode !== "signup") return;
+    const usernameKey = normalizeUsernameForLookup(usernameInput?.value || "");
+    if (!usernameKey) return;
+
+    if (canOverrideAuthUsernameMessage()) {
+      showAuthModalError("Checking username...", "username_check", "#9fd0ff");
+    }
+
+    try {
+      const exists = await usernameExistsLiveInFirestore(usernameKey);
+      if (localSeq !== usernameLiveCheckSequence || authMode !== "signup") return;
+
+      if (exists) {
+        showAuthModalError("This username already exists. Choose a different username.", "username_exists");
+      } else if (canOverrideAuthUsernameMessage()) {
+        showAuthModalError("Username is available.", "username_available", "#7CFFB2");
+      }
+    } catch (err) {
+      if (localSeq !== usernameLiveCheckSequence || authMode !== "signup") return;
+      if (canOverrideAuthUsernameMessage()) {
+        showAuthModalError(err?.message || "Could not verify username right now.", "username_check");
+      }
+    }
+  }, 320);
+}
+
+if (emailInput) {
+  emailInput.addEventListener("input", () => clearAuthModalErrorOnInput("email"));
+}
+if (passwordInput) {
+  passwordInput.addEventListener("input", () => clearAuthModalErrorOnInput("password"));
+}
+if (usernameInput) {
+  usernameInput.addEventListener("input", () => {
+    clearAuthModalErrorOnInput("username");
+    if (authMode === "signup") {
+      scheduleLiveUsernameAvailabilityCheck();
+    }
+  });
+}
 
 const PAGE_TITLES = {
   dashboard: "NovaFix - Dashboard",
@@ -3285,11 +3443,15 @@ async function maybeShowWelcomeGuide(userId) {
 
 function toggleAuth(){
   authMode=authMode==="signin"?"signup":"signin";
+  if (usernameLiveCheckTimer) {
+    clearTimeout(usernameLiveCheckTimer);
+    usernameLiveCheckTimer = null;
+  }
+  usernameLiveCheckSequence += 1;
   const title=document.getElementById("modalTitle");
   const button=document.getElementById("actionButton");
   const toggleText=document.getElementById("toggleText");
-  const error=document.getElementById("signInError");
-  error.style.display="none";
+  hideAuthModalError();
   if(authMode==="signup"){
     title.innerText="Create a NovaFix Account 🌟";
     button.innerText="Sign Up";
@@ -3356,36 +3518,76 @@ async function resendVerificationEmailFromModal() {
 
 async function handleAuth() {
   const username = usernameInput.value.trim();
+  const usernameKey = normalizeUsernameForLookup(username);
   const email = emailInput.value.trim().toLowerCase();
   const password = passwordInput.value.trim();
   const error = document.getElementById("signInError");
+  let startedSignupAuthFlow = false;
 
   if (!email || !password) {
-    error.style.display = "block";
-    error.innerText = "Email and password are required!";
+    showAuthModalError("Email and password are required!", "credentials");
     return;
   }
 
   if (authMode === "signup" && !username) {
-    error.style.display = "block";
-    error.innerText = "Username is required for sign up!";
+    showAuthModalError("Username is required for sign up!", "username");
+    return;
+  }
+
+  if (authMode === "signup" && !usernameKey) {
+    showAuthModalError("Please enter a valid username.", "username");
     return;
   }
 
   if (authMode === "signin") {
     const remaining = getAuthBackoffRemainingMs("signin", email);
     if (remaining > 0) {
-      error.style.display = "block";
-      error.style.color = "#ff6b6b";
-      error.innerText = `Too many failed sign-in attempts. Try again in ${formatCountdownClock(remaining)}.`;
+      showAuthModalError(`Too many failed sign-in attempts. Try again in ${formatCountdownClock(remaining)}.`, "credentials");
       return;
     }
   }
 
   try {
     if (authMode === "signup") {
+      try {
+        const usernameExists = await usernameExistsLiveInFirestore(usernameKey);
+        if (usernameExists) {
+          showAuthModalError("This username already exists. Choose a different username.", "username_exists");
+          return;
+        }
+      } catch (lookupErr) {
+        if (!isFirestorePermissionDeniedError(lookupErr)) {
+          showAuthModalError(lookupErr?.message || "Could not verify username right now.");
+          return;
+        }
+        // If pre-check is blocked for unauthenticated signup, continue.
+        // The transactional claim below is the source of truth for uniqueness.
+      }
+
+      signupFlowInProgress = true;
+      suppressUnverifiedSigninPromptUntilMs = Date.now() + (2 * 60 * 1000);
+      startedSignupAuthFlow = true;
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await updateProfile(userCredential.user, { displayName: username });
+      try {
+        await claimUsernameDirectoryEntry(userCredential.user.uid, usernameKey, email, username);
+      } catch (claimErr) {
+        const claimCode = String(claimErr?.message || "");
+        if (claimCode === "USERNAME_TAKEN") {
+          try { await deleteUser(userCredential.user); } catch (_) {}
+          await signOut(auth).catch(() => {});
+          showAuthModalError("This username already exists. Choose a different username.", "username_exists");
+          return;
+        }
+        if (isFirestorePermissionDeniedError(claimErr)) {
+          try { await deleteUser(userCredential.user); } catch (_) {}
+          await signOut(auth).catch(() => {});
+          showAuthModalError("Username setup is blocked by Firestore rules. Allow users to write usernameDirectory, then try again.");
+          return;
+        }
+        throw claimErr;
+      }
+
+      await updateProfile(userCredential.user, { displayName: username.trim() });
       await upsertUserDirectoryProfile(userCredential.user);
       const verifyResult = await sendVerificationEmailReliable(userCredential.user);
 
@@ -3401,6 +3603,7 @@ async function handleAuth() {
       usernameInput.style.display = "none";
       setPageTitle("signin");
 
+      authModalErrorKind = "";
       error.style.display = "block";
       error.style.color = verifyResult.ok ? "#7CFFB2" : "#ff6b6b";
       error.innerText = verifyResult.ok
@@ -3434,25 +3637,44 @@ async function handleAuth() {
       }
     }
   } catch (err) {
-    error.style.display = "block";
-    error.style.color = "#ff6b6b";
+    const code = String(err?.code || "");
+    const credentialError = code === "auth/invalid-credential"
+      || code === "auth/user-not-found"
+      || code === "auth/wrong-password"
+      || code === "auth/invalid-email";
+
     if (authMode === "signin") {
-      const code = String(err?.code || "");
-      const authFailure = code === "auth/invalid-credential"
-        || code === "auth/user-not-found"
-        || code === "auth/wrong-password"
-        || code === "auth/invalid-email"
-        || code === "auth/too-many-requests";
+      const authFailure = credentialError || code === "auth/too-many-requests";
 
       if (authFailure) {
         const backoff = registerAuthBackoffFailure("signin", email);
         if (backoff.remainingMs > 0) {
-          error.innerText = `Too many failed sign-in attempts. Try again in ${formatCountdownClock(backoff.remainingMs)}.`;
+          showAuthModalError(`Too many failed sign-in attempts. Try again in ${formatCountdownClock(backoff.remainingMs)}.`, "credentials");
           return;
         }
       }
     }
-    error.innerText = err?.message || "Could not sign in right now.";
+
+    if (credentialError) {
+      showAuthModalError("The email or password you entered is incorrect.", "credentials");
+      return;
+    }
+
+    if (authMode === "signup" && code === "auth/email-already-in-use") {
+      showAuthModalError("Email already exists. Sign in instead or use a different email.", "credentials");
+      return;
+    }
+
+    if (authMode === "signup" && code === "auth/weak-password") {
+      showAuthModalError("Password must be at least 6 characters.", "credentials");
+      return;
+    }
+
+    showAuthModalError(err?.message || "Could not sign in right now.");
+  } finally {
+    if (startedSignupAuthFlow) {
+      signupFlowInProgress = false;
+    }
   }
 }
 
@@ -3669,6 +3891,276 @@ function normalizeUsernameCandidate(nameValue, relatedEmail = "") {
   return text;
 }
 
+function normalizeUsernameForLookup(usernameValue) {
+  const raw = String(usernameValue || "").trim();
+  if (!raw) return "";
+  const withoutAt = raw.startsWith("@") ? raw.slice(1) : raw;
+  return withoutAt.trim().toLowerCase();
+}
+
+async function resolveUserDirectoryByUsername(usernameValue, options = {}) {
+  const rawInput = String(usernameValue || "").trim();
+  const rawWithoutAt = rawInput.startsWith("@") ? rawInput.slice(1).trim() : rawInput;
+  const usernameKey = normalizeUsernameForLookup(usernameValue);
+  const forceRefresh = !!options?.forceRefresh;
+  const preferServer = !!options?.preferServer;
+  if (!usernameKey) return null;
+
+  const cached = forceRefresh ? null : usernameDirectoryCache.get(usernameKey);
+  if (cached && String(cached.uid || "").trim()) {
+    return cached;
+  }
+
+  const buildResolved = (dataLike, fallbackUsername = usernameKey) => {
+    const data = dataLike || {};
+    const email = String(data.email || "").trim().toLowerCase();
+    const uid = String(data.uid || "").trim();
+    if (!uid) return null;
+    return {
+      uid,
+      email,
+      name: normalizeUsernameCandidate(data.name, email) || fallbackUsername,
+      username: normalizeUsernameForLookup(data.username || fallbackUsername) || fallbackUsername
+    };
+  };
+
+  let resolved = null;
+  let permissionDeniedSeen = false;
+  try {
+    const usernameRef = doc(db, "usernameDirectory", usernameKey);
+    const usernameSnap = preferServer
+      ? await getDocWithFreshFallback(usernameRef)
+      : await getDoc(usernameRef);
+    if (usernameSnap.exists()) {
+      const usernameData = usernameSnap.data() || {};
+      resolved = buildResolved(usernameData, usernameKey);
+
+      if (!resolved) {
+        const fallbackEmail = String(usernameData.email || "").trim().toLowerCase();
+        if (fallbackEmail) {
+          try {
+            const directoryRef = doc(db, "userDirectory", fallbackEmail);
+            const directorySnap = preferServer
+              ? await getDocWithFreshFallback(directoryRef)
+              : await getDoc(directoryRef);
+            if (directorySnap.exists()) {
+              const directoryData = directorySnap.data() || {};
+              const fallbackUid = String(directoryData.uid || "").trim();
+              if (fallbackUid) {
+                resolved = {
+                  uid: fallbackUid,
+                  email: fallbackEmail,
+                  name: normalizeUsernameCandidate(usernameData.name, fallbackEmail) || usernameKey,
+                  username: usernameKey
+                };
+              }
+            }
+          } catch (err) {
+            if (isFirestorePermissionDeniedError(err)) permissionDeniedSeen = true;
+          }
+        }
+      }
+    }
+
+    if (!resolved) {
+      try {
+        const usernameFieldQuery = query(
+          collection(db, "usernameDirectory"),
+          where("username", "==", usernameKey)
+        );
+        const usernameFieldSnap = preferServer
+          ? await getDocsWithFreshFallback(usernameFieldQuery)
+          : await getDocs(usernameFieldQuery);
+        for (const docSnap of usernameFieldSnap.docs) {
+          const candidate = buildResolved(docSnap.data() || {}, usernameKey);
+          if (candidate) {
+            resolved = candidate;
+            break;
+          }
+        }
+      } catch (err) {
+        if (isFirestorePermissionDeniedError(err)) permissionDeniedSeen = true;
+      }
+    }
+
+    if (!resolved) {
+      try {
+        const userDirectoryNameQuery = query(
+          collection(db, "userDirectory"),
+          where("name", "==", usernameKey)
+        );
+        const userDirectoryNameSnap = preferServer
+          ? await getDocsWithFreshFallback(userDirectoryNameQuery)
+          : await getDocs(userDirectoryNameQuery);
+        for (const docSnap of userDirectoryNameSnap.docs) {
+          const data = docSnap.data() || {};
+          const uid = String(data.uid || "").trim();
+          const email = String(data.email || docSnap.id || "").trim().toLowerCase();
+          if (!uid) continue;
+          resolved = {
+            uid,
+            email,
+            name: normalizeUsernameCandidate(data.name, email) || usernameKey,
+            username: usernameKey
+          };
+          break;
+        }
+      } catch (err) {
+        if (isFirestorePermissionDeniedError(err)) permissionDeniedSeen = true;
+      }
+    }
+
+    // Legacy case-preserving fallback for older rows.
+    if (!resolved && rawWithoutAt && rawWithoutAt !== usernameKey) {
+      try {
+        const userDirectoryRawNameQuery = query(
+          collection(db, "userDirectory"),
+          where("name", "==", rawWithoutAt)
+        );
+        const userDirectoryRawNameSnap = preferServer
+          ? await getDocsWithFreshFallback(userDirectoryRawNameQuery)
+          : await getDocs(userDirectoryRawNameQuery);
+        for (const docSnap of userDirectoryRawNameSnap.docs) {
+          const data = docSnap.data() || {};
+          const uid = String(data.uid || "").trim();
+          const email = String(data.email || docSnap.id || "").trim().toLowerCase();
+          if (!uid) continue;
+          resolved = {
+            uid,
+            email,
+            name: normalizeUsernameCandidate(data.name, email) || rawWithoutAt,
+            username: usernameKey
+          };
+          break;
+        }
+      } catch (err) {
+        if (isFirestorePermissionDeniedError(err)) permissionDeniedSeen = true;
+      }
+    }
+
+    // Last resort for old mixed-case userDirectory rows.
+    if (!resolved && forceRefresh) {
+      try {
+        const allDirectorySnap = preferServer
+          ? await getDocsWithFreshFallback(collection(db, "userDirectory"))
+          : await getDocs(collection(db, "userDirectory"));
+        for (const docSnap of allDirectorySnap.docs) {
+          const data = docSnap.data() || {};
+          const uid = String(data.uid || "").trim();
+          const email = String(data.email || docSnap.id || "").trim().toLowerCase();
+          if (!uid) continue;
+
+          const nameKey = normalizeUsernameForLookup(data.name || "");
+          const emailLocalKey = normalizeUsernameForLookup(email.split("@")[0] || "");
+          if (nameKey !== usernameKey && emailLocalKey !== usernameKey) continue;
+
+          resolved = {
+            uid,
+            email,
+            name: normalizeUsernameCandidate(data.name, email) || usernameKey,
+            username: usernameKey
+          };
+          break;
+        }
+      } catch (err) {
+        if (isFirestorePermissionDeniedError(err)) permissionDeniedSeen = true;
+      }
+    }
+  } catch (err) {
+    if (isFirestorePermissionDeniedError(err)) {
+      throw err;
+    }
+    resolved = null;
+  }
+
+  if (!resolved && permissionDeniedSeen) {
+    const permissionErr = new Error("Missing or insufficient permissions.");
+    permissionErr.code = "permission-denied";
+    throw permissionErr;
+  }
+
+  if (resolved && String(resolved.uid || "").trim()) {
+    // Self-heal for current session: alias normalized key to resolved legacy profile.
+    usernameDirectoryCache.set(usernameKey, resolved);
+  } else {
+    usernameDirectoryCache.delete(usernameKey);
+  }
+  return resolved;
+}
+
+async function claimUsernameDirectoryEntry(userId, usernameValue, emailValue, displayNameValue) {
+  const safeUserId = String(userId || "").trim();
+  const usernameKey = normalizeUsernameForLookup(usernameValue);
+  const safeEmail = String(emailValue || "").trim().toLowerCase();
+  const safeName = normalizeUsernameCandidate(displayNameValue, safeEmail) || usernameKey;
+  if (!safeUserId || !usernameKey) {
+    throw new Error("INVALID_USERNAME");
+  }
+
+  const usernameRef = doc(db, "usernameDirectory", usernameKey);
+  await runTransaction(db, async (transaction) => {
+    const usernameSnap = await transaction.get(usernameRef);
+    const existingData = usernameSnap.exists() ? (usernameSnap.data() || {}) : null;
+    const existingUid = String(existingData?.uid || "").trim();
+    const existingEmail = String(existingData?.email || "").trim().toLowerCase();
+    if (existingUid && existingUid !== safeUserId) {
+      const reclaimByEmail = !!safeEmail && !!existingEmail && existingEmail === safeEmail;
+      if (!reclaimByEmail) {
+        throw new Error("USERNAME_TAKEN");
+      }
+    }
+
+    transaction.set(usernameRef, {
+      uid: safeUserId,
+      email: safeEmail,
+      name: safeName,
+      username: usernameKey,
+      createdAt: existingData?.createdAt || serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  });
+
+  usernameDirectoryCache.set(usernameKey, {
+    uid: safeUserId,
+    email: safeEmail,
+    name: safeName,
+    username: usernameKey
+  });
+
+  try {
+    const ownedUsernameSnap = await getDocs(query(
+      collection(db, "usernameDirectory"),
+      where("uid", "==", safeUserId)
+    ));
+    const sameEmailSnap = safeEmail
+      ? await getDocs(query(
+        collection(db, "usernameDirectory"),
+        where("email", "==", safeEmail)
+      ))
+      : { docs: [] };
+
+    const staleByUid = ownedUsernameSnap.docs.filter((docSnap) => String(docSnap.id || "") !== usernameKey);
+    const staleByEmail = (sameEmailSnap.docs || []).filter((docSnap) => String(docSnap.id || "") !== usernameKey);
+    const staleMap = new Map();
+    [...staleByUid, ...staleByEmail].forEach((docSnap) => {
+      const key = String(docSnap.id || "").trim();
+      if (key && !staleMap.has(key)) staleMap.set(key, docSnap);
+    });
+    const staleEntries = [...staleMap.values()];
+    if (staleEntries.length) {
+      await Promise.all(staleEntries.map((docSnap) => {
+        const staleKey = String(docSnap.id || "").trim().toLowerCase();
+        if (staleKey) usernameDirectoryCache.delete(staleKey);
+        return deleteDoc(docSnap.ref);
+      }));
+    }
+  } catch (_) {
+    // Best-effort cleanup. If Firestore rules block deletes, the active username claim still remains valid.
+  }
+
+  return usernameKey;
+}
+
 function getFriendDisplayName(profileLike, fallbackName = "") {
   const safeEmail = String(profileLike?.email || "").trim().toLowerCase();
   const normalizedProfileName = normalizeUsernameCandidate(profileLike?.name, safeEmail);
@@ -3732,8 +4224,14 @@ function buildUserSocialProfileSnapshot(user = auth.currentUser) {
   const completedTasks = taskEntries.filter((entry) => !!entry.completed).length;
   const todayKey = getTodayKey();
   const tasksToday = Number(maps.tasksDoneByDay.get(todayKey)) || 0;
-  const sleepToday = Number(maps.sleepByDay.get(todayKey)) || 0;
-  const waterToday = Number(getTodayWater().toFixed(1));
+  const sleepToday = Number(getTodaySleep()) || Number(maps.sleepByDay.get(todayKey)) || 0;
+  let waterToday = 0;
+  for (let index = waterHistory.length - 1; index >= 0; index -= 1) {
+    if (dateToKey(waterDates[index]) !== todayKey) continue;
+    waterToday = Number(waterHistory[index]) || 0;
+    break;
+  }
+  waterToday = Number(waterToday.toFixed(1));
   const gratitudeToday = getTodayGratitudeCount();
   const dailyChallengeCompletedToday = dailyChallengeCompleted ? 1 : 0;
 
@@ -4030,11 +4528,10 @@ function renderFriendRequests(rows) {
     row.className = "friend-row";
     const senderName = escapeHtml(getFriendDisplayName({
       name: entry.fromName,
-      email: entry.fromEmail,
+      email: "",
       uid: entry.fromUid
     }, "Unknown"));
-    const senderEmail = escapeHtml(String(entry.fromEmail || "unknown@email.com"));
-    row.innerHTML = `<strong>${senderName}</strong><small>Request from ${senderEmail}</small>`;
+    row.innerHTML = `<strong>${senderName}</strong><small>Pending friend request</small>`;
 
     const actions = document.createElement("div");
     actions.className = "friend-actions";
@@ -4100,11 +4597,10 @@ function renderCurrentFriends(rows) {
     row.className = "friend-row";
     const friendName = escapeHtml(getFriendDisplayName({
       uid: entry.friendUid,
-      email: entry.friendEmail,
+      email: "",
       name: entry.friendName
     }, "Friend"));
-    const friendEmail = escapeHtml(String(entry.friendEmail || ""));
-    row.innerHTML = `<strong>${friendName}</strong><small>${friendEmail || "No email shared"}</small>`;
+    row.innerHTML = `<strong>${friendName}</strong><small>Connected friend</small>`;
 
     const actions = document.createElement("div");
     actions.className = "friend-actions";
@@ -4125,14 +4621,43 @@ function renderCurrentFriends(rows) {
 }
 
 function formatRequestExpiryLabel(entry) {
-  const createdMs = getOptionalTimestampMs(entry?.createdAt)
+  const createdMs = Number(entry?.createdAtMs)
+    || getOptionalTimestampMs(entry?.createdAt)
+    || Number(entry?.updatedAtMs)
     || getOptionalTimestampMs(entry?.updatedAt)
     || getServerNowDate().getTime();
   const remainingMs = Math.max(0, (createdMs + FRIEND_REQUEST_EXPIRY_MS) - getServerNowDate().getTime());
   const hours = Math.ceil(remainingMs / (60 * 60 * 1000));
-  if (hours <= 24) return `${hours}h left`;
+  if (hours <= 24) return `${hours} ${hours === 1 ? "hour" : "hours"}`;
   const days = Math.ceil(hours / 24);
-  return `${days}d left`;
+  return `${days} ${days === 1 ? "day" : "days"}`;
+}
+
+function stopSentRequestExpiryTicker() {
+  if (!sentRequestExpiryTicker) return;
+  clearInterval(sentRequestExpiryTicker);
+  sentRequestExpiryTicker = null;
+}
+
+function refreshSentRequestExpiryLabels() {
+  if (!sentRequestsList) return;
+  const expiryEls = sentRequestsList.querySelectorAll(".sent-request-expiry[data-created-ms]");
+  if (!expiryEls.length) {
+    stopSentRequestExpiryTicker();
+    return;
+  }
+
+  expiryEls.forEach((el) => {
+    const createdMs = Number(el.getAttribute("data-created-ms")) || getServerNowDate().getTime();
+    el.textContent = formatRequestExpiryLabel({ createdAtMs: createdMs });
+  });
+}
+
+function ensureSentRequestExpiryTicker() {
+  if (sentRequestExpiryTicker) return;
+  sentRequestExpiryTicker = setInterval(() => {
+    refreshSentRequestExpiryLabels();
+  }, 60 * 1000);
 }
 
 function getFriendRequestActorKey(uidValue, emailValue) {
@@ -4154,6 +4679,7 @@ function isTerminalFriendRequestStatus(statusValue) {
 function renderSentFriendRequests(rows) {
   if (!sentRequestsList) return;
   if (!rows.length) {
+    stopSentRequestExpiryTicker();
     sentRequestsList.innerHTML = `<div class="friend-row"><small>No pending sent requests.</small></div>`;
     return;
   }
@@ -4164,12 +4690,16 @@ function renderSentFriendRequests(rows) {
     row.className = "friend-row";
     const friendName = escapeHtml(getFriendDisplayName({
       uid: entry.toUid,
-      email: entry.toEmail,
+      email: "",
       name: entry.toName
     }, "Friend"));
-    const friendEmail = escapeHtml(String(entry.toEmail || ""));
-    const expiry = escapeHtml(formatRequestExpiryLabel(entry));
-    row.innerHTML = `<strong>${friendName}</strong><small>Pending for ${friendEmail || "unknown"} • Expires in ${expiry}</small>`;
+    const createdMs = Number(entry?.createdAtMs)
+      || getOptionalTimestampMs(entry?.createdAt)
+      || Number(entry?.updatedAtMs)
+      || getOptionalTimestampMs(entry?.updatedAt)
+      || getServerNowDate().getTime();
+    const expiry = escapeHtml(formatRequestExpiryLabel({ createdAtMs: createdMs }));
+    row.innerHTML = `<strong>${friendName}</strong><small>Pending request • Expires in <span class="sent-request-expiry" data-created-ms="${createdMs}">${expiry}</span></small>`;
 
     const actions = document.createElement("div");
     actions.className = "friend-actions";
@@ -4186,6 +4716,9 @@ function renderSentFriendRequests(rows) {
     row.append(actions);
     sentRequestsList.appendChild(row);
   });
+
+  refreshSentRequestExpiryLabels();
+  ensureSentRequestExpiryTicker();
 }
 
 async function loadSentFriendRequests(userId) {
@@ -4557,11 +5090,28 @@ async function upsertUserDirectoryProfile(user) {
 
   try {
     await setDoc(doc(db, "users", user.uid, "settings", "profile"), profilePayload, { merge: true });
-    if (safeEmail) {
-      await setDoc(doc(db, "userDirectory", safeEmail), profilePayload, { merge: true });
-    }
   } catch (err) {
     notifyFirestoreError(err);
+    return;
+  }
+
+  if (safeEmail) {
+    try {
+      await setDoc(doc(db, "userDirectory", safeEmail), profilePayload, { merge: true });
+    } catch (_) {
+      // Non-critical sync path; avoid surfacing global crash alert for directory mirror failures.
+    }
+  }
+
+  try {
+    await claimUsernameDirectoryEntry(user.uid, safeName, safeEmail, safeName);
+  } catch (claimErr) {
+    const claimCode = String(claimErr?.message || "");
+    if (claimCode === "USERNAME_TAKEN" || isFirestorePermissionDeniedError(claimErr)) {
+      // Keep app usable when username claim cannot be refreshed in background sync.
+      return;
+    }
+    notifyFirestoreError(claimErr);
   }
 }
 
@@ -4759,8 +5309,6 @@ async function loadFriendRequests(userId, showLoginAlert = false) {
     if (rows.length && showLoginAlert && !friendRequestLoginAlertShown) {
       friendRequestLoginAlertShown = true;
       alert(`You have ${rows.length} pending friend request${rows.length === 1 ? "" : "s"}. Open Account -> Friend Requests to accept or decline.`);
-    } else if (rows.length) {
-      showToast(`You have ${rows.length} pending friend request${rows.length === 1 ? "" : "s"}.`);
     }
   } catch (err) {
     notifyFirestoreError(err);
@@ -4773,6 +5321,36 @@ async function loadFriendsInsights(userId) {
   try {
     const myProfile = buildUserSocialProfileSnapshot(auth.currentUser);
     const userEmail = String(auth.currentUser?.email || "").trim().toLowerCase();
+    const profileFreshnessMs = (profile) => Number(profile?.generatedAtMs) || 0;
+    const profileSignalScore = (profile) => {
+      const metrics = profile?.metrics || {};
+      return (Number(metrics.totalTasksLogged) || 0)
+        + (Number(metrics.tasksToday) || 0)
+        + (Number(metrics.waterToday) || 0)
+        + (Number(metrics.sleepToday) || 0)
+        + (Number(metrics.gratitudeToday) || 0)
+        + (Number(metrics.dailyChallengeCompletedToday) || 0)
+        + (Number(metrics.avgWaterDaily) || 0)
+        + (Number(metrics.avgSleepHours) || 0)
+        + (Number(metrics.avgMoodScore) || 0)
+        + (Number(metrics.avgTasksCompletedDaily) || 0);
+    };
+    const pickBetterSharedProfile = (currentProfile, candidateProfile) => {
+      const current = currentProfile && typeof currentProfile === "object" ? currentProfile : null;
+      const candidate = candidateProfile && typeof candidateProfile === "object" ? candidateProfile : null;
+      if (!current) return candidate;
+      if (!candidate) return current;
+
+      const currentFreshness = profileFreshnessMs(current);
+      const candidateFreshness = profileFreshnessMs(candidate);
+      if (candidateFreshness > currentFreshness) return candidate;
+      if (currentFreshness > candidateFreshness) return current;
+
+      const currentSignal = profileSignalScore(current);
+      const candidateSignal = profileSignalScore(candidate);
+      if (candidateSignal > currentSignal) return candidate;
+      return current;
+    };
     const friendsSnap = await getDocs(collection(db, "users", userId, "friends"));
     const persistedFriends = friendsSnap.docs
       .map((docSnap) => {
@@ -4789,7 +5367,26 @@ async function loadFriendsInsights(userId) {
       .filter((entry) => String(entry.status || "accepted") === "accepted" && !!entry.friendUid);
     const persistedFriendUids = new Set(friends.map((entry) => String(entry.friendUid || "")).filter(Boolean));
 
+    // Self-heal one-sided friendships: if I have an accepted friend doc,
+    // try to ensure the reciprocal accepted doc also exists.
+    const myDisplayName = normalizeUsernameCandidate(auth.currentUser?.displayName, userEmail)
+      || normalizeUsernameCandidate(accountName?.innerText || "", userEmail)
+      || await resolveUsernameFromDirectoryEmail(userEmail)
+      || "User";
+    await Promise.all(friends.map((entry) => {
+      const friendUid = String(entry.friendUid || "").trim();
+      if (!friendUid || friendUid === userId) return Promise.resolve();
+      return setDoc(doc(db, "users", friendUid, "friends", userId), {
+        friendUid: userId,
+        friendEmail: userEmail,
+        friendName: myDisplayName,
+        status: "accepted",
+        updatedAt: serverTimestamp()
+      }, { merge: true }).catch(() => {});
+    }));
+
     let queueFriends = [];
+    const latestQueueProfileByFriendUid = new Map();
     const unfriendedFriendUids = new Set();
     try {
       const [sentAcceptedSnap, receivedAcceptedSnap, receivedAcceptedByEmailSnap] = await Promise.all([
@@ -4879,6 +5476,21 @@ async function loadFriendsInsights(userId) {
         if (!existing || Number(entry.updatedAtMs) >= Number(existing.updatedAtMs)) {
           latestQueueStatusByFriendUid.set(friendUid, entry);
         }
+
+        const hasProfile = entry.sharedProfile && typeof entry.sharedProfile === "object";
+        if (hasProfile) {
+          const existingProfileEntry = latestQueueProfileByFriendUid.get(friendUid);
+          const mergedProfile = pickBetterSharedProfile(existingProfileEntry?.sharedProfile || null, entry.sharedProfile);
+          if (!existingProfileEntry || mergedProfile !== existingProfileEntry.sharedProfile) {
+            latestQueueProfileByFriendUid.set(friendUid, {
+              sharedProfile: mergedProfile,
+              updatedAtMs: Math.max(
+                Number(entry.updatedAtMs || 0),
+                Number(existingProfileEntry?.updatedAtMs || 0)
+              )
+            });
+          }
+        }
       });
 
       [...latestQueueStatusByFriendUid.values()].forEach((entry) => {
@@ -4894,14 +5506,20 @@ async function loadFriendsInsights(userId) {
           friendEmail: String(entry.friendEmail || "").trim().toLowerCase(),
           friendName: String(entry.friendName || "Friend"),
           status: "accepted",
-          sharedProfile: entry.sharedProfile || null
+          sharedProfile: pickBetterSharedProfile(
+            entry.sharedProfile || null,
+            latestQueueProfileByFriendUid.get(String(entry.friendUid || ""))?.sharedProfile || null
+          )
         }))
-        .filter((entry) => !!entry.friendUid && !unfriendedFriendUids.has(String(entry.friendUid)));
+        .filter((entry) => {
+          const uid = String(entry.friendUid || "");
+          if (!uid) return false;
+          // Do not let stale queue-only unfriended state hide a valid accepted local friend doc.
+          return !unfriendedFriendUids.has(uid) || persistedFriendUids.has(uid);
+        });
     } catch (_) {
       queueFriends = [];
     }
-
-    friends = friends.filter((entry) => !unfriendedFriendUids.has(String(entry.friendUid || "")));
 
     // If accepted relationships are visible in queue but missing in persistent friends docs,
     // backfill them so friendships remain after sign-out/sign-in cycles.
@@ -4932,13 +5550,92 @@ async function loadFriendsInsights(userId) {
       });
     }
 
+    // Recovery path: if cross-user friend mirror write failed earlier,
+    // reconstruct active friends from accepted request history.
+    let historicalAcceptedFriends = [];
+    try {
+      const [inboxSnap, sentSnap] = await Promise.all([
+        getDocs(collection(db, "users", userId, "friendRequests")),
+        getDocs(collection(db, "users", userId, "friendRequestsSent"))
+      ]);
+
+      const fromInbox = inboxSnap.docs
+        .map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() || {}) }))
+        .filter((entry) => String(entry.status || "").trim().toLowerCase() === "accepted")
+        .map((entry) => ({
+          friendUid: String(entry.fromUid || entry.id || "").trim(),
+          friendEmail: String(entry.fromEmail || "").trim().toLowerCase(),
+          friendName: String(entry.fromName || "").trim(),
+          status: "accepted"
+        }));
+
+      const fromSent = sentSnap.docs
+        .map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() || {}) }))
+        .filter((entry) => String(entry.status || "").trim().toLowerCase() === "accepted")
+        .map((entry) => ({
+          friendUid: String(entry.toUid || "").trim(),
+          friendEmail: String(entry.toEmail || "").trim().toLowerCase(),
+          friendName: String(entry.toName || "").trim(),
+          status: "accepted"
+        }));
+
+      const deduped = new Map();
+      [...fromInbox, ...fromSent].forEach((entry) => {
+        const friendUid = String(entry.friendUid || "").trim();
+        if (!friendUid || unfriendedFriendUids.has(friendUid)) return;
+        if (!deduped.has(friendUid)) deduped.set(friendUid, entry);
+      });
+      historicalAcceptedFriends = [...deduped.values()];
+    } catch (_) {
+      historicalAcceptedFriends = [];
+    }
+
+    const historicalOnlyAccepted = historicalAcceptedFriends.filter((entry) => {
+      const uid = String(entry.friendUid || "").trim();
+      return !!uid && !persistedFriendUids.has(uid) && !unfriendedFriendUids.has(uid);
+    });
+    if (historicalOnlyAccepted.length) {
+      await Promise.all(historicalOnlyAccepted.map((entry) => {
+        const friendUid = String(entry.friendUid || "").trim();
+        if (!friendUid) return Promise.resolve();
+        const fallbackName = getFriendDisplayName({
+          uid: friendUid,
+          email: String(entry.friendEmail || "").trim().toLowerCase(),
+          name: String(entry.friendName || "").trim()
+        }, "Friend");
+        return setDoc(doc(db, "users", userId, "friends", friendUid), {
+          friendUid,
+          friendEmail: String(entry.friendEmail || "").trim().toLowerCase(),
+          friendName: fallbackName,
+          status: "accepted",
+          updatedAt: serverTimestamp()
+        }, { merge: true }).catch(() => {});
+      }));
+
+      historicalOnlyAccepted.forEach((entry) => {
+        const uid = String(entry.friendUid || "").trim();
+        if (!uid) return;
+        persistedFriendUids.add(uid);
+        friends.push({
+          friendUid: uid,
+          friendEmail: String(entry.friendEmail || "").trim().toLowerCase(),
+          friendName: String(entry.friendName || "").trim(),
+          status: "accepted"
+        });
+      });
+    }
+
     const mergedByFriendUid = new Map();
     [...queueFriends, ...friends].forEach((entry) => {
       if (!entry?.friendUid) return;
       const key = String(entry.friendUid);
+      const queueProfile = latestQueueProfileByFriendUid.get(key)?.sharedProfile || null;
       const existing = mergedByFriendUid.get(key);
       if (!existing) {
-        mergedByFriendUid.set(key, entry);
+        mergedByFriendUid.set(key, {
+          ...entry,
+          sharedProfile: pickBetterSharedProfile(entry.sharedProfile || null, queueProfile)
+        });
         return;
       }
       mergedByFriendUid.set(key, {
@@ -4946,7 +5643,10 @@ async function loadFriendsInsights(userId) {
         ...entry,
         friendEmail: String(entry.friendEmail || existing.friendEmail || ""),
         friendName: String(entry.friendName || existing.friendName || ""),
-        sharedProfile: entry.sharedProfile || existing.sharedProfile || null
+        sharedProfile: pickBetterSharedProfile(
+          pickBetterSharedProfile(existing.sharedProfile || null, entry.sharedProfile || null),
+          queueProfile
+        )
       });
     });
     const mergedFriends = [...mergedByFriendUid.values()];
@@ -5042,18 +5742,15 @@ async function submitAddFriendRequest() {
     return;
   }
 
-  const targetEmail = String(addFriendEmailInput?.value || "").trim().toLowerCase();
+  const targetUsernameInput = String(addFriendEmailInput?.value || "").trim();
+  const targetUsernameKey = normalizeUsernameForLookup(targetUsernameInput);
   const senderEmail = String(user.email || "").trim().toLowerCase();
-  if (!targetEmail) {
-    setAddFriendError("Friend email is required.");
+  if (!targetUsernameInput) {
+    setAddFriendError("Friend username is required.");
     return;
   }
-  if (!isEmailLike(targetEmail)) {
-    setAddFriendError("Enter a valid email address.");
-    return;
-  }
-  if (targetEmail === senderEmail) {
-    setAddFriendError("You cannot add your own account.");
+  if (!targetUsernameKey) {
+    setAddFriendError("Enter a valid username.");
     return;
   }
 
@@ -5068,25 +5765,34 @@ async function submitAddFriendRequest() {
 
     let targetUid = "";
     let targetName = "Friend";
-    let lookupFailed = false;
-    try {
-      const targetDirectory = await getDoc(doc(db, "userDirectory", targetEmail));
-      if (targetDirectory.exists()) {
-        const targetData = targetDirectory.data() || {};
-        targetUid = String(targetData.uid || "").trim();
-        targetName = normalizeUsernameCandidate(targetData.name, targetEmail) || "Friend";
-      }
-    } catch (_) {
-      lookupFailed = true;
-    }
+    let targetEmail = "";
+    const targetDirectory = await resolveUserDirectoryByUsername(targetUsernameKey, {
+      forceRefresh: true,
+      preferServer: true
+    });
+    if (targetDirectory) {
+      targetUid = String(targetDirectory.uid || "").trim();
+      targetEmail = String(targetDirectory.email || "").trim().toLowerCase();
+      targetName = normalizeUsernameCandidate(targetDirectory.name, targetEmail)
+        || targetUsernameKey
+        || "Friend";
 
-    if (lookupFailed) {
-      setAddFriendError("Could not verify this email right now. Try again.");
-      return;
+      // Best-effort session self-heal: keep alias cache warm for legacy usernames.
+      usernameDirectoryCache.set(targetUsernameKey, {
+        uid: targetUid,
+        email: targetEmail,
+        name: targetName,
+        username: targetUsernameKey
+      });
     }
 
     if (!targetUid) {
-      setAddFriendError("No account found with this email. Ask them to sign up first.");
+      setAddFriendError("No account found with this username. Ask them to sign up first.");
+      return;
+    }
+
+    if (targetUid === user.uid) {
+      setAddFriendError("You cannot add your own account.");
       return;
     }
 
@@ -5166,7 +5872,7 @@ async function submitAddFriendRequest() {
       }
 
       activePendingSentCount += 1;
-      if (toEmail === targetEmail) alreadyPendingToEmail = true;
+      if (toUid === targetUid || (targetEmail && toEmail === targetEmail)) alreadyPendingToEmail = true;
     });
     await Promise.all([...sentExpiryUpdates, ...sentStatusSyncUpdates]);
 
@@ -5183,8 +5889,22 @@ async function submitAddFriendRequest() {
     if (targetUid) {
       const existingFriend = await getDoc(doc(db, "users", user.uid, "friends", targetUid));
       if (existingFriend.exists()) {
-        setAddFriendError("You are already friends with this account.");
-        return;
+        const existingFriendData = existingFriend.data() || {};
+        const existingFriendStatus = String(existingFriendData.status || "accepted").trim().toLowerCase();
+        const queueStatusByUid = String(queueStatusByTarget.get(`uid:${targetUid}`)?.status || "").trim().toLowerCase();
+        const queueStatusByEmail = targetEmail
+          ? String(queueStatusByTarget.get(`email:${targetEmail}`)?.status || "").trim().toLowerCase()
+          : "";
+        const queueStatus = queueStatusByUid || queueStatusByEmail;
+
+        const activeFriendByDoc = existingFriendStatus === "accepted";
+        const queueMarkedUnfriended = queueStatus === "unfriended";
+        if (activeFriendByDoc && !queueMarkedUnfriended) {
+          await loadFriendsInsights(user.uid);
+          closeAddFriendModal(null, true);
+          showToast("You are already friends with this account.");
+          return;
+        }
       }
     }
 
@@ -5192,7 +5912,23 @@ async function submitAddFriendRequest() {
       const reverseRequest = await getDoc(doc(db, "users", user.uid, "friendRequests", targetUid));
       const reverseData = reverseRequest.exists() ? (reverseRequest.data() || {}) : null;
       if (reverseData && String(reverseData.status || "") === "pending" && !isFriendRequestExpired(reverseData)) {
-        setAddFriendError("This user has already sent you a request. Open Friend Requests to accept or decline it.");
+        const incomingName = getFriendDisplayName({
+          uid: targetUid,
+          email: reverseData.fromEmail || targetEmail,
+          name: reverseData.fromName || targetName
+        }, "Friend");
+        const shouldAcceptNow = confirm(`${incomingName} has already sent you a friend request. Accept it now?`);
+        if (shouldAcceptNow) {
+          await respondToFriendRequest({
+            ...reverseData,
+            fromUid: targetUid,
+            source: "legacy",
+            requestId: targetUid
+          }, "accept");
+          closeAddFriendModal(null, true);
+          return;
+        }
+        setAddFriendError("This user already sent you a request. Open Friend Requests to accept it.");
         return;
       }
       if (reverseData && String(reverseData.status || "") === "pending" && isFriendRequestExpired(reverseData)) {
@@ -5219,6 +5955,32 @@ async function submitAddFriendRequest() {
             ))
             : Promise.resolve({ docs: [] })
         ]);
+        const reversePendingEntry = [...reverseQueueByUid.docs, ...reverseQueueByEmail.docs]
+          .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+          .find((data) => {
+            const fromUidMatches = String(data.fromUid || "") === targetUid;
+            const pending = String(data.status || "pending") === "pending" && !isFriendRequestExpired(data);
+            return fromUidMatches && pending;
+          });
+        if (reversePendingEntry) {
+          const incomingName = getFriendDisplayName({
+            uid: String(reversePendingEntry.fromUid || targetUid),
+            email: reversePendingEntry.fromEmail || targetEmail,
+            name: reversePendingEntry.fromName || targetName
+          }, "Friend");
+          const shouldAcceptNow = confirm(`${incomingName} has already sent you a friend request. Accept it now?`);
+          if (shouldAcceptNow) {
+            await respondToFriendRequest({
+              ...reversePendingEntry,
+              source: "queue",
+              requestId: String(reversePendingEntry.id || "")
+            }, "accept");
+            closeAddFriendModal(null, true);
+            return;
+          }
+          setAddFriendError("This user already sent you a request. Open Friend Requests to accept it.");
+          return;
+        }
         const hasReversePending = [...reverseQueueByUid.docs, ...reverseQueueByEmail.docs].some((docSnap) => {
           const data = docSnap.data() || {};
           const fromUidMatches = String(data.fromUid || "") === targetUid;
@@ -5247,12 +6009,14 @@ async function submitAddFriendRequest() {
       || normalizeUsernameCandidate(accountName?.innerText || "", senderEmail)
       || await resolveUsernameFromDirectoryEmail(senderEmail)
       || "User";
+    const fromProfileSnapshot = buildUserSocialProfileSnapshot(user);
     const requestNowMs = Date.now();
     const requestNonce = `${user.uid}_${requestNowMs}_${Math.random().toString(36).slice(2, 8)}`;
     const requestPayload = {
       fromUid: user.uid,
       fromEmail: senderEmail,
       fromName,
+      fromProfile: fromProfileSnapshot,
       toUid: targetUid,
       toEmail: targetEmail,
       toName: targetName,
@@ -5329,7 +6093,11 @@ async function submitAddFriendRequest() {
       : "Friend request queued in-app. They will see it on next login.");
   } catch (err) {
     notifyFirestoreError(err);
-    setAddFriendError(err?.message || "Could not send friend request right now.");
+    setAddFriendError(
+      isFirestorePermissionDeniedError(err)
+        ? "Friend lookup is blocked by Firestore rules. Allow signed-in users to read usernameDirectory."
+        : (err?.message || "Could not send friend request right now.")
+    );
   } finally {
     setAddFriendBusy(false);
   }
@@ -5376,15 +6144,49 @@ async function respondToFriendRequest(requestEntry, action) {
         || normalizeUsernameCandidate(accountName?.innerText || "", userEmail)
         || await resolveUsernameFromDirectoryEmail(userEmail)
         || "User";
+      const myProfileSnapshot = buildUserSocialProfileSnapshot(user);
       const friendEmail = String(requestData.fromEmail || "").trim().toLowerCase();
       const friendName = normalizeUsernameCandidate(requestData.fromName, friendEmail)
         || await resolveUsernameFromDirectoryEmail(friendEmail)
         || getFriendDisplayName({ uid: fromUid, email: friendEmail, name: requestData.fromName }, "Friend");
+      const senderProfileSnapshot = (requestData?.fromProfile && typeof requestData.fromProfile === "object")
+        ? {
+          ...requestData.fromProfile,
+          uid: String(requestData.fromProfile.uid || fromUid || "").trim(),
+          email: String(requestData.fromProfile.email || friendEmail || "").trim().toLowerCase(),
+          name: getFriendDisplayName({
+            uid: String(requestData.fromProfile.uid || fromUid || "").trim(),
+            email: String(requestData.fromProfile.email || friendEmail || "").trim().toLowerCase(),
+            name: String(requestData.fromProfile.name || friendName || "")
+          }, "Friend")
+        }
+        : {
+          uid: fromUid,
+          email: friendEmail,
+          name: friendName,
+          metrics: {
+            totalTasksLogged: 0,
+            completedTasks: 0,
+            tasksToday: 0,
+            waterToday: 0,
+            sleepToday: 0,
+            gratitudeToday: 0,
+            dailyChallengeCompletedToday: 0,
+            avgWaterDaily: 0,
+            avgSleepHours: 0,
+            avgMoodScore: 0,
+            avgMoodLabel: "Not enough data",
+            avgTasksCompletedDaily: 0,
+            sampleDays: 0
+          },
+          generatedAtMs: Date.now()
+        };
 
       await setDoc(doc(db, "users", user.uid, "friends", fromUid), {
         friendUid: fromUid,
         friendEmail,
         friendName,
+        sharedProfile: senderProfileSnapshot,
         status: "accepted",
         since: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -5394,10 +6196,14 @@ async function respondToFriendRequest(requestEntry, action) {
         friendUid: user.uid,
         friendEmail: String(user.email || "").trim().toLowerCase(),
         friendName: myFallbackName,
+        sharedProfile: myProfileSnapshot,
         status: "accepted",
         since: serverTimestamp(),
         updatedAt: serverTimestamp()
       }, { merge: true }).catch(() => {});
+
+      requestData.fromProfile = senderProfileSnapshot;
+      requestData.toProfile = myProfileSnapshot;
     }
 
     // Keep queue docs in sync so accepted/declined state is visible to both users.
@@ -5415,9 +6221,11 @@ async function respondToFriendRequest(requestEntry, action) {
       fromUid,
       fromEmail: senderEmail,
       fromName: senderName,
+      fromProfile: requestData.fromProfile || null,
       toUid: queueToUid,
       toEmail: queueToEmail,
       toName: recipientName,
+      toProfile: requestData.toProfile || null,
       status: accepted ? "accepted" : "declined",
       respondedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -5615,7 +6423,9 @@ let addFriendSubmitting = false;
 let friendRequestLoginAlertShown = false;
 let friendInsightProfiles = [];
 let lastFriendQueueProfileSyncAt = 0;
+let sentRequestExpiryTicker = null;
 const userDirectoryNameCache = new Map();
+const usernameDirectoryCache = new Map();
 let exportCooldownUntilMs = 0;
 let exportCooldownIntervalId = null;
 
@@ -5859,11 +6669,24 @@ function updateClearDataButtonState() {
 
 function notifyFirestoreError(err) {
   console.error("Firestore operation failed:", err);
+  const authUser = auth?.currentUser || null;
+  if (!authUser && isFirestorePermissionDeniedError(err)) {
+    // Ignore post-signout auth races that surface as permission-denied.
+    return;
+  }
   const now = Date.now();
   if (now - lastFirestoreErrorAlertAt > 4000) {
     alert(FIRESTORE_CRASH_MESSAGE);
     lastFirestoreErrorAlertAt = now;
   }
+}
+
+function isFirestorePermissionDeniedError(err) {
+  const code = String(err?.code || "").toLowerCase();
+  const message = String(err?.message || "").toLowerCase();
+  return code.includes("permission-denied")
+    || code.includes("unauthenticated")
+    || message.includes("missing or insufficient permissions");
 }
 
 function dateToKey(dateValue) {
@@ -7339,6 +8162,80 @@ async function syncSocialProfileToFriendQueue(user, socialProfile) {
   } catch (_) {}
 }
 
+async function syncSocialProfileToFriendsMirror(user, socialProfile) {
+  const userId = String(user?.uid || "").trim();
+  const userEmail = String(user?.email || "").trim().toLowerCase();
+  if (!userId || !socialProfile || typeof socialProfile !== "object") return;
+
+  const safeProfile = {
+    uid: String(socialProfile.uid || userId),
+    email: String(socialProfile.email || user?.email || "").trim().toLowerCase(),
+    name: getFriendDisplayName({
+      uid: String(socialProfile.uid || userId),
+      email: String(socialProfile.email || user?.email || "").trim().toLowerCase(),
+      name: String(socialProfile.name || "")
+    }, "User"),
+    metrics: {
+      totalTasksLogged: Number(socialProfile?.metrics?.totalTasksLogged) || 0,
+      completedTasks: Number(socialProfile?.metrics?.completedTasks) || 0,
+      tasksToday: Number(socialProfile?.metrics?.tasksToday) || 0,
+      waterToday: Number(socialProfile?.metrics?.waterToday) || 0,
+      sleepToday: Number(socialProfile?.metrics?.sleepToday) || 0,
+      gratitudeToday: Number(socialProfile?.metrics?.gratitudeToday) || 0,
+      dailyChallengeCompletedToday: Number(socialProfile?.metrics?.dailyChallengeCompletedToday) || 0,
+      avgWaterDaily: Number(socialProfile?.metrics?.avgWaterDaily) || 0,
+      avgSleepHours: Number(socialProfile?.metrics?.avgSleepHours) || 0,
+      avgMoodScore: Number(socialProfile?.metrics?.avgMoodScore) || 0,
+      avgMoodLabel: String(socialProfile?.metrics?.avgMoodLabel || "Not enough data"),
+      avgTasksCompletedDaily: Number(socialProfile?.metrics?.avgTasksCompletedDaily) || 0,
+      sampleDays: Number(socialProfile?.metrics?.sampleDays) || 0
+    },
+    generatedAtMs: Number(socialProfile.generatedAtMs) || Date.now(),
+    updatedAtMs: Date.now()
+  };
+
+  try {
+    const friendsSnap = await getDocs(collection(db, "users", userId, "friends"));
+    const updates = [];
+    friendsSnap.docs.forEach((docSnap) => {
+      const data = docSnap.data() || {};
+      const friendUid = String(data.friendUid || docSnap.id || "").trim();
+      const status = String(data.status || "accepted").trim().toLowerCase();
+      if (!friendUid || status !== "accepted") return;
+
+      updates.push(setDoc(doc(db, "users", friendUid, "friends", userId), {
+        friendUid: userId,
+        friendEmail: userEmail,
+        friendName: safeProfile.name,
+        status: "accepted",
+        sharedProfile: safeProfile,
+        updatedAt: serverTimestamp()
+      }, { merge: true }).catch(() => {}));
+    });
+
+    await Promise.all(updates);
+  } catch (_) {}
+}
+
+async function forceSyncFriendProfileFromLocalSnapshot(user) {
+  const userId = String(user?.uid || "").trim();
+  if (!userId) return;
+
+  const socialProfile = buildUserSocialProfileSnapshot(user);
+  if (!socialProfile || typeof socialProfile !== "object") return;
+
+  try {
+    await Promise.allSettled([
+      setDoc(doc(db, "users", userId, "social", "profile"), {
+        ...socialProfile,
+        updatedAt: serverTimestamp()
+      }, { merge: true }),
+      syncSocialProfileToFriendQueue(user, socialProfile),
+      syncSocialProfileToFriendsMirror(user, socialProfile)
+    ]);
+  } catch (_) {}
+}
+
 function queueInsightsPersist(payload) {
   if (insightsPersistTimer) clearTimeout(insightsPersistTimer);
   insightsPersistTimer = setTimeout(async () => {
@@ -7373,7 +8270,10 @@ function queueInsightsPersist(payload) {
         const nowMs = Date.now();
         if (nowMs - lastFriendQueueProfileSyncAt > 12000) {
           lastFriendQueueProfileSyncAt = nowMs;
-          await syncSocialProfileToFriendQueue(user, payload.socialProfile);
+          await Promise.allSettled([
+            syncSocialProfileToFriendQueue(user, payload.socialProfile),
+            syncSocialProfileToFriendsMirror(user, payload.socialProfile)
+          ]);
         }
       }
     } catch (err) {
@@ -13236,4 +14136,3 @@ Object.assign(window, {
 </script>
 </body>
 </html>
-
