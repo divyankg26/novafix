@@ -4244,6 +4244,105 @@ function normalizeUsernameForLookup(usernameValue) {
   return withoutAt.replace(/\s+/g, "").trim().toLowerCase();
 }
 
+function buildUsernameSeedFromDisplayName(displayNameValue) {
+  const raw = String(displayNameValue || "").trim().toLowerCase();
+  if (!raw) return "";
+  const withoutSpaces = raw.replace(/\s+/g, "");
+  const allowedOnly = withoutSpaces.replace(/[^a-z0-9_-]/g, "");
+  return normalizeUsernameForLookup(allowedOnly).slice(0, 20);
+}
+
+function buildUsernameCandidate(baseUsername, suffix = "") {
+  const base = normalizeUsernameForLookup(baseUsername) || "user";
+  const safeSuffix = normalizeUsernameForLookup(suffix);
+  const maxBaseLength = Math.max(1, 20 - safeSuffix.length);
+  const clippedBase = base.slice(0, maxBaseLength);
+  return normalizeUsernameForLookup(`${clippedBase}${safeSuffix}`).slice(0, 20);
+}
+
+function buildUsernameClaimCandidateList(preferredUsername) {
+  const base = normalizeUsernameForLookup(preferredUsername) || "user";
+  const candidates = [];
+  const seen = new Set();
+  const pushCandidate = (value) => {
+    const normalized = normalizeUsernameForLookup(value);
+    if (!normalized || seen.has(normalized)) return;
+    seen.add(normalized);
+    candidates.push(normalized);
+  };
+
+  pushCandidate(base);
+  for (let index = 1; index <= 80; index += 1) {
+    pushCandidate(buildUsernameCandidate(base, String(index)));
+    pushCandidate(buildUsernameCandidate(base, `_${index}`));
+    pushCandidate(buildUsernameCandidate(base, `-${index}`));
+  }
+  return candidates;
+}
+
+function buildStableUidUsernameFingerprint(userId) {
+  const cleaned = String(userId || "").toLowerCase().replace(/[^a-z0-9_-]/g, "");
+  if (!cleaned) return "";
+  if (cleaned.length <= 12) return cleaned;
+  return `${cleaned.slice(0, 6)}${cleaned.slice(-6)}`;
+}
+
+async function claimUsernameWithFallback(options = {}) {
+  const safeUserId = String(options.userId || "").trim();
+  const safeEmail = String(options.email || "").trim().toLowerCase();
+  const safeDisplayName = normalizeDisplayNameValue(options.displayName || "") || "User";
+  const preferredUsername = normalizeUsernameForLookup(options.preferredUsername || "");
+  const allowSuffixFallback = !!options.allowSuffixFallback;
+  if (!safeUserId) throw new Error("INVALID_USERNAME");
+
+  const baseUsername = preferredUsername || "user";
+  const candidates = allowSuffixFallback
+    ? buildUsernameClaimCandidateList(baseUsername)
+    : [baseUsername];
+
+  if (allowSuffixFallback) {
+    const seen = new Set(candidates);
+    const pushCandidate = (value) => {
+      const normalized = normalizeUsernameForLookup(value);
+      if (!normalized || seen.has(normalized)) return;
+      seen.add(normalized);
+      candidates.push(normalized);
+    };
+
+    const uidFingerprint = buildStableUidUsernameFingerprint(safeUserId);
+    if (uidFingerprint) {
+      pushCandidate(buildUsernameCandidate(baseUsername, `_${uidFingerprint}`));
+      pushCandidate(buildUsernameCandidate(baseUsername, `-${uidFingerprint}`));
+      pushCandidate(buildUsernameCandidate(baseUsername, uidFingerprint));
+      pushCandidate(buildUsernameCandidate("user", uidFingerprint));
+    }
+
+    // Extra entropy tail to avoid collisions even in very high-occupancy namespaces.
+    for (let index = 0; index < 200; index += 1) {
+      const entropy = (Date.now() + index).toString(36).slice(-4);
+      pushCandidate(buildUsernameCandidate(baseUsername, `_${entropy}`));
+      pushCandidate(buildUsernameCandidate(baseUsername, `${entropy}`));
+    }
+  }
+
+  let lastTakenError = null;
+  for (const candidate of candidates) {
+    try {
+      const claimed = await claimUsernameDirectoryEntry(safeUserId, candidate, safeEmail, safeDisplayName);
+      return claimed;
+    } catch (err) {
+      const errCode = String(err?.message || "");
+      if (errCode === "USERNAME_TAKEN") {
+        lastTakenError = err;
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  throw (lastTakenError || new Error("USERNAME_TAKEN"));
+}
+
 async function resolveUserDirectoryByUsername(usernameValue, options = {}) {
   const rawInput = String(usernameValue || "").trim();
   const rawWithoutAt = rawInput.startsWith("@") ? rawInput.slice(1).trim() : rawInput;
@@ -5488,6 +5587,10 @@ async function unfriendByUid(friendUid) {
 async function upsertUserDirectoryProfile(user, options = {}) {
   if (!user?.uid) return;
   const safeEmail = String(user.email || "").trim().toLowerCase();
+  const providerIds = Array.isArray(user.providerData)
+    ? user.providerData.map((entry) => String(entry?.providerId || "").trim().toLowerCase())
+    : [];
+  const isGoogleAccount = providerIds.includes("google.com");
 
   let existingProfileData = {};
   try {
@@ -5520,11 +5623,16 @@ async function upsertUserDirectoryProfile(user, options = {}) {
     }
   }
 
-  const safeUsername = getNormalizedUsernameIdentity(options?.username, safeEmail)
-    || getNormalizedUsernameIdentity(existingProfileData.username || existingProfileData.name, safeEmail)
+  const optionUsername = getNormalizedUsernameIdentity(options?.username, safeEmail);
+  const existingProfileUsername = getNormalizedUsernameIdentity(existingProfileData.username || existingProfileData.name, safeEmail);
+  const googleNameSeed = isGoogleAccount ? buildUsernameSeedFromDisplayName(user.displayName) : "";
+  const hasPreexistingUsername = !!(optionUsername || existingProfileUsername || existingUsernameFromDirectory);
+
+  const safeUsername = optionUsername
+    || existingProfileUsername
     || existingUsernameFromDirectory
-    || getNormalizedUsernameIdentity(accountName?.innerText || "", safeEmail)
-    || getEmailLocalIdentity(safeEmail)
+    || googleNameSeed
+    || (!isGoogleAccount ? getEmailLocalIdentity(safeEmail) : "")
     || "user";
 
   const safeDisplayName = normalizeDisplayNameValue(options?.displayName)
@@ -5558,7 +5666,27 @@ async function upsertUserDirectoryProfile(user, options = {}) {
   }
 
   try {
-    await claimUsernameDirectoryEntry(user.uid, safeUsername, safeEmail, safeDisplayName);
+    const claimedUsername = await claimUsernameWithFallback({
+      userId: user.uid,
+      email: safeEmail,
+      displayName: safeDisplayName,
+      preferredUsername: safeUsername,
+      allowSuffixFallback: isGoogleAccount && !hasPreexistingUsername && !!googleNameSeed
+    });
+
+    if (claimedUsername && claimedUsername !== safeUsername) {
+      const mergedProfilePayload = {
+        ...profilePayload,
+        name: claimedUsername,
+        username: claimedUsername,
+        updatedAt: serverTimestamp()
+      };
+      await setDoc(doc(db, "users", user.uid, "settings", "profile"), mergedProfilePayload, { merge: true });
+      if (safeEmail) {
+        await setDoc(doc(db, "userDirectory", safeEmail), mergedProfilePayload, { merge: true }).catch(() => {});
+      }
+      if (accountName) accountName.innerText = claimedUsername;
+    }
   } catch (claimErr) {
     const claimCode = String(claimErr?.message || "");
     if (claimCode === "USERNAME_TAKEN" || isFirestorePermissionDeniedError(claimErr)) {
