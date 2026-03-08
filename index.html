@@ -3071,20 +3071,21 @@ function canOverrideAuthUsernameMessage() {
 
 function validateSignupUsername(usernameValue) {
   const raw = String(usernameValue || "").trim();
+  const candidate = raw.startsWith("@") ? raw.slice(1).trim() : raw;
   if (!raw) {
     return { ok: false, message: "Username is required for sign up!", normalized: "" };
   }
 
-  if (raw.length < 1 || raw.length > 20) {
+  if (candidate.length < 1 || candidate.length > 20) {
     return { ok: false, message: "Username must be 1-20 characters.", normalized: "" };
   }
 
-  const allowedPattern = /^[A-Za-z0-9 _-]+$/;
-  if (!allowedPattern.test(raw)) {
-    return { ok: false, message: "Username can only use letters, numbers, spaces, underscores, and dashes.", normalized: "" };
+  const allowedPattern = /^[A-Za-z0-9_-]+$/;
+  if (!allowedPattern.test(candidate)) {
+    return { ok: false, message: "Username can only use letters, numbers, underscores, and dashes.", normalized: "" };
   }
 
-  return { ok: true, message: "", normalized: normalizeUsernameForLookup(raw) };
+  return { ok: true, message: "", normalized: normalizeUsernameForLookup(candidate) };
 }
 
 function validateSignupDisplayName(displayNameValue) {
@@ -4240,7 +4241,7 @@ function normalizeUsernameForLookup(usernameValue) {
   const raw = String(usernameValue || "").trim();
   if (!raw) return "";
   const withoutAt = raw.startsWith("@") ? raw.slice(1) : raw;
-  return withoutAt.trim().toLowerCase();
+  return withoutAt.replace(/\s+/g, "").trim().toLowerCase();
 }
 
 async function resolveUserDirectoryByUsername(usernameValue, options = {}) {
@@ -6259,14 +6260,15 @@ async function submitAddFriendRequest() {
   }
 
   const targetUsernameInput = String(addFriendEmailInput?.value || "").trim();
-  const targetUsernameKey = normalizeUsernameForLookup(targetUsernameInput);
+  const targetUsernameValidation = validateSignupUsername(targetUsernameInput);
+  const targetUsernameKey = targetUsernameValidation.normalized;
   const senderEmail = String(user.email || "").trim().toLowerCase();
   if (!targetUsernameInput) {
     setAddFriendError("Friend username is required.");
     return;
   }
-  if (!targetUsernameKey) {
-    setAddFriendError("Enter a valid username.");
+  if (!targetUsernameValidation.ok || !targetUsernameKey) {
+    setAddFriendError("Enter a valid username (letters, numbers, underscores, dashes; 1-20 chars).");
     return;
   }
 
