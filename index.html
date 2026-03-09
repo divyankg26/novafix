@@ -510,23 +510,32 @@ header p{margin:8px 0 0;opacity:.94}
   overflow-x:hidden;
   overflow-y:auto;
   scrollbar-gutter:stable;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(33,150,243,.5) transparent;
 }
 
 #accountPanel::-webkit-scrollbar{
-  width:8px;
+  width:6px;
 }
 
 #accountPanel::-webkit-scrollbar-track{
-  margin:10px 0;
-  border-radius:999px;
-  background:rgba(255,255,255,.08);
+  background:transparent;
 }
 
 #accountPanel::-webkit-scrollbar-thumb{
-  border-radius:999px;
-  background:rgba(255,255,255,.34);
-  border:2px solid transparent;
-  background-clip:content-box;
+  background:rgba(33,150,243,.5);
+  border-radius:3px;
+  opacity:.7;
+  transition:background-color .3s ease, opacity .85s ease;
+}
+
+#accountPanel.account-scroll-active{
+  scrollbar-color:var(--primary) transparent;
+}
+
+#accountPanel.account-scroll-active::-webkit-scrollbar-thumb{
+  background:var(--primary);
+  opacity:1;
 }
 
 #accountPanel h4{
@@ -649,7 +658,7 @@ header p{margin:8px 0 0;opacity:.94}
   transform:translateZ(0);
   transition:transform .34s cubic-bezier(.22,.61,.36,1), box-shadow .34s cubic-bezier(.22,.61,.36,1), border-color .34s cubic-bezier(.22,.61,.36,1);
   will-change:transform;
-  animation:cardRise .55s cubic-bezier(.2,.7,.2,1) both;
+  animation:cardRise .55s cubic-bezier(.2,.7,.2,1);
 }
 .card:hover{
   transform:translateY(-4px) scale(1.012);
@@ -800,9 +809,6 @@ textarea:focus-visible{
 .limit-note{
   display:none;
   margin:8px 0 0;
-  font-size:12px;
-  line-height:1.4;
-  color:#ffd3d3;
 }
 
 .micro-tip{
@@ -817,6 +823,20 @@ textarea:focus-visible{
   font-size:12px;
   line-height:1.4;
   opacity:.9;
+}
+
+.reset-countdown-alert{
+  opacity:1;
+}
+
+.limit-note,
+.reset-countdown-alert,
+.insight-reset-note{
+  text-align:center;
+  font-size:12px;
+  line-height:1.4;
+  color:#ff6b6b;
+  font-weight:700;
 }
 
 .soft-note{
@@ -835,6 +855,14 @@ textarea:focus-visible{
   border:1px solid rgba(255,255,255,.2);
   background:rgba(255,255,255,.08);
   color:#f3f7ff;
+}
+
+#dailyChallengeResetCountdown{
+  margin:14px 0;
+}
+
+#dailyChallengeFriendInsight{
+  margin-top:0;
 }
 
 .status-loading,
@@ -922,6 +950,35 @@ textarea:focus-visible{
   width:100%;
   display:block;
   text-align:center;
+}
+
+#reminderText,
+#reminderMinutes,
+#reminderUnit{
+  width:100%;
+  flex:1 1 100%;
+  display:block;
+}
+
+#reminderUnit,
+#mood{
+  -webkit-appearance:none;
+  -moz-appearance:none;
+  appearance:none;
+  padding-right:36px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(255,255,255,0.86) 50%),
+    linear-gradient(135deg, rgba(255,255,255,0.86) 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) calc(50% - 2px),
+    calc(100% - 11px) calc(50% - 2px);
+  background-size:6px 6px, 6px 6px;
+  background-repeat:no-repeat;
+}
+
+#reminderUnit option,
+#mood option{
+  color:#111;
 }
 
 #taskList .item-row{
@@ -1136,12 +1193,8 @@ textarea:focus-visible{
 
 .insight-reset-note{
   display:block;
-  text-align:center;
   margin:0 0 6px;
-  font-size:12px;
-  opacity:.95;
-  color:#ff6b6b;
-  font-weight:700;
+  opacity:1;
 }
 
 .insight-graph-scroll{
@@ -1894,7 +1947,15 @@ textarea:focus-visible{
 <p class="micro-tip">Tip: Keep reminders specific, like “Drink water now”.</p>
 <div class="input-group">
 <input id="reminderText" placeholder="Reminder">
-<input type="number" id="reminderMinutes" placeholder="Minutes">
+<input type="number" id="reminderMinutes" placeholder="Time" min="1" step="1">
+<select id="reminderUnit" aria-label="Reminder time unit">
+  <option value="second">Second(s)</option>
+  <option value="minute">Minute(s)</option>
+  <option value="hour">Hour(s)</option>
+  <option value="day">Day(s)</option>
+  <option value="week">Week(s)</option>
+  <option value="month">Month(s)</option>
+</select>
 <button id="reminderSetBtn" onclick="addReminder()">Set</button>
 </div>
 <p class="reset-hint">Daily limits show a live countdown when reached.</p>
@@ -1933,9 +1994,13 @@ textarea:focus-visible{
 <option>😊 Happy</option>
 <option>😐 Neutral</option>
 <option>😔 Low</option>
+<option>😣 Stressed</option>
+<option>😡 Angry</option>
 </select>
 <button id="moodSaveBtn" onclick="saveMood()">Save</button>
 <p id="moodLimitError" class="limit-note"></p>
+<p id="moodResetCountdown" class="reset-hint reset-countdown-alert"></p>
+<p id="moodFriendInsight" class="friend-card-note">Friend benchmark: add a friend to compare average mood of the day.</p>
 <div id="moodLogs"></div>
 </div>
 
@@ -1947,7 +2012,7 @@ textarea:focus-visible{
 <button onclick="setWaterGoal()">Set Goal</button>
 <input id="waterInput" placeholder="Glasses">
 <button id="waterTrackBtn" onclick="saveWater()">Track</button>
-<p class="reset-hint">Daily limits show a live countdown when reached.</p>
+<p id="waterGoalResetCountdown" class="reset-hint reset-countdown-alert"></p>
 <p id="waterLimitError" class="limit-note"></p>
 <button id="waterClearBtn" class="water-clear-btn" onclick="clearWaterData()">Clear Intake + Goal</button>
 <p id="waterFriendInsight" class="friend-card-note">Friend benchmark: add a friend to compare hydration consistency.</p>
@@ -1960,6 +2025,7 @@ textarea:focus-visible{
 <p class="micro-tip">Tip: Log sleep after waking for a consistent trend.</p>
 <input id="sleepInput" placeholder="Hours">
 <button id="sleepSaveBtn" onclick="saveSleep()">Save</button>
+<p id="sleepResetCountdown" class="reset-hint reset-countdown-alert"></p>
 <p id="sleepLimitError" class="limit-note"></p>
 <p id="sleepFriendInsight" class="friend-card-note">Friend benchmark: add a friend to compare sleep consistency.</p>
 <p id="sleepResult"></p>
@@ -2004,6 +2070,7 @@ textarea:focus-visible{
 <p id="dailyChallenge"></p>
 <button id="challengeCompleteBtn" onclick="completeChallenge()">Complete</button>
 <p id="challengeResult"></p>
+<p id="dailyChallengeResetCountdown" class="reset-hint reset-countdown-alert"></p>
 <p id="dailyChallengeFriendInsight" class="friend-card-note">Friend benchmark: add a friend to compare daily challenge consistency.</p>
 </div>
 
@@ -2018,6 +2085,7 @@ textarea:focus-visible{
   <li>Set your water target and drink one glass.</li>
   <li>Add one gratitude note tonight.</li>
 </ul>
+<p id="wellnessFriendInsight" class="friend-card-note">Friend benchmark: add a friend to compare daily wellness score.</p>
 </div>
 
 <!-- Mood Crash Prevention -->
@@ -2208,6 +2276,35 @@ const TRANSFER_APP_NAME = "novafix-transfer";
 let transferAuth = null;
 let transferDb = null;
 const IMPORT_SECURITY_ALERT_TYPE = "source_snapshot_imported";
+const PENDING_REQUEST_LOGIN_ALERT_FLAG_KEY = "novafix_pending_request_login_alert";
+
+let pendingRequestLoginAlertArmedMemory = false;
+
+function markPendingRequestLoginAlertForNextSessionStart() {
+  pendingRequestLoginAlertArmedMemory = true;
+  try {
+    sessionStorage.setItem(PENDING_REQUEST_LOGIN_ALERT_FLAG_KEY, "1");
+  } catch (_) {}
+}
+
+function consumePendingRequestLoginAlertFlag() {
+  let armed = pendingRequestLoginAlertArmedMemory;
+  pendingRequestLoginAlertArmedMemory = false;
+  try {
+    if (sessionStorage.getItem(PENDING_REQUEST_LOGIN_ALERT_FLAG_KEY) === "1") {
+      armed = true;
+      sessionStorage.removeItem(PENDING_REQUEST_LOGIN_ALERT_FLAG_KEY);
+    }
+  } catch (_) {}
+  return armed;
+}
+
+function clearPendingRequestLoginAlertFlag() {
+  pendingRequestLoginAlertArmedMemory = false;
+  try {
+    sessionStorage.removeItem(PENDING_REQUEST_LOGIN_ALERT_FLAG_KEY);
+  } catch (_) {}
+}
 
 function getTransferClients() {
   let transferApp = getApps().find((entry) => entry.name === TRANSFER_APP_NAME);
@@ -2303,6 +2400,7 @@ const aiClearBtn = document.getElementById("aiClearBtn");
 const aiLimitError = document.getElementById("aiLimitError");
 const reminderText = document.getElementById("reminderText");
 const reminderMinutes = document.getElementById("reminderMinutes");
+const reminderUnit = document.getElementById("reminderUnit");
 const reminderSetBtn = document.getElementById("reminderSetBtn");
 const reminderLimitError = document.getElementById("reminderLimitError");
 const reminders = document.getElementById("reminders");
@@ -2318,6 +2416,8 @@ const financeResult = document.getElementById("financeResult");
 const mood = document.getElementById("mood");
 const moodSaveBtn = document.getElementById("moodSaveBtn");
 const moodLimitError = document.getElementById("moodLimitError");
+const moodResetCountdown = document.getElementById("moodResetCountdown");
+const moodFriendInsight = document.getElementById("moodFriendInsight");
 const moodLogs = document.getElementById("moodLogs");
 const waterGoalInput = document.getElementById("waterGoalInput");
 const waterInput = document.getElementById("waterInput");
@@ -2326,8 +2426,10 @@ const waterLimitError = document.getElementById("waterLimitError");
 const waterFriendInsight = document.getElementById("waterFriendInsight");
 const waterProgress = document.getElementById("waterProgress");
 const waterClearBtn = document.getElementById("waterClearBtn");
+const waterGoalResetCountdown = document.getElementById("waterGoalResetCountdown");
 const sleepInput = document.getElementById("sleepInput");
 const sleepSaveBtn = document.getElementById("sleepSaveBtn");
+const sleepResetCountdown = document.getElementById("sleepResetCountdown");
 const sleepLimitError = document.getElementById("sleepLimitError");
 const sleepFriendInsight = document.getElementById("sleepFriendInsight");
 const sleepResult = document.getElementById("sleepResult");
@@ -2342,11 +2444,13 @@ const gratitudeFriendInsight = document.getElementById("gratitudeFriendInsight")
 const dailyChallengeElement = document.getElementById("dailyChallenge");
 const challengeResultElement = document.getElementById("challengeResult");
 const challengeCompleteBtn = document.getElementById("challengeCompleteBtn");
+const dailyChallengeResetCountdown = document.getElementById("dailyChallengeResetCountdown");
 const dailyChallengeFriendInsight = document.getElementById("dailyChallengeFriendInsight");
 const wellnessScoreEl = document.getElementById("wellnessScore");
 const wellnessStatusEl = document.getElementById("wellnessStatus");
 const wellnessReassuranceEl = document.getElementById("wellnessReassurance");
 const wellnessActionsEl = document.getElementById("wellnessActions");
+const wellnessFriendInsight = document.getElementById("wellnessFriendInsight");
 const insightsCard = document.getElementById("insightsCard");
 const insightTaskTopLabel = document.getElementById("insightTaskTopLabel");
 const insightTaskTopBar = document.getElementById("insightTaskTopBar");
@@ -2393,11 +2497,13 @@ function toggleAccountPanel() {
   accountPanel.style.display = isOpen ? "none" : "block";
   accountOverlay.style.display = isOpen ? "none" : "block";
   if (isOpen) {
+    clearAccountScrollbarVisibilityHold();
     accountPanel.scrollTop = 0;
     return;
   }
 
   accountPanel.scrollTop = 0;
+  holdAccountScrollbarVisibility();
   if (!isOpen) {
     const user = auth.currentUser;
     if (user?.uid) {
@@ -2410,6 +2516,7 @@ function toggleAccountPanel() {
 
 function closeAccountPanel() {
   if (!accountPanel || !accountOverlay) return;
+  clearAccountScrollbarVisibilityHold();
   accountPanel.scrollTop = 0;
   accountPanel.style.display = "none";
   accountOverlay.style.display = "none";
@@ -2517,6 +2624,85 @@ document.addEventListener("keydown", (event) => {
     closeWelcomeGuide();
   }
 });
+
+if (aiInput) {
+  aiInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+    event.preventDefault();
+    void aiChat();
+  });
+}
+
+let accountScrollbarVisibilityTimer = null;
+const ACCOUNT_SCROLLBAR_HOLD_MS = 2400;
+
+function setAccountScrollbarActive(active) {
+  if (!accountPanel) return;
+  accountPanel.classList.toggle("account-scroll-active", !!active);
+}
+
+function clearAccountScrollbarVisibilityHold() {
+  if (accountScrollbarVisibilityTimer) {
+    clearTimeout(accountScrollbarVisibilityTimer);
+    accountScrollbarVisibilityTimer = null;
+  }
+  setAccountScrollbarActive(false);
+}
+
+function holdAccountScrollbarVisibility() {
+  if (!accountPanel) return;
+  setAccountScrollbarActive(true);
+  if (accountScrollbarVisibilityTimer) clearTimeout(accountScrollbarVisibilityTimer);
+  accountScrollbarVisibilityTimer = setTimeout(() => {
+    setAccountScrollbarActive(false);
+    accountScrollbarVisibilityTimer = null;
+  }, ACCOUNT_SCROLLBAR_HOLD_MS);
+}
+
+if (accountPanel) {
+  accountPanel.addEventListener("scroll", holdAccountScrollbarVisibility, { passive: true });
+  accountPanel.addEventListener("wheel", holdAccountScrollbarVisibility, { passive: true });
+  accountPanel.addEventListener("touchmove", holdAccountScrollbarVisibility, { passive: true });
+  accountPanel.addEventListener("mouseenter", holdAccountScrollbarVisibility);
+}
+
+function getReminderAmountInputValue() {
+  if (!reminderMinutes) return 0;
+  const rawValue = String(reminderMinutes.value || "").trim();
+  if (!rawValue) return 0;
+  const parsed = Number(rawValue);
+  if (!Number.isFinite(parsed)) return 0;
+  return parsed;
+}
+
+function setReminderInputError(message = "") {
+  if (!reminderLimitError) return;
+  if (reminderLimitError.dataset.liveCountdown === "1") return;
+  const text = String(message || "").trim();
+  reminderLimitError.innerText = text;
+  reminderLimitError.classList.toggle("show", !!text);
+  if (text) reminderLimitError.dataset.reminderInputError = "1";
+  else delete reminderLimitError.dataset.reminderInputError;
+}
+
+function clearReminderInputError() {
+  if (!reminderLimitError) return;
+  if (reminderLimitError.dataset.liveCountdown === "1") return;
+  if (reminderLimitError.dataset.reminderInputError !== "1") return;
+  reminderLimitError.innerText = "";
+  reminderLimitError.classList.remove("show");
+  delete reminderLimitError.dataset.reminderInputError;
+}
+
+if (reminderMinutes) {
+  reminderMinutes.addEventListener("input", clearReminderInputError);
+}
+if (reminderText) {
+  reminderText.addEventListener("input", clearReminderInputError);
+}
+if (reminderUnit) {
+  reminderUnit.addEventListener("change", clearReminderInputError);
+}
 
 async function clearAllAccountData() {
   const user = auth.currentUser;
@@ -2786,10 +2972,13 @@ try {
         stopStartupResetCountdown();
         startExportCooldown(0);
         clearWaterGoalResetSchedule();
+        clearSleepDailyResetSchedule();
+        clearMoodDailyResetSchedule();
         closeAccountPanel();
         closeAddFriendModal(null, true);
         closeGoogleIdentitySetupModal();
         friendRequestLoginAlertShown = false;
+        clearPendingRequestLoginAlertFlag();
         updateAccountPanel(null);
         signInModal.style.display = "flex";
         setPageTitle("signin");
@@ -3119,6 +3308,10 @@ function validateSignupUsername(usernameValue) {
     return { ok: false, message: "Username must be 1-20 characters.", normalized: "" };
   }
 
+  if (candidate.includes(" ")) {
+    return { ok: false, message: "Spaces are not allowed in username.", normalized: "" };
+  }
+
   const allowedPattern = /^[A-Za-z0-9_-]+$/;
   if (!allowedPattern.test(candidate)) {
     return { ok: false, message: "Username can only use letters, numbers, underscores, and dashes.", normalized: "" };
@@ -3417,6 +3610,7 @@ async function initializeAuthenticatedSession(user) {
     upsertUserDirectoryProfile(user),
     loadPersistedBarGraphs(user.uid)
   ]);
+  await ensureDateBoundResetCatchup(user.uid);
   updateAccountPanel(user);
   const initialDataLoadPromises = [
     loadDailyChallenge(user.uid),
@@ -3435,8 +3629,9 @@ async function initializeAuthenticatedSession(user) {
     loadSleepData(user.uid),
     loadGratitude(user.uid)
   ];
+  const shouldShowPendingRequestLoginAlert = consumePendingRequestLoginAlertFlag();
   friendRequestLoginAlertShown = false;
-  loadFriendRequests(user.uid, true);
+  loadFriendRequests(user.uid, shouldShowPendingRequestLoginAlert);
   loadSentFriendRequests(user.uid);
   loadFriendsInsights(user.uid);
   startFriendInsightsWatcher(user.uid);
@@ -3448,6 +3643,8 @@ async function initializeAuthenticatedSession(user) {
   startStartupResetCountdown();
   scheduleWeeklyGraphReset(user.uid);
   scheduleWaterGoalReset(user.uid);
+  scheduleSleepDailyReset(user.uid);
+  scheduleMoodDailyReset(user.uid);
   void Promise.allSettled(initialDataLoadPromises).then(async () => {
     const activeUser = auth.currentUser;
     if (!activeUser?.uid || activeUser.uid !== user.uid) return;
@@ -3586,6 +3783,11 @@ const WELCOME_GUIDE_STEPS = [
     title: "Insights & Weekly Review",
     text: "Your logs feed into weekly insight bars and AI coaching so you can spot patterns quickly.",
     tip: "Tip: Use the Insights Next button to switch mood/water/sleep views."
+  },
+  {
+    title: "Friends & Requests",
+    text: "Open Account to send friend requests by username, accept or decline incoming requests, and view current friends.",
+    tip: "Tip: Friends unlock shared progress insights so you can stay accountable together."
   },
   {
     title: "Account Controls",
@@ -4099,6 +4301,7 @@ async function handleAuth() {
       }
       return;
     } else {
+      markPendingRequestLoginAlertForNextSessionStart();
       const credential = await signInWithEmailAndPassword(auth, email, password);
       await credential.user.reload();
       clearAuthBackoffState("signin", email);
@@ -4109,6 +4312,7 @@ async function handleAuth() {
           if (verifyResult.ok) markVerificationSentNow(email);
         }
         await signOut(auth);
+        clearPendingRequestLoginAlertFlag();
         error.style.display = "block";
         error.style.color = "#ff6b6b";
         error.innerText = verifyResult.ok
@@ -4121,6 +4325,9 @@ async function handleAuth() {
       }
     }
   } catch (err) {
+    if (authMode === "signin") {
+      clearPendingRequestLoginAlertFlag();
+    }
     const code = String(err?.code || "");
     const credentialError = code === "auth/invalid-credential"
       || code === "auth/user-not-found"
@@ -4179,8 +4386,10 @@ async function handleGoogleAuth() {
   }
 
   try {
+    markPendingRequestLoginAlertForNextSessionStart();
     await signInWithPopup(auth, googleProvider);
   } catch (err) {
+    clearPendingRequestLoginAlertFlag();
     const currentOrigin = window.location.origin || "unknown-origin";
     const currentHost = window.location.hostname || "unknown-host";
     const isUnauthorizedDomain = (err?.code || "").includes("unauthorized-domain");
@@ -4517,11 +4726,108 @@ async function getActiveFriendCount(userId, userEmail = "") {
   return acceptedFriends.size;
 }
 
+function getMoodStateMeta(moodValue) {
+  const moodText = String(moodValue || "").toLowerCase();
+  if (!moodText) {
+    return {
+      logged: false,
+      label: "Not logged",
+      score: 0,
+      wellnessFactor: 0,
+      crashRisk: 0,
+      burnoutBoost: 0,
+      riskReason: ""
+    };
+  }
+
+  if (/😡|\bangry\b|\bfurious\b|\brage\b|\bmad\b/.test(moodText)) {
+    return {
+      logged: true,
+      label: "Angry",
+      score: 0.2,
+      wellnessFactor: 0.08,
+      crashRisk: 40,
+      burnoutBoost: 18,
+      riskReason: "Anger spike detected"
+    };
+  }
+
+  if (/😣|\bstressed\b|\bstress\b|\boverwhelmed\b|\banxious\b|\banxiety\b/.test(moodText)) {
+    return {
+      logged: true,
+      label: "Stressed",
+      score: 0.6,
+      wellnessFactor: 0.18,
+      crashRisk: 32,
+      burnoutBoost: 14,
+      riskReason: "Stress spike detected"
+    };
+  }
+
+  if (/😔|\bsad\b|\blow\b|\bdown\b|\bdepressed\b|\bdrained\b|\btired\b/.test(moodText)) {
+    return {
+      logged: true,
+      label: "Low",
+      score: 1,
+      wellnessFactor: 0.3,
+      crashRisk: 24,
+      burnoutBoost: 10,
+      riskReason: "Low mood detected"
+    };
+  }
+
+  if (/😐|\bneutral\b|\bnuetral\b|\bok\b|\bokay\b|\bmeh\b/.test(moodText)) {
+    return {
+      logged: true,
+      label: "Neutral",
+      score: 2,
+      wellnessFactor: 0.65,
+      crashRisk: 10,
+      burnoutBoost: 4,
+      riskReason: ""
+    };
+  }
+
+  if (/😊|\bhappy\b|\bgood\b|\bgreat\b|\bawesome\b|\bfine\b|\benergized\b|\bpumped\b/.test(moodText)) {
+    return {
+      logged: true,
+      label: "Happy",
+      score: 3,
+      wellnessFactor: 1,
+      crashRisk: 0,
+      burnoutBoost: 0,
+      riskReason: ""
+    };
+  }
+
+  return {
+    logged: true,
+    label: "Low",
+    score: 1,
+    wellnessFactor: 0.3,
+    crashRisk: 24,
+    burnoutBoost: 10,
+    riskReason: "Low mood detected"
+  };
+}
+
+function getMoodWellnessFactorFromScore(scoreValue) {
+  const score = Number(scoreValue) || 0;
+  if (score >= 2.5) return 1;
+  if (score >= 1.75) return 0.65;
+  if (score >= 0.9) return 0.3;
+  if (score >= 0.45) return 0.18;
+  if (score > 0) return 0.08;
+  return 0;
+}
+
 function getMoodLabelFromScore(scoreValue) {
   const score = Number(scoreValue) || 0;
   if (score >= 2.5) return "Happy";
   if (score >= 1.75) return "Neutral";
-  if (score > 0) return "Low";
+  if (score >= 0.9) return "Low";
+  if (score >= 0.45) return "Stressed";
+  if (score > 0) return "Angry";
   return "Not enough data";
 }
 
@@ -4590,7 +4896,12 @@ function normalizeUsernameForLookup(usernameValue) {
   const raw = String(usernameValue || "").trim();
   if (!raw) return "";
   const withoutAt = raw.startsWith("@") ? raw.slice(1) : raw;
-  return withoutAt.replace(/\s+/g, "").trim().toLowerCase();
+  // Dots are deprecated in usernames; normalize legacy dotted usernames to dotless.
+  return withoutAt
+    .replace(/\s+/g, "")
+    .replace(/\./g, "")
+    .trim()
+    .toLowerCase();
 }
 
 function buildUsernameSeedFromDisplayName(displayNameValue) {
@@ -4696,6 +5007,7 @@ async function resolveUserDirectoryByUsername(usernameValue, options = {}) {
   const rawInput = String(usernameValue || "").trim();
   const rawWithoutAt = rawInput.startsWith("@") ? rawInput.slice(1).trim() : rawInput;
   const usernameKey = normalizeUsernameForLookup(usernameValue);
+  const legacyDottedKey = rawWithoutAt.replace(/\s+/g, "").trim().toLowerCase();
   const forceRefresh = !!options?.forceRefresh;
   const preferServer = !!options?.preferServer;
   if (!usernameKey) return null;
@@ -4761,6 +5073,21 @@ async function resolveUserDirectoryByUsername(usernameValue, options = {}) {
             if (isFirestorePermissionDeniedError(err)) permissionDeniedSeen = true;
           }
         }
+      }
+    }
+
+    // Legacy compatibility: old usernames could contain dots in doc IDs.
+    if (!resolved && legacyDottedKey && legacyDottedKey !== usernameKey) {
+      try {
+        const legacyRef = doc(db, "usernameDirectory", legacyDottedKey);
+        const legacySnap = preferServer
+          ? await getDocWithFreshFallback(legacyRef)
+          : await getDoc(legacyRef);
+        if (legacySnap.exists()) {
+          resolved = buildResolved(legacySnap.data() || {}, usernameKey);
+        }
+      } catch (err) {
+        if (isFirestorePermissionDeniedError(err)) permissionDeniedSeen = true;
       }
     }
 
@@ -5033,6 +5360,72 @@ async function resolveDirectoryIdentityByEmail(emailValue) {
   return identity;
 }
 
+function calculateWellnessScoreValue() {
+  const todayKey = getTodayKey();
+  const waterToday = getTodayWater();
+  const effectiveWaterGoal = waterGoal > 0 ? waterGoal : 8;
+  const waterRatio = Math.min(1, waterToday / effectiveWaterGoal);
+  const waterPoints = Math.round(waterRatio * 30);
+
+  const sleepToday = getTodaySleep();
+  const sleepRatio = Math.min(1, sleepToday / 8);
+  const sleepPoints = Math.round(sleepRatio * 25);
+
+  const moodToday = getTodayMood();
+  const moodFactor = Number(getMoodStateMeta(moodToday).wellnessFactor) || 0;
+  const moodPoints = Math.round(moodFactor * 20);
+
+  const totalTasks = taskEntries.length;
+  const doneTasks = taskEntries.filter((entry) => !!entry.completed).length;
+  const taskRatio = totalTasks ? doneTasks / totalTasks : 0;
+  const taskPoints = Math.round(taskRatio * 15);
+
+  const hasGratitudeToday = gratitudeEntries.some((entry) => dateToKey(entry.time) === todayKey);
+  const gratitudePoints = hasGratitudeToday ? 10 : 0;
+  const challengePoints = dailyChallengeCompleted ? 10 : 0;
+
+  return Math.max(0, Math.min(100, waterPoints + sleepPoints + moodPoints + taskPoints + gratitudePoints + challengePoints));
+}
+
+function calculateWellnessScoreFromMetrics(metrics = {}) {
+  const waterToday = Math.max(0, Number(metrics?.waterToday) || 0);
+  const sleepToday = Math.max(0, Number(metrics?.sleepToday) || 0);
+  const moodToday = String(metrics?.moodToday || "");
+  const avgMoodScore = Math.max(0, Number(metrics?.avgMoodScore) || 0);
+  const totalTasksLogged = Math.max(0, Number(metrics?.totalTasksLogged) || 0);
+  const completedTasks = Math.max(0, Number(metrics?.completedTasks) || 0);
+  const gratitudeToday = Math.max(0, Number(metrics?.gratitudeToday) || 0);
+  const dailyChallengeCompletedToday = Math.max(0, Number(metrics?.dailyChallengeCompletedToday) || 0);
+
+  const hasSignal = waterToday > 0
+    || sleepToday > 0
+    || !!moodToday
+    || avgMoodScore > 0
+    || totalTasksLogged > 0
+    || completedTasks > 0
+    || gratitudeToday > 0
+    || dailyChallengeCompletedToday > 0;
+  if (!hasSignal) return null;
+
+  const waterPoints = Math.round(Math.min(1, waterToday / 8) * 30);
+  const sleepPoints = Math.round(Math.min(1, sleepToday / 8) * 25);
+
+  let moodFactor = 0;
+  if (moodToday) moodFactor = Number(getMoodStateMeta(moodToday).wellnessFactor) || 0;
+  else moodFactor = getMoodWellnessFactorFromScore(avgMoodScore);
+  const moodPoints = Math.round(moodFactor * 20);
+
+  const safeTotalTasks = Math.max(0, totalTasksLogged);
+  const safeCompletedTasks = Math.min(safeTotalTasks, Math.max(0, completedTasks));
+  const taskRatio = safeTotalTasks ? (safeCompletedTasks / safeTotalTasks) : 0;
+  const taskPoints = Math.round(taskRatio * 15);
+
+  const gratitudePoints = gratitudeToday > 0 ? 10 : 0;
+  const challengePoints = dailyChallengeCompletedToday > 0 ? 10 : 0;
+
+  return Math.max(0, Math.min(100, waterPoints + sleepPoints + moodPoints + taskPoints + gratitudePoints + challengePoints));
+}
+
 function buildUserSocialProfileSnapshot(user = auth.currentUser) {
   const activeUser = user || auth.currentUser;
   const email = String(activeUser?.email || "").trim().toLowerCase();
@@ -5058,6 +5451,7 @@ function buildUserSocialProfileSnapshot(user = auth.currentUser) {
   const todayKey = getTodayKey();
   const tasksToday = Number(maps.tasksDoneByDay.get(todayKey)) || 0;
   const sleepToday = Number(getTodaySleep()) || Number(maps.sleepByDay.get(todayKey)) || 0;
+  const avgMoodToday = Number((Number(maps.moodByDay.get(todayKey)) || getTodayMoodAverageScore() || 0).toFixed(2));
   let waterToday = 0;
   for (let index = waterHistory.length - 1; index >= 0; index -= 1) {
     if (dateToKey(waterDates[index]) !== todayKey) continue;
@@ -5067,6 +5461,8 @@ function buildUserSocialProfileSnapshot(user = auth.currentUser) {
   waterToday = Number(waterToday.toFixed(1));
   const gratitudeToday = getTodayGratitudeCount();
   const dailyChallengeCompletedToday = dailyChallengeCompleted ? 1 : 0;
+  const moodToday = getTodayMood();
+  const wellnessScoreToday = calculateWellnessScoreValue();
 
   return {
     uid,
@@ -5080,8 +5476,11 @@ function buildUserSocialProfileSnapshot(user = auth.currentUser) {
       tasksToday,
       waterToday,
       sleepToday,
+      moodToday,
+      avgMoodToday,
       gratitudeToday,
       dailyChallengeCompletedToday,
+      wellnessScoreToday,
       avgWaterDaily,
       avgSleepHours,
       avgMoodScore,
@@ -5159,6 +5558,14 @@ function getComparisonFriendProfiles(profileRows, maxCount = MAX_FRIENDS) {
   return unique.slice(0, Math.max(1, Number(maxCount) || 5));
 }
 
+function formatLeaderNames(names) {
+  const unique = [...new Set((names || []).filter(Boolean))];
+  if (!unique.length) return "A friend";
+  if (unique.length === 1) return unique[0];
+  if (unique.length === 2) return `${unique[0]} and ${unique[1]}`;
+  return `${unique.slice(0, -1).join(", ")}, and ${unique[unique.length - 1]}`;
+}
+
 function buildNumericFriendComparisonText({
   friends,
   myValue,
@@ -5181,41 +5588,59 @@ function buildNumericFriendComparisonText({
     return digits <= 0 ? `${Math.round(safe)}` : safe.toFixed(digits);
   };
 
+  const toComparableValue = (value) => {
+    const safe = Number(value) || 0;
+    return digits <= 0 ? Math.round(safe) : Number(safe.toFixed(digits));
+  };
+
   const mySafeValue = Number(myValue) || 0;
+  const myComparableValue = toComparableValue(mySafeValue);
+  const friendComparableRows = compareFriends.map((entry) => {
+    const rawValue = Number(entry.value) || 0;
+    return {
+      name: entry.name,
+      rawValue,
+      comparableValue: toComparableValue(rawValue)
+    };
+  });
   const friendSummary = compareFriends
     .map((entry) => `${entry.name} ${formatValue(entry.value)}`)
     .join("; ");
 
-  let leaderName = "You";
-  let leaderValue = mySafeValue;
-  compareFriends.forEach((entry) => {
-    const value = Number(entry.value) || 0;
-    if (value > leaderValue) {
-      leaderValue = value;
-      leaderName = entry.name;
-    }
-  });
+  const topComparableValue = Math.max(
+    myComparableValue,
+    ...friendComparableRows.map((entry) => entry.comparableValue)
+  );
+  const iAmTop = myComparableValue === topComparableValue;
+  const topFriendNames = friendComparableRows
+    .filter((entry) => entry.comparableValue === topComparableValue)
+    .map((entry) => entry.name);
+  const tieWithFriends = iAmTop && topFriendNames.length > 0;
 
-  const closestGap = Math.abs(leaderValue - mySafeValue);
+  const closestGap = Math.abs(topComparableValue - myComparableValue);
   let motivation = "Comparison is close. Stay consistent and push one more small win.";
-  if (leaderName === "You") {
+  if (tieWithFriends) {
+    motivation = `You are tied with ${formatLeaderNames(topFriendNames)}. One small action now can put you ahead.`;
+  } else if (iAmTop) {
     motivation = "You are leading. Keep the momentum going.";
   } else if (closestGap > leadThreshold) {
-    motivation = `${leaderName} is currently ahead by ${formatValue(leaderValue - mySafeValue)}. One focused push now can close the gap.`;
+    motivation = `${formatLeaderNames(topFriendNames)} ${topFriendNames.length > 1 ? "are" : "is"} currently ahead by ${formatValue(topComparableValue - myComparableValue)}. One focused push now can close the gap.`;
   }
 
   return `${header}: You ${formatValue(mySafeValue)} ${unit}; ${friendSummary} ${unit}. ${motivation}`;
 }
 
 function renderFriendMetricCardInsights() {
-  if (!taskFriendInsight && !waterFriendInsight && !sleepFriendInsight && !gratitudeFriendInsight && !dailyChallengeFriendInsight) return;
+  if (!taskFriendInsight && !waterFriendInsight && !sleepFriendInsight && !moodFriendInsight && !gratitudeFriendInsight && !dailyChallengeFriendInsight && !wellnessFriendInsight) return;
   const user = auth.currentUser;
   if (!user) {
     if (taskFriendInsight) taskFriendInsight.innerText = "";
     if (waterFriendInsight) waterFriendInsight.innerText = "";
     if (sleepFriendInsight) sleepFriendInsight.innerText = "";
+    if (moodFriendInsight) moodFriendInsight.innerText = "";
     if (gratitudeFriendInsight) gratitudeFriendInsight.innerText = "";
     if (dailyChallengeFriendInsight) dailyChallengeFriendInsight.innerText = "";
+    if (wellnessFriendInsight) wellnessFriendInsight.innerText = "";
     return;
   }
 
@@ -5223,8 +5648,10 @@ function renderFriendMetricCardInsights() {
     if (taskFriendInsight) taskFriendInsight.innerText = "Friend benchmark: add a friend to compare productivity pace.";
     if (waterFriendInsight) waterFriendInsight.innerText = "Friend benchmark: add a friend to compare hydration consistency.";
     if (sleepFriendInsight) sleepFriendInsight.innerText = "Friend benchmark: add a friend to compare sleep consistency.";
+    if (moodFriendInsight) moodFriendInsight.innerText = "Friend benchmark: add a friend to compare average mood of the day.";
     if (gratitudeFriendInsight) gratitudeFriendInsight.innerText = "Friend benchmark: add a friend to compare gratitude consistency.";
     if (dailyChallengeFriendInsight) dailyChallengeFriendInsight.innerText = "Friend benchmark: add a friend to compare daily challenge consistency.";
+    if (wellnessFriendInsight) wellnessFriendInsight.innerText = "Friend benchmark: add a friend to compare daily wellness score.";
     return;
   }
 
@@ -5236,8 +5663,10 @@ function renderFriendMetricCardInsights() {
     if (taskFriendInsight) taskFriendInsight.innerText = "Friend benchmark: add a friend to compare productivity pace.";
     if (waterFriendInsight) waterFriendInsight.innerText = "Friend benchmark: add a friend to compare hydration consistency.";
     if (sleepFriendInsight) sleepFriendInsight.innerText = "Friend benchmark: add a friend to compare sleep consistency.";
+    if (moodFriendInsight) moodFriendInsight.innerText = "Friend benchmark: add a friend to compare average mood of the day.";
     if (gratitudeFriendInsight) gratitudeFriendInsight.innerText = "Friend benchmark: add a friend to compare gratitude consistency.";
     if (dailyChallengeFriendInsight) dailyChallengeFriendInsight.innerText = "Friend benchmark: add a friend to compare daily challenge consistency.";
+    if (wellnessFriendInsight) wellnessFriendInsight.innerText = "Friend benchmark: add a friend to compare daily wellness score.";
     return;
   }
 
@@ -5310,6 +5739,66 @@ function renderFriendMetricCardInsights() {
     });
   }
 
+  if (moodFriendInsight) {
+    const scoreFromMetrics = (metrics) => {
+      const directAverage = Number(metrics?.avgMoodToday);
+      if (directAverage > 0) return directAverage;
+      const moodSignal = moodToScore(String(metrics?.moodToday || ""));
+      return moodSignal > 0 ? moodSignal : 0;
+    };
+
+    const moodRows = compareProfiles.map((profile, index) => ({
+      name: friendNames[index],
+      value: scoreFromMetrics(profile?.metrics || {})
+    }));
+
+    const myMoodAverageToday = Number(myMetrics.avgMoodToday) || 0;
+    const myMoodFromLabel = moodToScore(String(myMetrics.moodToday || ""));
+    const myValue = myMoodAverageToday > 0
+      ? myMoodAverageToday
+      : (myMoodFromLabel > 0 ? myMoodFromLabel : getTodayMoodAverageScore());
+
+    const availableMoodRows = moodRows.filter((entry) => (Number(entry.value) || 0) > 0);
+    if (!availableMoodRows.length && !(Number(myValue) > 0)) {
+      moodFriendInsight.innerText = "no mood comparison yet. Add a mood check-in and track your average mood of the day";
+    } else {
+      const myComparable = Number((Number(myValue) || 0).toFixed(2));
+      const topComparable = Math.max(
+        myComparable,
+        ...availableMoodRows.map((entry) => Number((Number(entry.value) || 0).toFixed(2)))
+      );
+      const leaders = availableMoodRows
+        .filter((entry) => Number((Number(entry.value) || 0).toFixed(2)) === topComparable)
+        .map((entry) => entry.name);
+      const iAmLeading = myComparable === topComparable;
+      const tied = iAmLeading && leaders.length > 0;
+
+      const myMoodLabel = Number(myValue) > 0 ? getMoodLabelFromScore(myValue) : "Not logged";
+      const yourMoodLine = Number(myValue) > 0
+        ? `Your average mood of the day was ${myMoodLabel}`
+        : "Your average mood of the day is not logged yet";
+
+      const friendSummary = availableMoodRows.length
+        ? availableMoodRows.map((entry) => {
+          const friendName = String(entry.name || "Friend");
+          const possessiveName = /s$/i.test(friendName) ? `${friendName}'` : `${friendName}'s`;
+          return `${possessiveName} average mood of the day was ${getMoodLabelFromScore(entry.value)}`;
+        }).join("; ")
+        : "No friend mood data yet";
+
+      let motivation = "Consistency in logging helps improve this benchmark.";
+      if (tied) {
+        motivation = `You are tied with ${formatLeaderNames(leaders)}. One positive reset now can move you ahead.`;
+      } else if (iAmLeading) {
+        motivation = "You are currently leading on mood quality today.";
+      } else {
+        motivation = `${formatLeaderNames(leaders)} ${leaders.length > 1 ? "are" : "is"} currently ahead. A small reset can close the gap.`;
+      }
+
+      moodFriendInsight.innerText = `Friend benchmark: ${header}: ${yourMoodLine}; ${friendSummary}. ${motivation}`;
+    }
+  }
+
   if (gratitudeFriendInsight) {
     const gratitudeFriends = compareProfiles.map((profile, index) => ({
       name: friendNames[index],
@@ -5347,6 +5836,53 @@ function renderFriendMetricCardInsights() {
     }
 
     dailyChallengeFriendInsight.innerText = `${header}: You: ${myCompleted ? "Completed" : "Pending"}; ${friendStatuses}. ${motivation}`;
+  }
+
+  if (wellnessFriendInsight) {
+    const wellnessFriendsWithSync = compareProfiles.map((profile, index) => {
+      const metrics = profile?.metrics || {};
+      const hasLiveWellness = Object.prototype.hasOwnProperty.call(metrics, "wellnessScoreToday");
+      const directValue = Number(metrics?.wellnessScoreToday);
+      const derivedValue = calculateWellnessScoreFromMetrics(metrics);
+      const effectiveValue = (hasLiveWellness && Number.isFinite(directValue))
+        ? directValue
+        : derivedValue;
+      return {
+        name: friendNames[index],
+        hasLiveWellness,
+        value: Number.isFinite(effectiveValue)
+          ? Math.max(0, Math.min(100, Math.round(effectiveValue)))
+          : null
+      };
+    });
+
+    const availableWellnessFriends = wellnessFriendsWithSync.filter((entry) => Number.isFinite(entry.value));
+    if (!availableWellnessFriends.length) {
+      wellnessFriendInsight.innerText = "Wellness benchmark sync in progress. Friends need to open the app once to share live wellness metrics.";
+      return;
+    }
+
+    const myHasLiveWellness = Object.prototype.hasOwnProperty.call(myMetrics, "wellnessScoreToday");
+    const myRawWellness = Number(myMetrics.wellnessScoreToday);
+    const myValue = (myHasLiveWellness && Number.isFinite(myRawWellness))
+      ? Math.max(0, Math.min(100, Math.round(myRawWellness)))
+      : calculateWellnessScoreValue();
+
+    let comparisonText = buildNumericFriendComparisonText({
+      friends: availableWellnessFriends,
+      myValue,
+      unit: "wellness score today",
+      digits: 0,
+      leadThreshold: 2,
+      noDataMessage: "no wellness comparison yet. Log mood, sleep, water, and tasks to generate your score"
+    });
+
+    const pendingSyncCount = wellnessFriendsWithSync.length - availableWellnessFriends.length;
+    if (pendingSyncCount > 0) {
+      comparisonText += ` ${pendingSyncCount} friend${pendingSyncCount === 1 ? "" : "s"} pending live sync.`;
+    }
+
+    wellnessFriendInsight.innerText = comparisonText;
   }
 }
 
@@ -5406,6 +5942,10 @@ function renderFriendsInsights(rows, myProfile) {
       name: profile.name || entry.friendName
     }, "Friend"));
     const moodLabel = escapeHtml(String(metrics.avgMoodLabel || getMoodLabelFromScore(metrics.avgMoodScore)));
+    const moodTodayAverage = Number(metrics.avgMoodToday) || moodToScore(metrics.moodToday);
+    const moodTodayAverageText = moodTodayAverage > 0 ? getMoodLabelFromScore(moodTodayAverage) : "Not logged";
+    const latestMoodMeta = getMoodStateMeta(metrics.moodToday);
+    const latestMoodText = escapeHtml(latestMoodMeta.logged ? latestMoodMeta.label : "Not logged");
     const motivation = escapeHtml(buildFriendMotivationLine(profile, myProfile));
 
     const row = document.createElement("div");
@@ -5414,7 +5954,9 @@ function renderFriendsInsights(rows, myProfile) {
       <strong>${friendName}</strong>
       <small>Tasks logged: ${Number(metrics.totalTasksLogged) || 0} • Avg tasks/day: ${(Number(metrics.avgTasksCompletedDaily) || 0).toFixed(1)}</small>
       <small>Water avg: ${(Number(metrics.avgWaterDaily) || 0).toFixed(1)} cups/day • Sleep avg: ${(Number(metrics.avgSleepHours) || 0).toFixed(1)}h</small>
-      <small>Mood avg: ${moodLabel} (${(Number(metrics.avgMoodScore) || 0).toFixed(2)})</small>
+      <small>Mood avg: ${moodLabel}</small>
+      <small>Average mood of the day: ${moodTodayAverageText}</small>
+      <small>Latest mood today: ${latestMoodText}</small>
       <small>${motivation}</small>
     `;
     friendsInsightsList.appendChild(row);
@@ -5976,6 +6518,12 @@ async function upsertUserDirectoryProfile(user, options = {}) {
   };
 
   const optionUsernameRaw = getNormalizedUsernameIdentity(options?.username, safeEmail);
+  const optionUsernameLegacyRaw = String(options?.username || "").trim();
+  const optionUsernameHadDot = optionUsernameLegacyRaw.includes(".");
+  const existingProfileUsernameLegacyRaw = String(existingProfileData.username || existingProfileData.name || "").trim();
+  const existingProfileUsernameHadDot = existingProfileUsernameLegacyRaw.includes(".");
+  const existingDirectoryUsernameLegacyRaw = String(existingUsernameFromDirectory || "").trim();
+  const existingDirectoryUsernameHadDot = existingDirectoryUsernameLegacyRaw.includes(".");
   const existingProfileUsernameRaw = getNormalizedUsernameIdentity(existingProfileData.username || existingProfileData.name, safeEmail);
   const existingDirectoryUsernameRaw = getNormalizedUsernameIdentity(existingUsernameFromDirectory, safeEmail);
 
@@ -5991,6 +6539,7 @@ async function upsertUserDirectoryProfile(user, options = {}) {
     || googleNameSeed
     || (!isGoogleAccount ? getEmailLocalIdentity(safeEmail) : "")
     || "user";
+  const legacyDotMigration = optionUsernameHadDot || existingProfileUsernameHadDot || existingDirectoryUsernameHadDot;
 
   const safeDisplayName = normalizeDisplayNameValue(options?.displayName)
     || normalizeDisplayNameValue(existingProfileData.displayName)
@@ -6028,7 +6577,7 @@ async function upsertUserDirectoryProfile(user, options = {}) {
       email: safeEmail,
       displayName: safeDisplayName,
       preferredUsername: safeUsername,
-      allowSuffixFallback: isGoogleAccount && !!googleNameSeed
+      allowSuffixFallback: (isGoogleAccount && !!googleNameSeed) || legacyDotMigration
     });
 
     if (accountName && claimedUsername) {
@@ -6287,8 +6836,10 @@ async function loadFriendsInsights(userId) {
         + (Number(metrics.sleepToday) || 0)
         + (Number(metrics.gratitudeToday) || 0)
         + (Number(metrics.dailyChallengeCompletedToday) || 0)
+        + (Number(metrics.wellnessScoreToday) || 0)
         + (Number(metrics.avgWaterDaily) || 0)
         + (Number(metrics.avgSleepHours) || 0)
+        + (Number(metrics.avgMoodToday) || 0)
         + (Number(metrics.avgMoodScore) || 0)
         + (Number(metrics.avgTasksCompletedDaily) || 0);
     };
@@ -6374,6 +6925,9 @@ async function loadFriendsInsights(userId) {
           const friendUid = String(isSender ? entry.toUid : entry.fromUid || "");
           const status = String(entry.status || "").trim().toLowerCase();
           const sharedProfileRaw = isSender ? (entry.toProfile || null) : (entry.fromProfile || null);
+          const sharedMetricsRaw = sharedProfileRaw?.metrics && typeof sharedProfileRaw.metrics === "object"
+            ? sharedProfileRaw.metrics
+            : {};
           const sharedProfile = sharedProfileRaw && typeof sharedProfileRaw === "object"
             ? {
               uid: String(sharedProfileRaw.uid || friendUid || ""),
@@ -6382,19 +6936,24 @@ async function loadFriendsInsights(userId) {
               displayName: normalizeDisplayNameValue(sharedProfileRaw.displayName || sharedProfileRaw.name),
               name: String(sharedProfileRaw.name || "").trim(),
               metrics: {
-                totalTasksLogged: Number(sharedProfileRaw?.metrics?.totalTasksLogged) || 0,
-                completedTasks: Number(sharedProfileRaw?.metrics?.completedTasks) || 0,
-                tasksToday: Number(sharedProfileRaw?.metrics?.tasksToday) || 0,
-                waterToday: Number(sharedProfileRaw?.metrics?.waterToday) || 0,
-                sleepToday: Number(sharedProfileRaw?.metrics?.sleepToday) || 0,
-                gratitudeToday: Number(sharedProfileRaw?.metrics?.gratitudeToday) || 0,
-                dailyChallengeCompletedToday: Number(sharedProfileRaw?.metrics?.dailyChallengeCompletedToday) || 0,
-                avgWaterDaily: Number(sharedProfileRaw?.metrics?.avgWaterDaily) || 0,
-                avgSleepHours: Number(sharedProfileRaw?.metrics?.avgSleepHours) || 0,
-                avgMoodScore: Number(sharedProfileRaw?.metrics?.avgMoodScore) || 0,
-                avgMoodLabel: String(sharedProfileRaw?.metrics?.avgMoodLabel || "Not enough data"),
-                avgTasksCompletedDaily: Number(sharedProfileRaw?.metrics?.avgTasksCompletedDaily) || 0,
-                sampleDays: Number(sharedProfileRaw?.metrics?.sampleDays) || 0
+                totalTasksLogged: Number(sharedMetricsRaw.totalTasksLogged) || 0,
+                completedTasks: Number(sharedMetricsRaw.completedTasks) || 0,
+                tasksToday: Number(sharedMetricsRaw.tasksToday) || 0,
+                waterToday: Number(sharedMetricsRaw.waterToday) || 0,
+                sleepToday: Number(sharedMetricsRaw.sleepToday) || 0,
+                moodToday: String(sharedMetricsRaw.moodToday || ""),
+                gratitudeToday: Number(sharedMetricsRaw.gratitudeToday) || 0,
+                dailyChallengeCompletedToday: Number(sharedMetricsRaw.dailyChallengeCompletedToday) || 0,
+                ...(Object.prototype.hasOwnProperty.call(sharedMetricsRaw, "wellnessScoreToday")
+                  ? { wellnessScoreToday: Number(sharedMetricsRaw.wellnessScoreToday) || 0 }
+                  : {}),
+                avgWaterDaily: Number(sharedMetricsRaw.avgWaterDaily) || 0,
+                avgSleepHours: Number(sharedMetricsRaw.avgSleepHours) || 0,
+                avgMoodToday: Number(sharedMetricsRaw.avgMoodToday) || 0,
+                avgMoodScore: Number(sharedMetricsRaw.avgMoodScore) || 0,
+                avgMoodLabel: String(sharedMetricsRaw.avgMoodLabel || "Not enough data"),
+                avgTasksCompletedDaily: Number(sharedMetricsRaw.avgTasksCompletedDaily) || 0,
+                sampleDays: Number(sharedMetricsRaw.sampleDays) || 0
               },
               generatedAtMs: Number(sharedProfileRaw.generatedAtMs) || Date.now()
             }
@@ -6640,13 +7199,40 @@ async function loadFriendsInsights(userId) {
 
     const enriched = await Promise.all(mergedFriends.map(async (entry) => {
       let profile = entry.sharedProfile || null;
-      if (!profile) {
-        try {
-          const profileSnap = await getDoc(doc(db, "users", entry.friendUid, "social", "profile"));
-          if (profileSnap.exists()) profile = profileSnap.data() || null;
-        } catch (_) {
-          profile = null;
+      const hasLiveWellnessMetric = (candidateProfile) => {
+        const metrics = candidateProfile?.metrics;
+        return !!metrics
+          && typeof metrics === "object"
+          && Object.prototype.hasOwnProperty.call(metrics, "wellnessScoreToday");
+      };
+
+      // Always check remote social profile and choose the fresher signal source.
+      // This prevents stale sharedProfile rows from hiding recent mood updates.
+      try {
+        const profileSnap = await getDoc(doc(db, "users", entry.friendUid, "social", "profile"));
+        if (profileSnap.exists()) {
+          const remoteProfile = profileSnap.data() || null;
+          if (!profile) {
+            profile = remoteProfile;
+          } else {
+            const localHasWellness = hasLiveWellnessMetric(profile);
+            const remoteHasWellness = hasLiveWellnessMetric(remoteProfile);
+            const localFreshness = Number(profile?.generatedAtMs) || 0;
+            const remoteFreshness = Number(remoteProfile?.generatedAtMs) || 0;
+            const localSignal = profileSignalScore(profile);
+            const remoteSignal = profileSignalScore(remoteProfile);
+
+            if (
+              (remoteHasWellness && !localHasWellness)
+              || remoteFreshness > localFreshness
+              || (remoteFreshness === localFreshness && remoteSignal > localSignal)
+            ) {
+              profile = remoteProfile;
+            }
+          }
         }
+      } catch (_) {
+        // Keep existing shared profile if remote read fails.
       }
 
       const friendEmail = String(entry.friendEmail || profile?.email || "").trim().toLowerCase();
@@ -6678,8 +7264,10 @@ async function loadFriendsInsights(userId) {
             waterToday: 0,
             avgSleepHours: 0,
             sleepToday: 0,
+            moodToday: "",
             gratitudeToday: 0,
             dailyChallengeCompletedToday: 0,
+            avgMoodToday: 0,
             avgMoodScore: 0,
             avgMoodLabel: "Not enough data"
           }
@@ -7210,8 +7798,10 @@ async function respondToFriendRequest(requestEntry, action) {
             tasksToday: 0,
             waterToday: 0,
             sleepToday: 0,
+            moodToday: "",
             gratitudeToday: 0,
             dailyChallengeCompletedToday: 0,
+            avgMoodToday: 0,
             avgWaterDaily: 0,
             avgSleepHours: 0,
             avgMoodScore: 0,
@@ -7393,10 +7983,10 @@ const AI_MODE_PRESETS = {
   creative: { depth: 3, style: "creative" },
   ultra: { depth: 4, style: "ultra" }
 };
-let aiReasoningMode = "creative";
+let aiReasoningMode = "ultra";
 const AI_CASUAL_MODE = true;
 const AI_CLARIFY_INTENT_THRESHOLD = 0.74;
-const AI_COMMAND_HELP_LINE = "I can also do: add task ..., complete task 2, reopen task 2, set water goal 8, I drank 2 glasses just now, log mood sad, log sleep 7h, set reminder call mom in 2 days, list tasks, list reminders, delete reminder 1, i have exam next week.";
+const AI_COMMAND_HELP_LINE = "I can also do: add task ..., complete task 2, reopen task 2, set water goal 8, I drank 2 glasses just now, log mood stressed, log mood angry, log sleep 7h, set reminder call mom in 30 sec, set reminder call mom in 2 months, list tasks, list reminders, delete reminder 1, clear chat, what is my name, i have exam next month.";
 const challengeDates=[];
 let dailyChallengeCompleted=false;
 let currentChallengeText="";
@@ -7409,6 +7999,8 @@ let weeklyGraphCountdownIntervalId = null;
 let startupResetCountdownIntervalId = null;
 let insightsPersistTimer=null;
 let waterGoalResetTimeoutId = null;
+let sleepDailyResetTimeoutId = null;
+let moodDailyResetTimeoutId = null;
 let insightMetricIndex = 0;
 let questDateKey = "";
 let questXp = 0;
@@ -7436,7 +8028,7 @@ const WATER_MAX_GLASSES_PER_ENTRY = 10;
 const MAX_FRIENDS = 10;
 const MAX_PENDING_SENT_REQUESTS = 10;
 const FRIEND_REQUEST_EXPIRY_MS = 3 * 24 * 60 * 60 * 1000;
-const REMINDER_MAX_MINUTES = 43200;
+const REMINDER_MAX_MINUTES = 525600;
 const REMINDER_MAX_TEXT_LENGTH = 140;
 const SLEEP_DAILY_LIMIT = 8;
 const STARTUP_PLAN_DAILY_LIMIT = 1;
@@ -7983,7 +8575,7 @@ function getCurrentAiDailyLimit() {
 
 async function updateReminderLimitUI(userId) {
   if (!userId) {
-    applyLimitState(reminderLimitError, [reminderText, reminderMinutes, reminderSetBtn], false, "");
+    applyLimitState(reminderLimitError, [reminderText, reminderMinutes, reminderUnit, reminderSetBtn], false, "");
     setRemoveButtonsDisabled(reminders, false);
     return;
   }
@@ -7993,7 +8585,7 @@ async function updateReminderLimitUI(userId) {
     const count = Math.max(countTodayRemindersFromDocs(snapshot.docs), reminderDailyUsageCount);
 
     const limited = count >= REMINDER_DAILY_LIMIT;
-    applyLimitState(reminderLimitError, [reminderText, reminderMinutes, reminderSetBtn], limited, `You’ve reached today’s reminder limit (${REMINDER_DAILY_LIMIT}/day). Resets in countdown.`);
+    applyLimitState(reminderLimitError, [reminderText, reminderMinutes, reminderUnit, reminderSetBtn], limited, `You’ve reached today’s reminder limit (${REMINDER_DAILY_LIMIT}/day). Resets in countdown.`);
     setRemoveButtonsDisabled(reminders, limited);
   } catch (err) {
     notifyFirestoreError(err);
@@ -8003,7 +8595,7 @@ async function updateReminderLimitUI(userId) {
 function resetAllLimitUIs() {
   stopAiAbuseCooldownTicker();
   applyLimitState(aiLimitError, [aiInput, aiTalkBtn], false, "");
-  applyLimitState(reminderLimitError, [reminderText, reminderMinutes, reminderSetBtn], false, "");
+  applyLimitState(reminderLimitError, [reminderText, reminderMinutes, reminderUnit, reminderSetBtn], false, "");
   applyLimitState(taskLimitError, [task, taskAddBtn], false, "");
   applyLimitState(moodLimitError, [mood, moodSaveBtn], false, "");
   applyLimitState(waterLimitError, [waterInput, waterTrackBtn], false, "");
@@ -8056,11 +8648,32 @@ function getCurrentWeekDates() {
 }
 
 function moodToScore(value) {
-  const moodValue = String(value || "");
-  if (moodValue.includes("😊")) return 3;
-  if (moodValue.includes("😐")) return 2;
-  if (moodValue.includes("😔")) return 1;
-  return 0;
+  return Number(getMoodStateMeta(value).score) || 0;
+}
+
+function buildMoodAverageByDayMap(dayKeys = null) {
+  const daySet = dayKeys instanceof Set
+    ? dayKeys
+    : (Array.isArray(dayKeys) ? new Set(dayKeys) : null);
+
+  const buckets = new Map();
+  moodHistory.forEach((entry, index) => {
+    const key = dateToKey(moodDates[index]);
+    if (!key || (daySet && !daySet.has(key))) return;
+    const score = moodToScore(entry);
+    if (!score) return;
+    const bucket = buckets.get(key) || { sum: 0, count: 0 };
+    bucket.sum += score;
+    bucket.count += 1;
+    buckets.set(key, bucket);
+  });
+
+  const averages = new Map();
+  buckets.forEach((bucket, key) => {
+    if (!bucket?.count) return;
+    averages.set(key, Number((bucket.sum / bucket.count).toFixed(2)));
+  });
+  return averages;
 }
 
 function getInsightSeries(metricType) {
@@ -8091,18 +8704,10 @@ function getInsightSeries(metricType) {
   }
 
   if (metricType === "mood") {
+    const moodByDay = buildMoodAverageByDayMap(days.map((day) => dateToKey(day)).filter(Boolean));
     const values = days.map((day) => {
       const dayKey = dateToKey(day);
-      let total = 0;
-      let count = 0;
-      moodHistory.forEach((value, index) => {
-        if (dateToKey(moodDates[index]) !== dayKey) return;
-        const score = moodToScore(value);
-        if (!score) return;
-        total += score;
-        count += 1;
-      });
-      return count ? Number((total / count).toFixed(2)) : 0;
+      return Number(moodByDay.get(dayKey)) || 0;
     });
     return { labels, values, maxValue: 3 };
   }
@@ -8337,16 +8942,11 @@ function getWeekRanges() {
 }
 
 function computeWeekMetrics(startDate, endDate) {
-  let moodSum = 0;
-  let moodCount = 0;
-  moodHistory.forEach((entry, index) => {
-    const moodDate = moodDates[index];
-    if (!isInRange(moodDate, startDate, endDate)) return;
-    const score = String(entry || "").includes("😊") ? 3 : String(entry || "").includes("😐") ? 2 : String(entry || "").includes("😔") ? 1 : 0;
-    if (!score) return;
-    moodSum += score;
-    moodCount += 1;
-  });
+  const dayKeys = buildWeekDayKeys(startDate, 7);
+  const moodByDay = buildMoodAverageByDayMap(new Set(dayKeys));
+  const moodDailyValues = dayKeys
+    .map((key) => Number(moodByDay.get(key)) || 0)
+    .filter((value) => value > 0);
 
   let sleepSum = 0;
   let sleepCount = 0;
@@ -8375,7 +8975,7 @@ function computeWeekMetrics(startDate, endDate) {
   const rescuesInPeriod = rescueEvents.filter((entry) => isInRange(entry.time, startDate, endDate)).length;
 
   return {
-    moodScore: moodCount ? moodSum / moodCount : 0,
+    moodScore: moodDailyValues.length ? safeAvg(moodDailyValues) : 0,
     sleepAvg: sleepCount ? sleepSum / sleepCount : 0,
     waterDailyAvg: waterByDay.size ? [...waterByDay.values()].reduce((a, b) => a + b, 0) / 7 : 0,
     taskCompletion: tasksInPeriod.length ? completedInPeriod / tasksInPeriod.length : 0,
@@ -9086,6 +9686,7 @@ function ensureHabitQuestCurrent() {
 
 function updateBurnoutRadarUI() {
   const crash = getCrashRiskSnapshot();
+  const moodMeta = getMoodStateMeta(getTodayMood());
   const now = getServerNowDate();
   const hour = now.getUTCHours();
   const dipStart = Math.min(23, hour + 2);
@@ -9100,6 +9701,7 @@ function updateBurnoutRadarUI() {
   }).length;
 
   let forecast = Math.round(crash.risk * 0.75);
+  if (moodMeta.logged) forecast += Number(moodMeta.burnoutBoost) || 0;
   if (rescueLast3Days >= 2) forecast += 12;
   if (sleepHistory.length > 1) {
     const recent = Number(sleepHistory[sleepHistory.length - 1]) || 0;
@@ -9109,10 +9711,13 @@ function updateBurnoutRadarUI() {
   forecast = Math.max(0, Math.min(100, forecast));
 
   const level = forecast >= 75 ? "High Risk" : forecast >= 50 ? "Moderate Risk" : "Low Risk";
-  const reason =
+  let reason =
     forecast >= 75 ? "Burnout pressure is building fast from current stress signals." :
     forecast >= 50 ? "Early fatigue markers detected; proactive recovery is recommended." :
     "Recovery trajectory is stable. Keep consistency.";
+  if (moodMeta.label === "Angry" || moodMeta.label === "Stressed") {
+    reason += ` ${moodMeta.label} mood is amplifying burnout risk right now.`;
+  }
 
   burnoutRecoveryPlan.length = 0;
   burnoutRecoveryPlan.push(
@@ -9184,10 +9789,13 @@ async function syncSocialProfileToFriendQueue(user, socialProfile) {
       tasksToday: Number(socialProfile?.metrics?.tasksToday) || 0,
       waterToday: Number(socialProfile?.metrics?.waterToday) || 0,
       sleepToday: Number(socialProfile?.metrics?.sleepToday) || 0,
+      moodToday: String(socialProfile?.metrics?.moodToday || ""),
       gratitudeToday: Number(socialProfile?.metrics?.gratitudeToday) || 0,
       dailyChallengeCompletedToday: Number(socialProfile?.metrics?.dailyChallengeCompletedToday) || 0,
+      wellnessScoreToday: Number(socialProfile?.metrics?.wellnessScoreToday) || 0,
       avgWaterDaily: Number(socialProfile?.metrics?.avgWaterDaily) || 0,
       avgSleepHours: Number(socialProfile?.metrics?.avgSleepHours) || 0,
+      avgMoodToday: Number(socialProfile?.metrics?.avgMoodToday) || 0,
       avgMoodScore: Number(socialProfile?.metrics?.avgMoodScore) || 0,
       avgMoodLabel: String(socialProfile?.metrics?.avgMoodLabel || "Not enough data"),
       avgTasksCompletedDaily: Number(socialProfile?.metrics?.avgTasksCompletedDaily) || 0,
@@ -9261,10 +9869,13 @@ async function syncSocialProfileToFriendsMirror(user, socialProfile) {
       tasksToday: Number(socialProfile?.metrics?.tasksToday) || 0,
       waterToday: Number(socialProfile?.metrics?.waterToday) || 0,
       sleepToday: Number(socialProfile?.metrics?.sleepToday) || 0,
+      moodToday: String(socialProfile?.metrics?.moodToday || ""),
       gratitudeToday: Number(socialProfile?.metrics?.gratitudeToday) || 0,
       dailyChallengeCompletedToday: Number(socialProfile?.metrics?.dailyChallengeCompletedToday) || 0,
+      wellnessScoreToday: Number(socialProfile?.metrics?.wellnessScoreToday) || 0,
       avgWaterDaily: Number(socialProfile?.metrics?.avgWaterDaily) || 0,
       avgSleepHours: Number(socialProfile?.metrics?.avgSleepHours) || 0,
+      avgMoodToday: Number(socialProfile?.metrics?.avgMoodToday) || 0,
       avgMoodScore: Number(socialProfile?.metrics?.avgMoodScore) || 0,
       avgMoodLabel: String(socialProfile?.metrics?.avgMoodLabel || "Not enough data"),
       avgTasksCompletedDaily: Number(socialProfile?.metrics?.avgTasksCompletedDaily) || 0,
@@ -9529,6 +10140,82 @@ async function ensureDailyUsageCurrent(userId, options = {}) {
   if (!options.skipReminderRefresh) {
     await updateReminderLimitUI(userId);
   }
+}
+
+async function ensureWaterDayCurrent(userId, todayKey = getTodayKey()) {
+  if (!userId) return;
+
+  try {
+    const waterRef = doc(db, "users", userId, "settings", "water");
+    const waterSettingsSnap = await getDoc(waterRef);
+
+    if (!waterSettingsSnap.exists()) {
+      await setDoc(waterRef, {
+        goal: 0,
+        goalDateKey: todayKey,
+        lastResetDateKey: todayKey
+      }, { merge: true });
+      return;
+    }
+
+    const settings = waterSettingsSnap.data() || {};
+    const savedGoal = Number(settings.goal) || 0;
+    const goalDateKey = String(settings.goalDateKey || "");
+    const lastResetDateKey = String(settings.lastResetDateKey || "");
+
+    let shouldReset = false;
+    if (lastResetDateKey && lastResetDateKey !== todayKey) {
+      shouldReset = true;
+    }
+    if (!shouldReset && savedGoal > 0 && goalDateKey && goalDateKey !== todayKey) {
+      shouldReset = true;
+    }
+
+    if (shouldReset) {
+      await resetWaterDayData(userId, todayKey);
+      return;
+    }
+
+    const patch = {};
+    if (!goalDateKey) patch.goalDateKey = todayKey;
+    if (!lastResetDateKey) patch.lastResetDateKey = todayKey;
+    if (Object.keys(patch).length) {
+      await setDoc(waterRef, patch, { merge: true });
+    }
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+}
+
+async function ensureDailyChallengeCurrent(userId, todayKey = getTodayKey()) {
+  if (!userId) return;
+
+  try {
+    const challengeRef = doc(db, "users", userId, "settings", "dailyChallenge");
+    const challengeSnap = await getDoc(challengeRef);
+    const currentDateKey = String(challengeSnap.data()?.dateKey || "");
+    if (currentDateKey === todayKey) return;
+
+    await setDoc(challengeRef, {
+      challenge: pickChallengeForDate(todayKey),
+      completed: false,
+      dateKey: todayKey,
+      timeZone: userTimeZone,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+}
+
+async function ensureDateBoundResetCatchup(userId) {
+  if (!userId) return;
+
+  await ensureDailyUsageCurrent(userId, { skipReminderRefresh: true });
+  await Promise.allSettled([
+    ensureWaterDayCurrent(userId),
+    ensureDailyChallengeCurrent(userId)
+  ]);
 }
 
 async function loadAiUsage(userId) {
@@ -9836,6 +10523,20 @@ function clearWaterGoalResetSchedule() {
   }
 }
 
+function clearSleepDailyResetSchedule() {
+  if (sleepDailyResetTimeoutId) {
+    clearTimeout(sleepDailyResetTimeoutId);
+    sleepDailyResetTimeoutId = null;
+  }
+}
+
+function clearMoodDailyResetSchedule() {
+  if (moodDailyResetTimeoutId) {
+    clearTimeout(moodDailyResetTimeoutId);
+    moodDailyResetTimeoutId = null;
+  }
+}
+
 function getMillisecondsUntilNextMidnight() {
   const now = getServerNowDate();
   const nextMidnight = new Date(now);
@@ -9874,6 +10575,26 @@ function updateWeeklyGraphResetCountdownNote() {
 }
 
 function updateStartupResetCountdownNotes() {
+  if (waterGoalResetCountdown) {
+    const dailyRemaining = getMillisecondsUntilNextMidnight();
+    waterGoalResetCountdown.innerText = `Water goal reset in ${formatCountdownClock(dailyRemaining)} (server time)`;
+  }
+
+  if (sleepResetCountdown) {
+    const dailyRemaining = getMillisecondsUntilNextMidnight();
+    sleepResetCountdown.innerText = `Sleep reset in ${formatCountdownClock(dailyRemaining)} (server time)`;
+  }
+
+  if (moodResetCountdown) {
+    const dailyRemaining = getMillisecondsUntilNextMidnight();
+    moodResetCountdown.innerText = `Mood reset in ${formatCountdownClock(dailyRemaining)} (server time)`;
+  }
+
+  if (dailyChallengeResetCountdown) {
+    const dailyRemaining = getMillisecondsUntilNextMidnight();
+    dailyChallengeResetCountdown.innerText = `Daily challenge reset in ${formatCountdownClock(dailyRemaining)} (server time)`;
+  }
+
   if (startupPlanResetCountdown) {
     const planLimited = (Number(startupUsageState?.planCount) || 0) >= STARTUP_PLAN_DAILY_LIMIT;
     if (planLimited) {
@@ -9905,6 +10626,10 @@ function stopStartupResetCountdown() {
     clearInterval(startupResetCountdownIntervalId);
     startupResetCountdownIntervalId = null;
   }
+  if (waterGoalResetCountdown) waterGoalResetCountdown.innerText = "";
+  if (sleepResetCountdown) sleepResetCountdown.innerText = "";
+  if (moodResetCountdown) moodResetCountdown.innerText = "";
+  if (dailyChallengeResetCountdown) dailyChallengeResetCountdown.innerText = "";
   if (startupPlanResetCountdown) startupPlanResetCountdown.innerText = "";
   if (startupReportResetCountdown) startupReportResetCountdown.innerText = "";
 }
@@ -10026,6 +10751,54 @@ function scheduleWaterGoalReset(userId) {
   waterGoalResetTimeoutId = setTimeout(runReset, getMillisecondsUntilNextMidnight());
 }
 
+async function resetSleepDayData(userId) {
+  const activeUser = auth.currentUser;
+  if (!activeUser || activeUser.uid !== userId) return;
+  sleepInput.value = "";
+  sleepResult.innerText = "";
+  await loadSleepData(userId);
+}
+
+function scheduleSleepDailyReset(userId) {
+  clearSleepDailyResetSchedule();
+
+  const runReset = async () => {
+    const activeUser = auth.currentUser;
+    if (!activeUser || activeUser.uid !== userId) {
+      scheduleSleepDailyReset(userId);
+      return;
+    }
+
+    await resetSleepDayData(userId);
+    scheduleSleepDailyReset(userId);
+  };
+
+  sleepDailyResetTimeoutId = setTimeout(runReset, getMillisecondsUntilNextMidnight());
+}
+
+async function resetMoodDayData(userId) {
+  const activeUser = auth.currentUser;
+  if (!activeUser || activeUser.uid !== userId) return;
+  await loadMoods(userId);
+}
+
+function scheduleMoodDailyReset(userId) {
+  clearMoodDailyResetSchedule();
+
+  const runReset = async () => {
+    const activeUser = auth.currentUser;
+    if (!activeUser || activeUser.uid !== userId) {
+      scheduleMoodDailyReset(userId);
+      return;
+    }
+
+    await resetMoodDayData(userId);
+    scheduleMoodDailyReset(userId);
+  };
+
+  moodDailyResetTimeoutId = setTimeout(runReset, getMillisecondsUntilNextMidnight());
+}
+
 function updateWellnessScore() {
   const todayKey = getTodayKey();
 
@@ -10048,7 +10821,8 @@ function updateWellnessScore() {
     const dateKey = dateToKey(moodDates[index]);
     return dateKey === todayKey ? value : lastMood;
   }, "");
-  const moodFactor = moodToday.includes("😊") ? 1 : moodToday.includes("😐") ? 0.65 : moodToday.includes("😔") ? 0.3 : 0;
+  const moodMeta = getMoodStateMeta(moodToday);
+  const moodFactor = Number(moodMeta.wellnessFactor) || 0;
   const moodPoints = Math.round(moodFactor * 20);
 
   const totalTasks = taskEntries.length;
@@ -10081,8 +10855,10 @@ function updateWellnessScore() {
     actions.push(`Drink ${remaining} more glass${remaining === 1 ? "" : "es"} to hit your goal.`);
   }
   if (sleepToday < 7) actions.push("Aim for at least 7–8 hours of sleep tonight.");
-  if (!moodToday) actions.push("Log your mood for today.");
-  else if (moodToday.includes("😔")) actions.push("Take a 10-minute breathing or walk break.");
+  if (!moodMeta.logged) actions.push("Log your mood for today.");
+  else if (moodMeta.label === "Angry") actions.push("Run a 2-minute rescue now before continuing work.");
+  else if (moodMeta.label === "Stressed") actions.push("Take a short breathing reset and reduce load for the next hour.");
+  else if (moodMeta.label === "Low") actions.push("Take a 10-minute breathing or walk break.");
   if (taskRatio < 0.7) actions.push("Complete one pending task to boost productivity.");
   if (!hasGratitudeToday) actions.push("Write one gratitude note before the day ends.");
   if (!dailyChallengeCompleted) actions.push("Complete today’s daily challenge for an extra score boost.");
@@ -10110,6 +10886,7 @@ function getCrashRiskSnapshot() {
     const dateKey = dateToKey(moodDates[index]);
     return dateKey === todayKey ? value : lastMood;
   }, "");
+  const moodMeta = getMoodStateMeta(moodToday);
 
   const totalTasks = taskEntries.length;
   const doneTasks = taskEntries.filter((entry) => !!entry.completed).length;
@@ -10134,14 +10911,12 @@ function getCrashRiskSnapshot() {
   risk += hydrationRisk;
   if (hydrationRisk >= 10) reasons.push("Hydration below target");
 
-  if (!moodToday) {
+  if (!moodMeta.logged) {
     risk += 14;
     reasons.push("Mood not logged yet");
-  } else if (moodToday.includes("😔")) {
-    risk += 24;
-    reasons.push("Low mood detected");
-  } else if (moodToday.includes("😐")) {
-    risk += 10;
+  } else {
+    risk += Number(moodMeta.crashRisk) || 0;
+    if (moodMeta.riskReason) reasons.push(moodMeta.riskReason);
   }
 
   const taskRisk = Math.round(pendingRatio * 20);
@@ -10308,8 +11083,9 @@ function updateInsights() {
   const waterSeries = getSeriesWithPersistedFallback("water", getInsightSeries("water"), weekRange);
   const moodSeries = getSeriesWithPersistedFallback("mood", getInsightSeries("mood"), weekRange);
   const moodToday = getTodayMood();
-  const moodLabel = moodToday.includes("😊") ? "Happy" : moodToday.includes("😐") ? "Neutral" : moodToday.includes("😔") ? "Low" : "Not logged";
-  const moodPercent = moodToday.includes("😊") ? 100 : moodToday.includes("😐") ? 66 : moodToday.includes("😔") ? 33 : 0;
+  const moodScoreToday = moodToScore(moodToday);
+  const moodLabel = moodToday ? getMoodLabelFromScore(moodScoreToday) : "Not logged";
+  const moodPercent = Math.max(0, Math.min(100, Math.round((moodScoreToday / 3) * 100)));
 
   const taskValues = Array.isArray(taskSeries?.values) ? taskSeries.values.map((value) => Number(value) || 0) : [];
   const taskLabels = Array.isArray(taskSeries?.labels) ? taskSeries.labels : [];
@@ -10374,6 +11150,9 @@ function updateInsights() {
 
   updateWellnessScore();
   renderFriendMetricCardInsights();
+  if (moodFriendInsight && !String(moodFriendInsight.innerText || "").trim()) {
+    moodFriendInsight.innerText = "Friend benchmark: add a friend to compare average mood of the day.";
+  }
   updateCrashPreventionUI();
   updateBurnoutRadarUI();
   updateWeeklyReview();
@@ -10511,13 +11290,7 @@ function renderStartupBehaviorMemory() {
     if (key) dayKeys.push(key);
   }
 
-  const moodByDay = new Map();
-  moodHistory.forEach((entry, index) => {
-    const key = dateToKey(moodDates[index]);
-    if (!key || !dayKeys.includes(key)) return;
-    const score = String(entry || "").includes("😊") ? 3 : String(entry || "").includes("😐") ? 2 : String(entry || "").includes("😔") ? 1 : 0;
-    if (score) moodByDay.set(key, score);
-  });
+  const moodByDay = buildMoodAverageByDayMap(dayKeys);
 
   const waterByDay = new Map();
   waterHistory.forEach((entry, index) => {
@@ -10724,9 +11497,25 @@ function escapeHtml(text) {
 }
 
 function getUserName(user) {
-  if (user?.displayName && user.displayName.trim()) return user.displayName.trim();
-  if (user?.email) return user.email.split("@")[0];
+  const displayName = getPreferredAiDisplayName(user);
+  if (displayName) return displayName;
   return "there";
+}
+
+function getPreferredAiDisplayName(user) {
+  const accountPanelDisplayName = normalizeDisplayNameValue(accountDisplayName?.innerText || "");
+  if (accountPanelDisplayName && accountPanelDisplayName !== "-") return accountPanelDisplayName;
+
+  const profileDisplayName = normalizeDisplayNameValue(user?.displayName || "");
+  if (profileDisplayName) return profileDisplayName;
+  return "";
+}
+
+function isClearChatCommand(inputText) {
+  const text = String(inputText || "").trim().toLowerCase();
+  if (!text) return false;
+  return /^(?:clear|delete|wipe|reset|remove)\s+(?:the\s+)?(?:ai\s+)?chat(?:s)?$/.test(text)
+    || /^(?:clear|delete|wipe|reset|remove)\s+(?:my\s+)?conversation(?:s)?$/.test(text);
 }
 
 function rememberPrompt(promptText) {
@@ -10906,6 +11695,29 @@ function buildDeviceLocalDateReply() {
   }).format(now);
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "local timezone";
   return `Today is ${dayName}, ${dateLabel}. Local time is ${timeLabel} (${timezone}).`;
+}
+
+function getTimeOfDayGreeting(dateValue = getServerNowDate(), timeZone = userTimeZone) {
+  const now = toDateSafe(dateValue) || getServerNowDate();
+  let hour = now.getHours();
+
+  try {
+    const resolvedTimeZone = String(timeZone || "").trim();
+    const formatter = resolvedTimeZone && resolvedTimeZone !== "local"
+      ? new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone: resolvedTimeZone })
+      : new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false });
+    const hourPart = formatter.formatToParts(now).find((part) => part.type === "hour")?.value;
+    const parsedHour = Number(hourPart);
+    if (Number.isFinite(parsedHour)) hour = parsedHour;
+  } catch (_) {
+    // Fallback uses Date#getHours above.
+  }
+
+  if (hour < 5) return "Good night";
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  if (hour < 21) return "Good evening";
+  return "Good night";
 }
 
 function classifyIntent(input) {
@@ -11585,24 +12397,7 @@ function buildSleepMoodPatternInsight(maxDays = 30) {
 function buildPatternMetricMaps(maxDays = 30) {
   const dayKeys = getRecentDayKeys(maxDays);
   const daySet = new Set(dayKeys);
-
-  const moodBuckets = new Map();
-  moodHistory.forEach((entry, index) => {
-    const key = dateToKey(moodDates[index]);
-    if (!key || !daySet.has(key)) return;
-    const score = moodToScore(entry);
-    if (!score) return;
-    const bucket = moodBuckets.get(key) || { sum: 0, count: 0 };
-    bucket.sum += score;
-    bucket.count += 1;
-    moodBuckets.set(key, bucket);
-  });
-
-  const moodByDay = new Map();
-  moodBuckets.forEach((bucket, key) => {
-    if (!bucket?.count) return;
-    moodByDay.set(key, bucket.sum / bucket.count);
-  });
+  const moodByDay = buildMoodAverageByDayMap(daySet);
 
   const sleepByDay = new Map();
   sleepHistory.forEach((entry, index) => {
@@ -11779,14 +12574,7 @@ function buildTrendSignals() {
     if (key) last7Keys.push(key);
   }
 
-  const moodByDay = new Map();
-  moodHistory.forEach((entry, index) => {
-    const key = dateToKey(moodDates[index]);
-    if (!key || !last7Keys.includes(key)) return;
-    const score = String(entry || "").includes("😊") ? 3 : String(entry || "").includes("😐") ? 2 : String(entry || "").includes("😔") ? 1 : 0;
-    if (!score) return;
-    moodByDay.set(key, score);
-  });
+  const moodByDay = buildMoodAverageByDayMap(last7Keys);
 
   const waterByDay = new Map();
   waterHistory.forEach((entry, index) => {
@@ -11914,6 +12702,12 @@ function getTodayMood() {
   }, "");
 }
 
+function getTodayMoodAverageScore() {
+  const todayKey = getTodayKey();
+  const moodByDay = buildMoodAverageByDayMap([todayKey]);
+  return Number(moodByDay.get(todayKey)) || 0;
+}
+
 function getTodaySleep() {
   const todayKey = getTodayKey();
   return sleepHistory.reduce((lastSleep, value, index) => {
@@ -11931,7 +12725,7 @@ function getWellnessSnapshot() {
   const doneTasks = taskEntries.filter((entry) => !!entry.completed).length;
   const pendingTasks = taskEntries.filter((entry) => !entry.completed).length;
   const gratitudeToday = gratitudeEntries.some((entry) => dateToKey(entry.time) === getTodayKey());
-  const score = Number((wellnessScoreEl?.innerText || "0/100").split("/")[0]) || 0;
+  const score = calculateWellnessScoreValue();
 
   return {
     waterToday,
@@ -11946,14 +12740,27 @@ function getWellnessSnapshot() {
   };
 }
 
+function normalizeReminderUnitValue(unitRaw) {
+  const unit = String(unitRaw || "minute").toLowerCase();
+  if (/^(s|sec|secs|second|seconds)$/.test(unit)) return "second";
+  if (/^(m|min|mins|minute|minutes)$/.test(unit)) return "minute";
+  if (/^(h|hr|hrs|hour|hours)$/.test(unit)) return "hour";
+  if (/^(d|day|days)$/.test(unit)) return "day";
+  if (/^(w|wk|wks|week|weeks)$/.test(unit)) return "week";
+  if (/^(mo|mon|mons|month|months)$/.test(unit)) return "month";
+  return "minute";
+}
+
 function parseDurationToMinutes(amountRaw, unitRaw) {
   const amount = Number(amountRaw);
-  if (!Number.isFinite(amount) || amount <= 0) return 0;
-  const unit = String(unitRaw || "m").toLowerCase();
-  if (/^(h|hr|hrs|hour|hours)$/.test(unit)) return Math.round(amount * 60);
-  if (/^(d|day|days)$/.test(unit)) return Math.round(amount * 1440);
-  if (/^(w|wk|wks|week|weeks)$/.test(unit)) return Math.round(amount * 10080);
-  return Math.round(amount);
+  if (!Number.isFinite(amount) || amount < 1) return 0;
+  const normalizedUnit = normalizeReminderUnitValue(unitRaw);
+  if (normalizedUnit === "second") return amount / 60;
+  if (normalizedUnit === "month") return amount * 43200;
+  if (normalizedUnit === "hour") return amount * 60;
+  if (normalizedUnit === "day") return amount * 1440;
+  if (normalizedUnit === "week") return amount * 10080;
+  return amount;
 }
 
 function parseTimelineFromInput(text) {
@@ -11966,8 +12773,11 @@ function parseTimelineFromInput(text) {
   if (/\bnext\s+week\b/.test(raw)) {
     return { minutes: 7 * 24 * 60, label: "next week" };
   }
+  if (/\bnext\s+month\b/.test(raw)) {
+    return { minutes: 30 * 24 * 60, label: "next month" };
+  }
 
-  const durationMatch = raw.match(/\bin\s+(\d+(?:\.\d+)?)\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks)\b/i);
+  const durationMatch = raw.match(/\bin\s+(\d+(?:\.\d+)?)\s*(s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks|mo|mon|mons|month|months)\b/i);
   if (!durationMatch) return null;
 
   const minutes = parseDurationToMinutes(durationMatch[1], durationMatch[2]);
@@ -11983,7 +12793,7 @@ function extractPrepTopicFromInput(text) {
   const raw = String(text || "").trim();
   if (!raw) return "your goal";
 
-  const timelinePattern = "(?:tomorrow|next\\s+week|in\\s+\\d+(?:\\.\\d+)?\\s*(?:m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks))";
+  const timelinePattern = "(?:tomorrow|next\\s+week|next\\s+month|in\\s+\\d+(?:\\.\\d+)?\\s*(?:s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks|mo|mon|mons|month|months))";
   const patterns = [
     new RegExp(`\\b(?:study|studying|prepare|preparing|prep|revision|revise)\\s+(?:for\\s+)?(.+?)\\s+${timelinePattern}`, "i"),
     new RegExp(`\\bi\\s+(?:have|got)\\s+(?:an?\\s+)?(.+?)\\s+${timelinePattern}`, "i"),
@@ -12052,9 +12862,12 @@ async function addReminderFromAi(text, minutes) {
   if (!safeText || !safeMinutes) return false;
 
   const beforeCount = reminders?.querySelectorAll?.(".item-row")?.length || 0;
+  const previousUnit = String(reminderUnit?.value || "minute");
   reminderText.value = safeText;
   reminderMinutes.value = String(safeMinutes);
+  if (reminderUnit) reminderUnit.value = "minute";
   await addReminder();
+  if (reminderUnit) reminderUnit.value = previousUnit;
   const afterCount = reminders?.querySelectorAll?.(".item-row")?.length || 0;
   return afterCount > beforeCount;
 }
@@ -12121,9 +12934,11 @@ async function createAutoPrepPlanFromAi(user, inputText) {
 
 function mapMoodFromInput(text) {
   const lower = String(text || "").toLowerCase();
-  if (/😊|happy|good|great|awesome|fine|energized|pumped/.test(lower)) return "😊 Happy";
-  if (/😔|sad|low|down|stressed|anxious|depressed|angry|tired|drained/.test(lower)) return "😔 Low";
-  if (/😐|neutral|nuetral|ok|okay|meh/.test(lower)) return "😐 Neutral";
+  if (/😡|\bangry\b|\bfurious\b|\brage\b|\bmad\b/.test(lower)) return "😡 Angry";
+  if (/😣|\bstressed\b|\bstress\b|\boverwhelmed\b|\banxious\b|\banxiety\b/.test(lower)) return "😣 Stressed";
+  if (/😊|\bhappy\b|\bgood\b|\bgreat\b|\bawesome\b|\bfine\b|\benergized\b|\bpumped\b/.test(lower)) return "😊 Happy";
+  if (/😔|\bsad\b|\blow\b|\bdown\b|\bdepressed\b|\btired\b|\bdrained\b/.test(lower)) return "😔 Low";
+  if (/😐|\bneutral\b|\bnuetral\b|\bok\b|\bokay\b|\bmeh\b/.test(lower)) return "😐 Neutral";
   return "";
 }
 
@@ -12183,13 +12998,25 @@ async function tryAiAction(input, user) {
   const msg = input.trim();
   const lower = msg.toLowerCase();
 
+  if (/^(?:what(?:'s|\s+is)\s+my\s+name|who\s+am\s+i)(?:\?)?$/i.test(msg)) {
+    const displayName = getPreferredAiDisplayName(user);
+    if (displayName) {
+      return `Your name is ${displayName}.`;
+    }
+    return "I could not find your name yet. Set or update it from Account.";
+  }
+
+  if (isClearChatCommand(msg)) {
+    return "Clearing chat now.";
+  }
+
   const requestedMode = parseModeFromInput(msg);
   if (requestedMode) {
     const changed = setAiMode(requestedMode);
     if (changed) {
       return `✅ Response style updated.`;
     }
-    return "ℹ️ Unknown mode. Use: balanced, coach, strict, creative.";
+    return "ℹ️ Unknown mode. Use: balanced, coach, strict, creative, ultra.";
   }
 
   const rememberMatch = msg.match(/^remember\s+(?:that\s+)?(.+)/i);
@@ -12312,20 +13139,25 @@ async function tryAiAction(input, user) {
     return `✅ Auto prep plan created for ${autoPrepPlan.topic} (${autoPrepPlan.timelineLabel}). Added ${autoPrepPlan.addedTasks} tasks + ${autoPrepPlan.addedReminders} reminders (focus, breaks, sleep, final review).`;
   }
 
-  const reminderMatch = msg.match(/^remind\s+me\s+to\s+(.+?)\s+(?:in|after)\s+(\d+(?:\.\d+)?)\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks)$/i)
-    || msg.match(/^(?:set|add|create)\s+(?:a\s+)?reminder\s*(?:to)?\s*[:\-]?\s*(.+?)\s+(?:in|after)\s+(\d+(?:\.\d+)?)\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks)$/i)
-    || msg.match(/^reminder\s*[:\-]?\s*(.+?)\s+(?:in|after)\s+(\d+(?:\.\d+)?)\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks)$/i);
+  const reminderMatch = msg.match(/^remind\s+me\s+to\s+(.+?)\s+(?:in|after)\s+(\d+(?:\.\d+)?)\s*(s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks|mo|mon|mons|month|months)$/i)
+    || msg.match(/^(?:set|add|create)\s+(?:a\s+)?reminder\s*(?:to)?\s*[:\-]?\s*(.+?)\s+(?:in|after)\s+(\d+(?:\.\d+)?)\s*(s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks|mo|mon|mons|month|months)$/i)
+    || msg.match(/^reminder\s*[:\-]?\s*(.+?)\s+(?:in|after)\s+(\d+(?:\.\d+)?)\s*(s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks|mo|mon|mons|month|months)$/i);
   if (reminderMatch) {
     const reminderLabel = reminderMatch[1].trim();
-    const minutes = parseDurationToMinutes(reminderMatch[2], reminderMatch[3]);
-    if (!minutes) return "ℹ️ Reminder time should be greater than 0.";
+    const amount = Number(reminderMatch[2]);
+    const unitValue = normalizeReminderUnitValue(reminderMatch[3]);
+    const minutes = parseDurationToMinutes(amount, unitValue);
+    if (!minutes) return "ℹ️ Reminder time should be at least 1 unit.";
+    const previousUnit = String(reminderUnit?.value || "minute");
     reminderText.value = reminderLabel;
-    reminderMinutes.value = String(minutes);
+    reminderMinutes.value = String(amount);
+    if (reminderUnit) reminderUnit.value = unitValue;
     await addReminder();
+    if (reminderUnit) reminderUnit.value = previousUnit;
     return `✅ Reminder set: ${reminderLabel} in ${formatReminderDurationFromMinutes(minutes)}.`;
   }
   if (/^(?:remind\s+me\s+to|set\s+reminder|add\s+reminder|create\s+reminder|reminder\s*[:\-]?)/i.test(msg)) {
-    return "ℹ️ Include time too, like: set reminder submit assignment in 45 min.";
+    return "ℹ️ Include time too, like: set reminder submit assignment in 45 sec or 45 min.";
   }
 
   const reminderDeleteMatch = msg.match(/^(?:delete|remove|cancel|clear)\s+(?:the\s+)?reminder\b(.*)$/i);
@@ -12390,8 +13222,7 @@ async function buildSmartAiResponse(input, user) {
   const baseName = getUserName(user);
   learnFromUserInput(input);
   const name = buildUserContextLabel(baseName);
-  const hour = getServerNowDate().getUTCHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const greeting = getTimeOfDayGreeting();
   const snapshot = getWellnessSnapshot();
   aiSessionState.lastSnapshot = snapshot;
   const recentContext = aiRecentPrompts.slice(-3).join(" • ");
@@ -13093,16 +13924,17 @@ async function storeAiChat(userId, userMessage, aiResponse, aiResponseIsHtml) {
   }
 }
 
-async function clearAiChats() {
+async function clearAiChats(options = {}) {
+  const skipConfirm = !!options?.skipConfirm;
   const user = auth.currentUser;
-  if (!user) return;
+  if (!user) return false;
 
   if (aiClearBtn?.disabled) {
     showToast("There was nothing to clear.");
-    return;
+    return false;
   }
 
-  if (!confirm("Clear all AI conversations?")) return;
+  if (!skipConfirm && !confirm("Clear all AI conversations?")) return false;
 
   try {
     const snapshot = await getDocs(collection(db, "users", user.uid, "aiChats"));
@@ -13111,7 +13943,7 @@ async function clearAiChats() {
       showToast("There was nothing to clear.");
       setAiClearButtonState(false);
       updateClearDataButtonState();
-      return;
+      return false;
     }
 
     if (pendingAiClearOperation?.timerId) {
@@ -13156,9 +13988,11 @@ async function clearAiChats() {
         updateClearDataButtonState();
       }
     });
+    return true;
   } catch (err) {
     setAiClearButtonState(chat?.querySelectorAll?.(".chat-message")?.length > 0);
     notifyFirestoreError(err);
+    return false;
   }
 }
 
@@ -13169,6 +14003,12 @@ async function aiChat(){
   const user = auth.currentUser;
   if (!user) {
     showToast("Please sign in first.");
+    return;
+  }
+
+  if (isClearChatCommand(input)) {
+    await clearAiChats({ skipConfirm: true });
+    aiInput.value = "";
     return;
   }
 
@@ -13440,8 +14280,16 @@ async function addReminder() {
   }
 
   const t = reminderText.value.trim();
-  const m = +reminderMinutes.value;
-  if (!t || m <= 0) return;
+  const rawAmount = getReminderAmountInputValue();
+  const rawUnit = String(reminderUnit?.value || "minute");
+  const m = parseDurationToMinutes(rawAmount, rawUnit);
+  clearReminderInputError();
+  if (!t) return;
+  if (rawAmount < 1 || m <= 0) {
+    setReminderInputError("Reminder time must be at least 1 unit.");
+    showToast("Reminder time must be at least 1 unit.");
+    return;
+  }
 
   if (t.length > REMINDER_MAX_TEXT_LENGTH) {
     showToast(`Reminder text is too long. Maximum is ${REMINDER_MAX_TEXT_LENGTH} characters.`);
@@ -13449,7 +14297,7 @@ async function addReminder() {
   }
 
   if (m > REMINDER_MAX_MINUTES) {
-    showToast(`Reminder time is too high. Maximum is ${REMINDER_MAX_MINUTES} minutes.`);
+    showToast(`Reminder time is too high. Maximum is ${formatReminderDurationFromMinutes(REMINDER_MAX_MINUTES)}.`);
     return;
   }
 
@@ -13695,23 +14543,19 @@ function renderMoodLog(entry) {
   const removeBtn = document.createElement("button");
   removeBtn.className = "mood-remove remove-entry-btn";
   removeBtn.textContent = "Remove";
-  removeBtn.onclick = () => deleteMoodLog(entry.id, moodRow, entry.mood);
+  removeBtn.onclick = () => deleteMoodLog(entry.id);
 
   moodRow.append(moodLabel, removeBtn);
   moodLogs.appendChild(moodRow);
 }
 
-async function deleteMoodLog(moodId, moodElement, moodValue) {
+async function deleteMoodLog(moodId) {
   const user = auth.currentUser;
   if (!user || !moodId) return;
 
   try {
     await deleteDoc(doc(db, "users", user.uid, "moods", moodId));
-    moodElement.remove();
-    const moodIndex = moodHistory.findIndex((m) => m === moodValue);
-    if (moodIndex >= 0) moodHistory.splice(moodIndex, 1);
-    updateMoodLimitUI();
-    scheduleEmptyState(moodLogs, ".mood-item", "No mood logs yet — one check-in is enough to start.");
+    await loadMoods(user.uid);
   } catch (err) {
     notifyFirestoreError(err);
   }
@@ -13732,13 +14576,18 @@ async function loadMoods(userId) {
         return aTime - bTime;
       });
 
+    const todayKey = getTodayKey();
+    let renderedCount = 0;
     docs.forEach((entry) => {
       moodHistory.push(entry.mood);
       const moodTime = entry.time?.toDate?.() ?? new Date(entry.time || getServerNowDate().getTime());
       moodDates.push(moodTime);
-      renderMoodLog(entry);
+      if (dateToKey(moodTime) === todayKey) {
+        renderMoodLog({ ...entry, time: moodTime });
+        renderedCount += 1;
+      }
     });
-    if (!docs.length) {
+    if (!renderedCount) {
       setEmptyState(moodLogs, "No mood logs yet — one check-in is enough to start.");
     }
     updateMoodLimitUI();
@@ -14085,9 +14934,18 @@ async function loadSleepData(userId) {
       }
     });
 
-    if (sleepHistory.length) {
-      const latest = sleepHistory[sleepHistory.length - 1];
-      sleepResult.innerText = `${latest} hrs 💤`;
+    const todayKey = getTodayKey();
+    let latestTodaySleep = 0;
+    for (let index = sleepHistory.length - 1; index >= 0; index -= 1) {
+      const key = dateToKey(sleepDates[index]);
+      if (key === todayKey) {
+        latestTodaySleep = Number(sleepHistory[index]) || 0;
+        break;
+      }
+    }
+
+    if (latestTodaySleep > 0) {
+      sleepResult.innerText = `${latestTodaySleep} hrs 💤`;
     }
     updateSleepLimitUI();
     updateInsights();
