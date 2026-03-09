@@ -496,7 +496,7 @@ header p{margin:8px 0 0;opacity:.94}
   width:min(420px, calc(100vw - 32px));
   max-width:calc(100vw - 40px);
   max-height:80vh;
-  overflow-y:auto;
+  overflow-y:scroll;
   background:linear-gradient(180deg, rgba(9,20,38,.55), rgba(9,20,38,.42));
   border:1px solid rgba(255,255,255,.25);
   border-radius:14px;
@@ -508,10 +508,10 @@ header p{margin:8px 0 0;opacity:.94}
   z-index:10021;
   box-sizing:border-box;
   overflow-x:hidden;
-  overflow-y:auto;
-  scrollbar-gutter:stable;
+  scrollbar-gutter:stable both-edges;
+  overscroll-behavior:contain;
   scrollbar-width:thin;
-  scrollbar-color:rgba(33,150,243,.5) transparent;
+  scrollbar-color:var(--primary) transparent;
 }
 
 #accountPanel::-webkit-scrollbar{
@@ -519,23 +519,14 @@ header p{margin:8px 0 0;opacity:.94}
 }
 
 #accountPanel::-webkit-scrollbar-track{
-  background:transparent;
+  background:rgba(255,255,255,.08);
+  border-radius:999px;
 }
 
 #accountPanel::-webkit-scrollbar-thumb{
-  background:rgba(33,150,243,.5);
-  border-radius:3px;
-  opacity:.7;
-  transition:background-color .3s ease, opacity .85s ease;
-}
-
-#accountPanel.account-scroll-active{
-  scrollbar-color:var(--primary) transparent;
-}
-
-#accountPanel.account-scroll-active::-webkit-scrollbar-thumb{
   background:var(--primary);
-  opacity:1;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.18);
 }
 
 #accountPanel h4{
@@ -2477,6 +2468,7 @@ const startupReportResetCountdown = document.getElementById("startupReportResetC
 
 // ---------- SPLASH + AUTH CHECK ----------
 document.body.style.overflow = "hidden";
+if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 let splashRemoved = false;
 
 function hideSplash() {
@@ -2487,6 +2479,7 @@ function hideSplash() {
       splash.remove();
       splashRemoved = true;
       document.body.style.overflow = "auto";
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     }
   }, 1000);
 }
@@ -2497,13 +2490,11 @@ function toggleAccountPanel() {
   accountPanel.style.display = isOpen ? "none" : "block";
   accountOverlay.style.display = isOpen ? "none" : "block";
   if (isOpen) {
-    clearAccountScrollbarVisibilityHold();
     accountPanel.scrollTop = 0;
     return;
   }
 
   accountPanel.scrollTop = 0;
-  holdAccountScrollbarVisibility();
   if (!isOpen) {
     const user = auth.currentUser;
     if (user?.uid) {
@@ -2516,7 +2507,6 @@ function toggleAccountPanel() {
 
 function closeAccountPanel() {
   if (!accountPanel || !accountOverlay) return;
-  clearAccountScrollbarVisibilityHold();
   accountPanel.scrollTop = 0;
   accountPanel.style.display = "none";
   accountOverlay.style.display = "none";
@@ -2631,39 +2621,6 @@ if (aiInput) {
     event.preventDefault();
     void aiChat();
   });
-}
-
-let accountScrollbarVisibilityTimer = null;
-const ACCOUNT_SCROLLBAR_HOLD_MS = 2400;
-
-function setAccountScrollbarActive(active) {
-  if (!accountPanel) return;
-  accountPanel.classList.toggle("account-scroll-active", !!active);
-}
-
-function clearAccountScrollbarVisibilityHold() {
-  if (accountScrollbarVisibilityTimer) {
-    clearTimeout(accountScrollbarVisibilityTimer);
-    accountScrollbarVisibilityTimer = null;
-  }
-  setAccountScrollbarActive(false);
-}
-
-function holdAccountScrollbarVisibility() {
-  if (!accountPanel) return;
-  setAccountScrollbarActive(true);
-  if (accountScrollbarVisibilityTimer) clearTimeout(accountScrollbarVisibilityTimer);
-  accountScrollbarVisibilityTimer = setTimeout(() => {
-    setAccountScrollbarActive(false);
-    accountScrollbarVisibilityTimer = null;
-  }, ACCOUNT_SCROLLBAR_HOLD_MS);
-}
-
-if (accountPanel) {
-  accountPanel.addEventListener("scroll", holdAccountScrollbarVisibility, { passive: true });
-  accountPanel.addEventListener("wheel", holdAccountScrollbarVisibility, { passive: true });
-  accountPanel.addEventListener("touchmove", holdAccountScrollbarVisibility, { passive: true });
-  accountPanel.addEventListener("mouseenter", holdAccountScrollbarVisibility);
 }
 
 function getReminderAmountInputValue() {
