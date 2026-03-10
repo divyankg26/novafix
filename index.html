@@ -21,6 +21,9 @@
   --surface-2:rgba(255,255,255,0.16);
   --surface-dark:rgba(9,20,38,0.28);
   --border-soft:rgba(255,255,255,0.22);
+  --account-panel-bg:linear-gradient(180deg, rgba(9,20,38,.55), rgba(9,20,38,.42));
+  --account-panel-border:rgba(255,255,255,.25);
+  --account-panel-light-opacity:0;
   --text:#fff;
 }
 
@@ -172,7 +175,8 @@ body::before{
   border-radius: 12px;
   border: none;
   cursor: pointer;
-  background: linear-gradient(135deg,var(--primary),var(--accent));
+  background: rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.42);
   color: #fff;
   font-weight: bold;
   font-size: 16px;
@@ -434,7 +438,8 @@ body::before{
 }
 
 #guideNextBtn{
-  background:linear-gradient(135deg,var(--primary),var(--accent));
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.42);
   color:#fff;
 }
 
@@ -498,7 +503,7 @@ header p{margin:8px 0 0;opacity:.94}
   max-height:80vh;
   overflow-y:scroll;
   background:linear-gradient(180deg, rgba(9,20,38,.55), rgba(9,20,38,.42));
-  border:1px solid rgba(255,255,255,.25);
+  border:1px solid var(--account-panel-border);
   border-radius:14px;
   padding:18px;
   text-align:left;
@@ -511,22 +516,47 @@ header p{margin:8px 0 0;opacity:.94}
   scrollbar-gutter:stable both-edges;
   overscroll-behavior:contain;
   scrollbar-width:thin;
-  scrollbar-color:var(--primary) transparent;
+  scrollbar-color:rgba(159,208,255,.95) rgba(255,255,255,.1);
+  isolation:isolate;
+  transition:none;
+}
+
+#accountPanel::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  border-radius:inherit;
+  background:linear-gradient(180deg, rgba(255,255,255,.35), rgba(255,255,255,.24));
+  opacity:var(--account-panel-light-opacity);
+  z-index:0;
+  transition:none;
+}
+
+#accountPanel > *{
+  position:relative;
+  z-index:1;
 }
 
 #accountPanel::-webkit-scrollbar{
-  width:6px;
+  -webkit-appearance:none;
+  width:11px !important;
+  min-width:11px;
+  max-width:11px;
+  background:rgba(255,255,255,.06);
 }
 
 #accountPanel::-webkit-scrollbar-track{
-  background:rgba(255,255,255,.08);
+  background:rgba(255,255,255,.12);
   border-radius:999px;
+  opacity:1;
 }
 
 #accountPanel::-webkit-scrollbar-thumb{
-  background:var(--primary);
+  background:linear-gradient(180deg,#9fd0ff,#7fb9ff);
   border-radius:999px;
-  border:1px solid rgba(255,255,255,.18);
+  border:1px solid rgba(255,255,255,.28);
+  min-height:34px;
 }
 
 #accountPanel h4{
@@ -611,6 +641,45 @@ header p{margin:8px 0 0;opacity:.94}
   margin-top:8px;
   text-align:center;
   line-height:1.35;
+}
+
+#accountShortcutHint{
+  text-align:left;
+}
+
+.account-pref-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-top:8px;
+}
+
+.account-pref-row label{
+  min-width:84px;
+  font-size:12px;
+  opacity:.95;
+}
+
+.account-pref-row select{
+  flex:1;
+  margin:0;
+  font-size:13px;
+  padding:9px 36px 9px 10px;
+  -webkit-appearance:none;
+  -moz-appearance:none;
+  appearance:none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(255,255,255,0.86) 50%),
+    linear-gradient(135deg, rgba(255,255,255,0.86) 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) calc(50% - 2px),
+    calc(100% - 11px) calc(50% - 2px);
+  background-size:6px 6px, 6px 6px;
+  background-repeat:no-repeat;
+}
+
+.account-pref-row select option{
+  color:#111;
 }
 
 @media (max-width: 640px){
@@ -753,19 +822,34 @@ textarea:focus{
 button{
   cursor:pointer;
   font-weight:bold;
-  background:linear-gradient(135deg,var(--primary),var(--accent));
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.42);
+  color:#e9f6ff;
+  backdrop-filter:blur(10px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.24), 0 8px 18px rgba(0,0,0,.24);
   transition:transform .16s ease, filter .16s ease, box-shadow .16s ease;
   letter-spacing:.2px;
 }
 
 button:hover:not(:disabled){
   transform:translateY(-1px);
-  filter:brightness(1.04);
-  box-shadow:0 10px 18px rgba(0,0,0,.2);
+  background:rgba(255,255,255,.14);
+  border-color:rgba(255,255,255,.56);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 12px 20px rgba(0,0,0,.3);
 }
 
 button:active:not(:disabled){
   transform:translateY(0);
+}
+
+:root[data-theme="midnight"] #accountBtn,
+:root[data-theme="midnight"] .account-title{
+  color:#fff !important;
+}
+
+:root[data-theme="forest"] #accountBtn,
+:root[data-theme="forest"] .account-title{
+  color:#fff !important;
 }
 
 @media (min-width: 641px){
@@ -894,13 +978,13 @@ textarea:focus-visible{
 }
 
 #uxToastAction{
-  border:none;
+  border:1px solid rgba(255,255,255,.42);
   border-radius:9px;
   padding:7px 10px;
   font-size:12px;
   font-weight:700;
-  background:linear-gradient(135deg,var(--primary),var(--accent));
-  color:#fff;
+  background:rgba(255,255,255,.08);
+  color:#e9f6ff;
   cursor:pointer;
 }
 
@@ -992,6 +1076,10 @@ textarea:focus-visible{
   height:430px;
   max-height:430px;
   overflow:hidden;
+}
+
+.uniform-size-card{
+  min-height:430px;
 }
 
 #timeMirror{white-space:pre-wrap;}
@@ -1839,6 +1927,28 @@ textarea:focus-visible{
   <button id="accountResetPasswordBtn" onclick="sendAccountResetPasswordEmail()">Change Password</button>
   <button id="clearDataBtn" onclick="clearAllAccountData()">Clear All Data</button>
   <button id="signOutBtn" onclick="signOutUser()">Sign Out</button>
+
+  <div class="account-transfer-box">
+    <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Personalization</h4>
+    <div class="account-pref-row">
+      <label for="themeSelector">Theme</label>
+      <select id="themeSelector" aria-label="App theme">
+        <option value="default">Default</option>
+        <option value="sunrise">Sunrise</option>
+        <option value="forest">Forest</option>
+        <option value="midnight">Midnight</option>
+      </select>
+    </div>
+    <div class="account-pref-row">
+      <label for="aiDetailSelector">AI Detail</label>
+      <select id="aiDetailSelector" aria-label="AI detail preference">
+        <option value="concise">Concise</option>
+        <option value="detailed">Detailed</option>
+      </select>
+    </div>
+    <p id="accountShortcutHint" class="export-note"></p>
+  </div>
+
   <div class="account-transfer-box">
     <div class="export-actions">
       <button id="exportDataBtn" onclick="exportAllData()">Export My Data</button>
@@ -2112,6 +2222,10 @@ textarea:focus-visible{
 <p class="weekly-section-title">🏅 Progress Milestones</p>
 <ul id="progressMilestones" class="weekly-list"></ul>
 
+<p class="weekly-section-title">🧠 Mood Triggers</p>
+<p id="moodTriggerSummary" class="soft-note">Log entries to detect your top mood trigger patterns.</p>
+<ul id="moodTriggersList" class="weekly-list"></ul>
+
 <div class="weekly-target-box">
   <p id="weeklyTargetsDisplay" class="weekly-target-text">Targets: Water -, Sleep -, Tasks -</p>
   <button class="weekly-target-btn" onclick="setNextWeekTargets()">Set Next Week Targets</button>
@@ -2180,7 +2294,7 @@ textarea:focus-visible{
 </div>
 
 <!-- Personalized Daily Plan -->
-<div class="card">
+<div class="card uniform-size-card">
 <h2>🗂️ Personalized Daily Plan</h2>
 <p class="micro-tip">Top 3 priorities generated from your mood, sleep, hydration, and task trends.</p>
 <ul id="startupDailyPlanList" class="startup-list"></ul>
@@ -2193,7 +2307,7 @@ textarea:focus-visible{
 </div>
 
 <!-- Weekly Startup Report -->
-<div class="card">
+<div class="card uniform-size-card">
 <h2>🧾 Weekly Startup Report</h2>
 <p class="micro-tip">One-click summary of wins, risks, and next actions for sharing.</p>
 <div class="input-group startup-actions-two">
@@ -2205,7 +2319,7 @@ textarea:focus-visible{
 </div>
 
 <!-- Behavior Memory Graph -->
-<div class="card">
+<div class="card uniform-size-card">
 <h2>🧬 Behavior Memory Graph</h2>
 <p class="micro-tip">Signals the patterns that most improve your next-day stability.</p>
 <ul id="startupBehaviorMemory" class="startup-list"></ul>
@@ -2384,6 +2498,9 @@ const accountVerifyStatus = document.getElementById("accountVerifyStatus");
 const accountUid = document.getElementById("accountUid");
 const clearDataBtn = document.getElementById("clearDataBtn");
 const signOutBtn = document.getElementById("signOutBtn");
+const themeSelector = document.getElementById("themeSelector");
+const aiDetailSelector = document.getElementById("aiDetailSelector");
+const accountShortcutHint = document.getElementById("accountShortcutHint");
 const chat = document.getElementById("chat");
 const aiInput = document.getElementById("aiInput");
 const aiTalkBtn = document.getElementById("aiTalkBtn");
@@ -2437,6 +2554,13 @@ const challengeResultElement = document.getElementById("challengeResult");
 const challengeCompleteBtn = document.getElementById("challengeCompleteBtn");
 const dailyChallengeResetCountdown = document.getElementById("dailyChallengeResetCountdown");
 const dailyChallengeFriendInsight = document.getElementById("dailyChallengeFriendInsight");
+const moodTriggerSummaryEl = document.getElementById("moodTriggerSummary");
+const moodTriggersListEl = document.getElementById("moodTriggersList");
+const applyMoodTriggerRecoveryBtn = document.getElementById("applyMoodTriggerRecoveryBtn");
+const recoveryModeStatusEl = document.getElementById("recoveryModeStatus");
+const recoveryModeHintEl = document.getElementById("recoveryModeHint");
+const recoveryModeActionsEl = document.getElementById("recoveryModeActions");
+const recoveryModeToggleBtn = document.getElementById("recoveryModeToggleBtn");
 const wellnessScoreEl = document.getElementById("wellnessScore");
 const wellnessStatusEl = document.getElementById("wellnessStatus");
 const wellnessReassuranceEl = document.getElementById("wellnessReassurance");
@@ -2891,6 +3015,10 @@ try {
   onAuthStateChanged(auth, (user) => {
     hideSplash();
 
+    if (user) {
+      showAuthPendingMessage(authMode);
+    }
+
     setTimeout(async () => {
       if (user) {
         if (signupFlowInProgress) {
@@ -2922,6 +3050,7 @@ try {
         stopSentRequestExpiryTicker();
         stopDailyChallengeWatcher();
         stopFriendInsightsWatcher();
+        stopServerDayBoundaryWatcher();
         clearDailyChallengeResetSchedule();
         clearDailyQuestResetSchedule();
         clearWeeklyGraphResetSchedule();
@@ -3024,6 +3153,14 @@ try {
         aiUsageStateLoaded = false;
         aiAbuseStrikeCount = 0;
         aiAbuseCooldownUntilMs = 0;
+        currentThemeKey = "default";
+        aiTonePreference = "balanced";
+        aiDetailPreference = "concise";
+        recoveryModeEnabled = false;
+        void applyThemeSelection("default", { persist: false, showToastMessage: false });
+        updateAccountPreferenceControls();
+        updateRecoveryModeUI();
+        updateMoodTriggersUI();
         stopAiAbuseCooldownTicker();
         dailyUsageDateKey = "";
         moodDailyUsageCount = 0;
@@ -3048,6 +3185,7 @@ try {
     accountBtn.style.display = "none";
     setAiClearButtonState(false);
     startExportCooldown(0);
+    stopServerDayBoundaryWatcher();
     closeAccountPanel();
     updateAccountPanel(null);
   }, 1000);
@@ -3056,35 +3194,59 @@ try {
 setTimeout(hideSplash, 2000);
 
 // ---------- COLOR WAVES ----------
-const waveSchemes = [
-  ["#2196f3", "#ff9800", "#00c9a7", "#ffd166", "#ff7f50"],
-  ["#00acc1", "#ffca28", "#43a047", "#ffb74d", "#1e88e5"],
-  ["#26c6da", "#8bc34a", "#ffb300", "#ff7043", "#1565c0"],
-  ["#00897b", "#ffa726", "#4fc3f7", "#9ccc65", "#ef6c00"],
-  ["#0277bd", "#66bb6a", "#ffb300", "#ff8a65", "#455a64"],
-  ["#1e88e5", "#7e57c2", "#f06292", "#26a69a", "#ffca28"],
-  ["#00796b", "#f9a825", "#29b6f6", "#aed581", "#f4511e"],
-  ["#00bcd4", "#c0ca33", "#ffb74d", "#42a5f5", "#6d4c41"],
-  ["#2e7d32", "#ffb300", "#4dd0e1", "#ff7043", "#5c6bc0"],
-  ["#039be5", "#9ccc65", "#ffa000", "#26a69a", "#8d6e63"],
-  ["#1565c0", "#66bb6a", "#ffca28", "#26c6da", "#e65100"],
-  ["#3949ab", "#ab47bc", "#ec407a", "#26a69a", "#ffb300"],
-  ["#00838f", "#fbc02d", "#4caf50", "#ff8a65", "#42a5f5"],
-  ["#0d47a1", "#8bc34a", "#ffb74d", "#00acc1", "#bf360c"],
-  ["#26a69a", "#ffa000", "#64b5f6", "#9ccc65", "#ef5350"],
-  ["#1976d2", "#7cb342", "#ffca28", "#00bfa5", "#ff7043"],
-  ["#00695c", "#ffb74d", "#4dd0e1", "#c0ca33", "#1e88e5"],
-  ["#5e35b1", "#f06292", "#26c6da", "#ffca28", "#43a047"],
-  ["#0277bd", "#f57c00", "#80cbc4", "#aed581", "#ff8a65"],
-  ["#004d40", "#ffb300", "#29b6f6", "#9ccc65", "#ef6c00"],
-  ["#1b5e20", "#ff8a65", "#4fc3f7", "#fdd835", "#455a64"],
-  ["#0097a7", "#d4e157", "#ffb74d", "#1e88e5", "#6d4c41"],
-  ["#1565c0", "#ffb300", "#26a69a", "#ffd54f", "#ff7043"],
-  ["#303f9f", "#ce93d8", "#ff80ab", "#26a69a", "#ffca28"]
-];
-let w = 1;
-let [currentWaveA, currentWaveB, currentWaveC, currentWaveD, currentWaveE] = waveSchemes[0];
+const THEME_WAVE_SCHEMES = {
+  default: [
+    ["#2196f3", "#ff9800", "#00c9a7", "#ffd166", "#ff7f50"],
+    ["#00acc1", "#ffca28", "#43a047", "#ffb74d", "#1e88e5"],
+    ["#26c6da", "#8bc34a", "#ffb300", "#ff7043", "#1565c0"],
+    ["#00897b", "#ffa726", "#4fc3f7", "#9ccc65", "#ef6c00"]
+  ],
+  sunrise: [
+    ["#ff5e62", "#ff9966", "#ffc371", "#ffbe95", "#ff8b94"],
+    ["#ff6b6b", "#ff9f43", "#ffd56f", "#ffc29a", "#ff9aa2"],
+    ["#f8576b", "#f09352", "#ffc85c", "#ffbe97", "#ff7f7f"],
+    ["#ff7043", "#ffb74d", "#ffd54f", "#ffb47e", "#ff8a80"],
+    ["#ff5252", "#ff8a65", "#ffca28", "#ffba8f", "#ffab91"]
+  ],
+  forest: [
+    ["#0b3d2e", "#1b5e20", "#2e7d32", "#66bb6a", "#a5d6a7"],
+    ["#1f4d2f", "#2e7d32", "#4caf50", "#81c784", "#c5e1a5"],
+    ["#2f5233", "#3f704d", "#5d8a57", "#8bc34a", "#dcedc8"],
+    ["#1b4332", "#2d6a4f", "#40916c", "#74c69d", "#b7e4c7"],
+    ["#254117", "#3b6b35", "#5f8f3f", "#9ccc65", "#dcecc2"]
+  ],
+  midnight: [
+    ["#0b1020", "#111827", "#1e1b4b", "#0f3d5e", "#334155"],
+    ["#090f1a", "#162032", "#1f2a44", "#1f4f73", "#2c3e57"],
+    ["#0a1226", "#1a1b3a", "#243b55", "#145374", "#3a506b"],
+    ["#0f172a", "#1e293b", "#2b2d42", "#22577a", "#4a5d73"],
+    ["#111827", "#1f2937", "#312e81", "#155e75", "#475569"]
+  ]
+};
+const THEME_STORAGE_KEY = "novafix_theme_key";
+
+function readStoredThemeKey() {
+  try {
+    const raw = String(localStorage.getItem(THEME_STORAGE_KEY) || "").trim().toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(THEME_WAVE_SCHEMES, raw)) return raw;
+  } catch (_) {}
+  return "default";
+}
+
+function writeStoredThemeKey(themeKey) {
+  try {
+    const safeKey = String(themeKey || "default").trim().toLowerCase();
+    localStorage.setItem(THEME_STORAGE_KEY, safeKey);
+  } catch (_) {}
+}
+
+const initialThemeKey = readStoredThemeKey();
+let activeWaveThemeKey = "default";
+let activeWaveSchemes = THEME_WAVE_SCHEMES.default;
+let w = activeWaveSchemes.length > 1 ? 1 : 0;
+let [currentWaveA, currentWaveB, currentWaveC, currentWaveD, currentWaveE] = activeWaveSchemes[0];
 let waveAnimationId = null;
+let waveRotateTimeoutId = null;
 const WAVE_HOLD_MS = 14000;
 const WAVE_TRANSITION_MS = 18000;
 
@@ -3120,8 +3282,21 @@ function setWaveColors(colorA, colorB, colorC, colorD, colorE) {
   document.documentElement.style.setProperty("--accent", colorB);
 }
 
+function clearWaveRotationTimer() {
+  if (waveRotateTimeoutId) {
+    clearTimeout(waveRotateTimeoutId);
+    waveRotateTimeoutId = null;
+  }
+}
+
+function scheduleNextWaveRotation(delayMs = WAVE_HOLD_MS) {
+  clearWaveRotationTimer();
+  waveRotateTimeoutId = setTimeout(rotateWave, Math.max(50, Number(delayMs) || WAVE_HOLD_MS));
+}
+
 function animateWaveTo(targetScheme, durationMs) {
   if (waveAnimationId) cancelAnimationFrame(waveAnimationId);
+  clearWaveRotationTimer();
 
   const [targetA, targetB, targetC, targetD, targetE] = targetScheme;
 
@@ -3184,20 +3359,49 @@ function animateWaveTo(targetScheme, durationMs) {
     currentWaveC = targetC;
     currentWaveD = targetD;
     currentWaveE = targetE;
-    setTimeout(rotateWave, WAVE_HOLD_MS);
+    scheduleNextWaveRotation(WAVE_HOLD_MS);
   };
 
   waveAnimationId = requestAnimationFrame(tick);
 }
 
 function rotateWave() {
-  const targetScheme = waveSchemes[w];
-  w = (w + 1) % waveSchemes.length;
+  if (!Array.isArray(activeWaveSchemes) || !activeWaveSchemes.length) return;
+  const targetScheme = activeWaveSchemes[w] || activeWaveSchemes[0];
+  w = (w + 1) % activeWaveSchemes.length;
   animateWaveTo(targetScheme, WAVE_TRANSITION_MS);
 }
 
-setWaveColors(currentWaveA, currentWaveB, currentWaveC, currentWaveD, currentWaveE);
-setTimeout(rotateWave, WAVE_HOLD_MS);
+function setActiveWaveTheme(themeKey, options = {}) {
+  const animate = options.animate !== false;
+  const normalizedKey = String(themeKey || "default").trim().toLowerCase();
+  const safeKey = Object.prototype.hasOwnProperty.call(THEME_WAVE_SCHEMES, normalizedKey) ? normalizedKey : "default";
+  const schemes = THEME_WAVE_SCHEMES[safeKey] || THEME_WAVE_SCHEMES.default;
+  if (!Array.isArray(schemes) || !schemes.length) return;
+
+  activeWaveThemeKey = safeKey;
+  document.documentElement.setAttribute("data-theme", safeKey);
+  activeWaveSchemes = schemes;
+  w = activeWaveSchemes.length > 1 ? 1 : 0;
+  const firstScheme = activeWaveSchemes[0];
+  if (!Array.isArray(firstScheme) || firstScheme.length < 5) return;
+
+  if (!animate) {
+    if (waveAnimationId) {
+      cancelAnimationFrame(waveAnimationId);
+      waveAnimationId = null;
+    }
+    clearWaveRotationTimer();
+    [currentWaveA, currentWaveB, currentWaveC, currentWaveD, currentWaveE] = firstScheme;
+    setWaveColors(currentWaveA, currentWaveB, currentWaveC, currentWaveD, currentWaveE);
+    scheduleNextWaveRotation(WAVE_HOLD_MS);
+    return;
+  }
+
+  animateWaveTo(firstScheme, 2400);
+}
+
+setActiveWaveTheme(initialThemeKey, { animate: false });
 
 // ---------- SIGN-IN / SIGN-UP ----------
 let authMode="signin";
@@ -3218,6 +3422,12 @@ function showAuthModalError(message, kind = "generic", color = "#ff6b6b") {
   error.style.display = "block";
   error.style.color = color;
   error.innerText = String(message || "Something went wrong.");
+}
+
+function showAuthPendingMessage(mode = authMode) {
+  const normalizedMode = String(mode || "signin").toLowerCase();
+  const label = normalizedMode === "signup" ? "Signing Up..." : "Signing In...";
+  showAuthModalError(label, "auth_pending", "#9fd0ff");
 }
 
 function hideAuthModalError() {
@@ -3561,6 +3771,7 @@ async function initializeAuthenticatedSession(user) {
   signInModal.style.display = "none";
   setInitialLoadingStates();
   updateClearDataButtonState();
+  await loadUserExperiencePreferences(user.uid);
   await Promise.allSettled([
     syncServerClock(user.uid),
     refreshExportCooldownState(user.uid),
@@ -3602,6 +3813,7 @@ async function initializeAuthenticatedSession(user) {
   scheduleWaterGoalReset(user.uid);
   scheduleSleepDailyReset(user.uid);
   scheduleMoodDailyReset(user.uid);
+  startServerDayBoundaryWatcher(user.uid);
   void Promise.allSettled(initialDataLoadPromises).then(async () => {
     const activeUser = auth.currentUser;
     if (!activeUser?.uid || activeUser.uid !== user.uid) return;
@@ -3740,6 +3952,12 @@ const WELCOME_GUIDE_STEPS = [
     title: "Insights & Weekly Review",
     text: "Your logs feed into weekly insight bars and AI coaching so you can spot patterns quickly.",
     tip: "Tip: Use the Insights Next button to switch mood/water/sleep views."
+  },
+  {
+    title: "Keyboard Shortcuts",
+    text: "On desktop, use keyboard shortcuts to jump directly into AI, task, mood, reminder, and water inputs.",
+    tip: "",
+    useShortcutTip: true
   },
   {
     title: "Friends & Requests",
@@ -3969,10 +4187,11 @@ function renderWelcomeGuideStep() {
   const total = WELCOME_GUIDE_STEPS.length;
   const safeIndex = Math.max(0, Math.min(total - 1, welcomeGuideStepIndex));
   const current = WELCOME_GUIDE_STEPS[safeIndex];
+  const resolvedTip = current.useShortcutTip ? buildKeyboardShortcutHelpText() : current.tip;
   guideStepCounter.innerText = `Step ${safeIndex + 1}/${total}`;
   guideStepTitle.innerText = current.title;
   guideStepText.innerText = current.text;
-  guideStepTip.innerText = current.tip;
+  guideStepTip.innerText = resolvedTip;
   guideNextBtn.innerText = safeIndex === total - 1 ? "Finish" : "Next";
 
   guideDots.innerHTML = "";
@@ -4183,6 +4402,8 @@ async function handleAuth() {
     }
   }
 
+  showAuthPendingMessage(authMode);
+
   try {
     if (authMode === "signup") {
       try {
@@ -4343,6 +4564,7 @@ async function handleGoogleAuth() {
   }
 
   try {
+    showAuthPendingMessage(authMode);
     markPendingRequestLoginAlertForNextSessionStart();
     await signInWithPopup(auth, googleProvider);
   } catch (err) {
@@ -7940,10 +8162,90 @@ const AI_MODE_PRESETS = {
   creative: { depth: 3, style: "creative" },
   ultra: { depth: 4, style: "ultra" }
 };
+const THEME_PRESETS = {
+  default: {
+    "--waveA": "#2196f3",
+    "--waveB": "#ff9800",
+    "--waveC": "#00c9a7",
+    "--waveD": "#ffd166",
+    "--waveE": "#ff7f50",
+    "--primary": "#2196f3",
+    "--accent": "#ff9800",
+    "--glass": "rgba(255,255,255,0.18)",
+    "--glass-strong": "rgba(255,255,255,0.24)",
+    "--surface-1": "rgba(255,255,255,0.11)",
+    "--surface-2": "rgba(255,255,255,0.16)",
+    "--surface-dark": "rgba(9,20,38,0.28)",
+    "--border-soft": "rgba(255,255,255,0.22)",
+    "--account-panel-bg": "linear-gradient(180deg, rgba(9,20,38,.55), rgba(9,20,38,.42))",
+    "--account-panel-border": "rgba(255,255,255,.25)",
+    "--account-panel-light-opacity": "0"
+  },
+  sunrise: {
+    "--waveA": "#ff7e5f",
+    "--waveB": "#feb47b",
+    "--waveC": "#ffb199",
+    "--waveD": "#ffbe97",
+    "--waveE": "#ff8c94",
+    "--primary": "#cf4a2f",
+    "--accent": "#d97a2c",
+    "--glass": "rgba(255,255,255,0.18)",
+    "--glass-strong": "rgba(255,255,255,0.24)",
+    "--surface-1": "rgba(255,255,255,0.11)",
+    "--surface-2": "rgba(255,255,255,0.16)",
+    "--surface-dark": "rgba(9,20,38,0.28)",
+    "--border-soft": "rgba(255,255,255,0.22)",
+    "--account-panel-bg": "linear-gradient(180deg, rgba(9,20,38,.55), rgba(9,20,38,.42))",
+    "--account-panel-border": "rgba(255,255,255,.25)",
+    "--account-panel-light-opacity": "0"
+  },
+  forest: {
+    "--waveA": "#1b5e20",
+    "--waveB": "#2e7d32",
+    "--waveC": "#388e3c",
+    "--waveD": "#66bb6a",
+    "--waveE": "#a5d6a7",
+    "--primary": "#43a047",
+    "--accent": "#7cb342",
+    "--glass": "rgba(255,255,255,0.18)",
+    "--glass-strong": "rgba(255,255,255,0.24)",
+    "--surface-1": "rgba(255,255,255,0.11)",
+    "--surface-2": "rgba(255,255,255,0.16)",
+    "--surface-dark": "rgba(9,20,38,0.28)",
+    "--border-soft": "rgba(255,255,255,0.22)",
+    "--account-panel-bg": "linear-gradient(180deg, rgba(9,20,38,.55), rgba(9,20,38,.42))",
+    "--account-panel-border": "rgba(255,255,255,.25)",
+    "--account-panel-light-opacity": "0"
+  },
+  midnight: {
+    "--waveA": "#0f172a",
+    "--waveB": "#1e293b",
+    "--waveC": "#0b3a53",
+    "--waveD": "#1f4b6e",
+    "--waveE": "#334155",
+    "--primary": "#38bdf8",
+    "--accent": "#14b8a6",
+    "--glass": "rgba(255,255,255,0.18)",
+    "--glass-strong": "rgba(255,255,255,0.24)",
+    "--surface-1": "rgba(255,255,255,0.11)",
+    "--surface-2": "rgba(255,255,255,0.16)",
+    "--surface-dark": "rgba(9,20,38,0.28)",
+    "--border-soft": "rgba(255,255,255,0.22)",
+    "--account-panel-bg": "linear-gradient(180deg, rgba(9,20,38,.55), rgba(9,20,38,.42))",
+    "--account-panel-border": "rgba(255,255,255,.25)",
+    "--account-panel-light-opacity": "0"
+  }
+};
 let aiReasoningMode = "ultra";
 const AI_CASUAL_MODE = true;
 const AI_CLARIFY_INTENT_THRESHOLD = 0.74;
-const AI_COMMAND_HELP_LINE = "I can also do: add task ..., complete task 2, reopen task 2, set water goal 8, I drank 2 glasses just now, log mood stressed, log mood angry, log sleep 7h, set reminder call mom in 30 sec, set reminder call mom in 2 months, list tasks, list reminders, delete reminder 1, clear chat, what is my name, i have exam next month.";
+const AI_COMMAND_HELP_LINE = "I can also do: add task ..., complete task 2, reopen task 2, set water goal 8, I drank 2 glasses just now, log mood stressed, log mood angry, log sleep 7h, set reminder call mom in 30 sec, set reminder call mom in 2 months, explain my wellness score, give if-then suggestions, enable recovery mode, disable recovery mode, show mood triggers, set theme sunrise, ai tone strict, ai detail detailed, show shortcuts, list tasks, list reminders, delete reminder 1, clear chat, what is my name, i have exam next month.";
+const AI_TONE_OPTIONS = new Set(["balanced", "gentle", "strict"]);
+const AI_DETAIL_OPTIONS = new Set(["concise", "detailed"]);
+let currentThemeKey = initialThemeKey;
+let aiTonePreference = "balanced";
+let aiDetailPreference = "concise";
+let recoveryModeEnabled = false;
 const challengeDates=[];
 let dailyChallengeCompleted=false;
 let currentChallengeText="";
@@ -8042,6 +8344,9 @@ const userDirectoryIdentityCache = new Map();
 const usernameDirectoryCache = new Map();
 let exportCooldownUntilMs = 0;
 let exportCooldownIntervalId = null;
+let serverDayBoundaryWatcherIntervalId = null;
+let serverDayBoundaryWatcherBusy = false;
+let serverDayBoundaryWatcherLastDateKey = "";
 
 const AI_ABUSE_COOLDOWN_MS = 2 * 60 * 1000;
 const AI_ABUSE_TERMS = ["fuck", "fuk", "fucc", "shit", "bitch", "asshole", "bastard", "motherfucker", "niga", "fucker"];
@@ -8243,8 +8548,441 @@ function setInitialLoadingStates() {
   setLoadingState(taskList, "Loading tasks...");
   setLoadingState(moodLogs, "Loading mood logs...");
   setLoadingState(gratitudeLogs, "Loading gratitude notes...");
+  if (moodTriggersListEl) setLoadingState(moodTriggersListEl, "Analyzing mood triggers...");
+  if (recoveryModeActionsEl) setLoadingState(recoveryModeActionsEl, "Preparing recovery actions...");
   if (questListEl) setLoadingState(questListEl, "Preparing today’s habit quests...");
 }
+
+function sanitizeThemeKey(themeKey) {
+  const key = String(themeKey || "default").trim().toLowerCase();
+  return Object.prototype.hasOwnProperty.call(THEME_PRESETS, key) ? key : "default";
+}
+
+function sanitizeAiTonePreference(value) {
+  const tone = String(value || "balanced").trim().toLowerCase();
+  return AI_TONE_OPTIONS.has(tone) ? tone : "balanced";
+}
+
+function sanitizeAiDetailPreference(value) {
+  const detail = String(value || "concise").trim().toLowerCase();
+  return AI_DETAIL_OPTIONS.has(detail) ? detail : "concise";
+}
+
+function updateAccountPreferenceControls() {
+  if (themeSelector) themeSelector.value = sanitizeThemeKey(currentThemeKey);
+  if (aiDetailSelector) aiDetailSelector.value = sanitizeAiDetailPreference(aiDetailPreference);
+}
+
+async function persistUserExperiencePreferences(userId = auth.currentUser?.uid) {
+  const safeUid = String(userId || "").trim();
+  if (!safeUid) return;
+  try {
+    await setDoc(doc(db, "users", safeUid, "settings", "uiPreferences"), {
+      themeKey: sanitizeThemeKey(currentThemeKey),
+      aiTonePreference: sanitizeAiTonePreference(aiTonePreference),
+      aiDetailPreference: sanitizeAiDetailPreference(aiDetailPreference),
+      recoveryModeEnabled: !!recoveryModeEnabled,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+}
+
+async function applyThemeSelection(themeKey, options = {}) {
+  const persist = options.persist !== false;
+  const showToastMessage = options.showToastMessage !== false;
+  const safeKey = sanitizeThemeKey(themeKey);
+  const preset = THEME_PRESETS[safeKey] || THEME_PRESETS.default;
+  const root = document.documentElement;
+
+  Object.entries(preset).forEach(([cssVar, cssValue]) => {
+    root.style.setProperty(cssVar, cssValue);
+  });
+  setActiveWaveTheme(safeKey, { animate: false });
+
+  currentThemeKey = safeKey;
+  writeStoredThemeKey(safeKey);
+  if (themeSelector && themeSelector.value !== safeKey) themeSelector.value = safeKey;
+
+  if (persist && auth.currentUser?.uid) {
+    await persistUserExperiencePreferences(auth.currentUser.uid);
+  }
+
+  if (showToastMessage) {
+    showToast(`Theme updated: ${safeKey.charAt(0).toUpperCase()}${safeKey.slice(1)}`);
+  }
+}
+
+function buildMoodTriggerInsights(snapshot = getWellnessSnapshot(), trends = buildTrendSignals()) {
+  const triggers = [];
+  const moodMeta = getMoodStateMeta(snapshot.moodToday);
+  const waterGoal = Math.max(1, Number(snapshot.todayGoal) || 8);
+  const waterRatio = Math.max(0, Math.min(1, (Number(snapshot.waterToday) || 0) / waterGoal));
+
+  if (!moodMeta.logged) {
+    triggers.push("Mood not logged yet today, so trigger precision is reduced.");
+  }
+
+  if ((moodMeta.label === "Angry" || moodMeta.label === "Stressed") && (Number(snapshot.sleepToday) || 0) < 7) {
+    triggers.push("High-stress mood + low sleep is a repeated emotional dip trigger.");
+  }
+
+  if ((moodMeta.label === "Low" || moodMeta.label === "Stressed" || moodMeta.label === "Angry") && waterRatio < 0.6) {
+    triggers.push("Hydration below 60% is correlating with lower mood quality.");
+  }
+
+  if ((moodMeta.label === "Low" || moodMeta.label === "Stressed" || moodMeta.label === "Angry") && Number(snapshot.pendingTasks) >= 4) {
+    triggers.push("High pending-task load appears to amplify emotional strain.");
+  }
+
+  if ((Number(trends.moodDelta) || 0) < -0.2 && (Number(trends.sleepDelta) || 0) < -0.2) {
+    triggers.push("Mood trend is falling together with sleep trend.");
+  }
+
+  if ((Number(trends.moodDelta) || 0) < -0.2 && (Number(trends.waterDelta) || 0) < -0.5) {
+    triggers.push("Mood dip aligns with hydration decline in recent days.");
+  }
+
+  const severityScore = triggers.length + ((moodMeta.label === "Angry" || moodMeta.label === "Stressed") ? 1 : 0);
+  const level = severityScore >= 4 ? "High" : severityScore >= 2 ? "Moderate" : "Low";
+  return { level, triggers, moodMeta, waterRatio };
+}
+
+function buildRecoveryModeActionPlan(snapshot = getWellnessSnapshot(), trends = buildTrendSignals()) {
+  const items = [];
+  const waterGap = Math.max(0, (Number(snapshot.todayGoal) || 0) - (Number(snapshot.waterToday) || 0));
+
+  items.push("Run 2 minutes of slow exhale breathing before any major task switch.");
+  if (waterGap > 0) items.push(`Hydrate now: add ${Math.max(1, Math.ceil(waterGap))} cup${Math.max(1, Math.ceil(waterGap)) === 1 ? "" : "s"} in the next hour.`);
+  else items.push("Hydration is on track. Keep steady intake every 60-90 minutes.");
+
+  if (Number(snapshot.pendingTasks) > 0) items.push("Complete one micro-task (<=10 minutes) to rebuild control.");
+  else items.push("Create one tiny task and complete it now to preserve momentum.");
+
+  if ((Number(snapshot.sleepToday) || 0) < 7 || (Number(trends.sleepDelta) || 0) < 0) {
+    items.push("Protect tonight's sleep window: start wind-down 60 minutes earlier.");
+  }
+
+  while (items.length < 4) items.push("Avoid multitasking spikes: one focus block at a time.");
+  return items.slice(0, 4);
+}
+
+function updateMoodTriggersUI() {
+  if (!moodTriggerSummaryEl || !moodTriggersListEl) return;
+  const snapshot = getWellnessSnapshot();
+  const trends = buildTrendSignals();
+  const triggerData = buildMoodTriggerInsights(snapshot, trends);
+
+  if (!triggerData.triggers.length) {
+    moodTriggerSummaryEl.innerText = recoveryModeEnabled
+      ? "Trigger signal: low right now. Recovery Mode is active to keep this stable."
+      : "Trigger signal: low right now. Your current pattern looks stable.";
+    setListItems(moodTriggersListEl, ["No major trigger clusters detected from current logs."], "");
+  } else {
+    moodTriggerSummaryEl.innerText = `Trigger signal: ${triggerData.level}. ${triggerData.triggers.length} active trigger pattern${triggerData.triggers.length === 1 ? "" : "s"} detected.`;
+    setListItems(moodTriggersListEl, triggerData.triggers.slice(0, 4), "");
+  }
+
+  if (applyMoodTriggerRecoveryBtn) {
+    applyMoodTriggerRecoveryBtn.disabled = recoveryModeEnabled;
+    applyMoodTriggerRecoveryBtn.innerText = recoveryModeEnabled ? "Recovery Mode Enabled" : "Enable Recovery Mode";
+  }
+}
+
+function updateRecoveryModeUI() {
+  if (!recoveryModeStatusEl && !recoveryModeToggleBtn && !recoveryModeActionsEl && !recoveryModeHintEl) {
+    return;
+  }
+
+  const snapshot = getWellnessSnapshot();
+  const trends = buildTrendSignals();
+  const actions = buildRecoveryModeActionPlan(snapshot, trends);
+
+  if (recoveryModeStatusEl) {
+    recoveryModeStatusEl.innerText = recoveryModeEnabled
+      ? "Recovery Mode: ON"
+      : "Recovery Mode: Off";
+  }
+  if (recoveryModeHintEl) {
+    recoveryModeHintEl.innerText = recoveryModeEnabled
+      ? "Active: decision pressure is reduced. Stabilization and consistency are prioritized."
+      : "Turn this on when overloaded. It shifts suggestions toward stabilization over intensity.";
+  }
+  if (recoveryModeActionsEl) {
+    setListItems(recoveryModeActionsEl, actions, "Recovery actions will appear here.");
+  }
+  if (recoveryModeToggleBtn) {
+    recoveryModeToggleBtn.innerText = recoveryModeEnabled ? "Disable Recovery Mode" : "Enable Recovery Mode";
+  }
+}
+
+async function setRecoveryModeEnabled(enabled, options = {}) {
+  const nextValue = !!enabled;
+  const shouldPersist = options.persist !== false;
+  const shouldToast = options.showToast !== false;
+  if (recoveryModeEnabled === nextValue) {
+    updateRecoveryModeUI();
+    updateMoodTriggersUI();
+    return;
+  }
+
+  recoveryModeEnabled = nextValue;
+  updateRecoveryModeUI();
+  updateMoodTriggersUI();
+  updateWellnessScore();
+  updateCrashPreventionUI();
+  updateBurnoutRadarUI();
+
+  if (shouldPersist && auth.currentUser?.uid) {
+    await persistUserExperiencePreferences(auth.currentUser.uid);
+  }
+
+  if (shouldToast) {
+    showToast(recoveryModeEnabled ? "Recovery Mode enabled." : "Recovery Mode disabled.");
+  }
+}
+
+async function toggleRecoveryMode(forceValue = null) {
+  const nextValue = typeof forceValue === "boolean" ? forceValue : !recoveryModeEnabled;
+  await setRecoveryModeEnabled(nextValue, { persist: true, showToast: true });
+}
+
+async function enableRecoveryModeFromTriggers() {
+  await setRecoveryModeEnabled(true, { persist: true, showToast: true });
+}
+
+function buildIfThenSuggestions(snapshot = getWellnessSnapshot(), trends = buildTrendSignals()) {
+  const suggestions = [];
+  const waterGap = Math.max(0, (Number(snapshot.todayGoal) || 0) - (Number(snapshot.waterToday) || 0));
+  const moodMeta = getMoodStateMeta(snapshot.moodToday);
+
+  if ((Number(snapshot.sleepToday) || 0) < 7) {
+    suggestions.push("If energy drops after lunch, then do a 2-minute breathing reset and switch to one micro-task.");
+  }
+  if (waterGap > 0) {
+    suggestions.push(`If focus feels scattered, then drink ${Math.max(1, Math.ceil(waterGap / 2))} cup${Math.max(1, Math.ceil(waterGap / 2)) === 1 ? "" : "s"} of water before your next sprint.`);
+  }
+  if (moodMeta.label === "Angry" || moodMeta.label === "Stressed" || moodMeta.label === "Low") {
+    suggestions.push("If emotional pressure spikes, then pause notifications for 20 minutes and do one controlled task closeout.");
+  }
+  if ((Number(snapshot.pendingTasks) || 0) >= 4) {
+    suggestions.push("If you feel stuck choosing tasks, then pick the smallest pending item and complete it in <=10 minutes.");
+  }
+  if ((Number(trends.moodDelta) || 0) < -0.2) {
+    suggestions.push("If mood trend keeps dipping, then log mood twice today and run one 2-minute rescue before evening.");
+  }
+
+  if (recoveryModeEnabled) {
+    suggestions.push("If Recovery Mode is ON and you feel overloaded, then stop at one micro-win and protect sleep timing tonight.");
+  }
+
+  while (suggestions.length < 3) {
+    suggestions.push("If momentum drops, then run a 10-minute timer and complete one tiny action before re-evaluating.");
+  }
+  return suggestions.slice(0, 4);
+}
+
+function buildWellnessScoreBreakdown() {
+  const todayKey = getTodayKey();
+  const waterToday = getTodayWater();
+  const effectiveWaterGoal = waterGoal > 0 ? waterGoal : 8;
+  const waterRatio = Math.min(1, waterToday / effectiveWaterGoal);
+  const waterPoints = Math.round(waterRatio * 30);
+
+  const sleepToday = getTodaySleep();
+  const sleepRatio = Math.min(1, sleepToday / 8);
+  const sleepPoints = Math.round(sleepRatio * 25);
+
+  const moodToday = getTodayMood();
+  const moodMeta = getMoodStateMeta(moodToday);
+  const moodFactor = Number(moodMeta.wellnessFactor) || 0;
+  const moodPoints = Math.round(moodFactor * 20);
+
+  const totalTasks = taskEntries.length;
+  const doneTasks = taskEntries.filter((entry) => !!entry.completed).length;
+  const taskRatio = totalTasks ? doneTasks / totalTasks : 0;
+  const taskPoints = Math.round(taskRatio * 15);
+
+  const hasGratitudeToday = gratitudeEntries.some((entry) => dateToKey(entry.time) === todayKey);
+  const gratitudePoints = hasGratitudeToday ? 10 : 0;
+  const challengePoints = dailyChallengeCompleted ? 10 : 0;
+  const totalScore = Math.max(0, Math.min(100, waterPoints + sleepPoints + moodPoints + taskPoints + gratitudePoints + challengePoints));
+
+  return {
+    totalScore,
+    waterToday,
+    effectiveWaterGoal,
+    sleepToday,
+    moodLabel: moodMeta.logged ? moodMeta.label : "Not logged",
+    doneTasks,
+    totalTasks,
+    hasGratitudeToday,
+    dailyChallengeCompleted,
+    points: {
+      waterPoints,
+      sleepPoints,
+      moodPoints,
+      taskPoints,
+      gratitudePoints,
+      challengePoints
+    }
+  };
+}
+
+function buildWellnessScoreExplanationText() {
+  const breakdown = buildWellnessScoreBreakdown();
+  const score = breakdown.totalScore;
+  return [
+    `Wellness score: ${score}/100`,
+    `Water: ${breakdown.points.waterPoints}/30 (${breakdown.waterToday}/${breakdown.effectiveWaterGoal})`,
+    `Sleep: ${breakdown.points.sleepPoints}/25 (${breakdown.sleepToday || 0}h)`,
+    `Mood: ${breakdown.points.moodPoints}/20 (${breakdown.moodLabel})`,
+    `Tasks: ${breakdown.points.taskPoints}/15 (${breakdown.doneTasks}/${breakdown.totalTasks})`,
+    `Gratitude: ${breakdown.points.gratitudePoints}/10 (${breakdown.hasGratitudeToday ? "logged" : "not logged"})`,
+    `Daily challenge: ${breakdown.points.challengePoints}/10 (${breakdown.dailyChallengeCompleted ? "completed" : "pending"})`
+  ].join("\n");
+}
+
+async function loadUserExperiencePreferences(userId) {
+  currentThemeKey = sanitizeThemeKey(readStoredThemeKey());
+  aiTonePreference = "balanced";
+  aiDetailPreference = "concise";
+  recoveryModeEnabled = false;
+
+  const prefetchThemeKey = currentThemeKey;
+  await applyThemeSelection(prefetchThemeKey, { persist: false, showToastMessage: false });
+
+  try {
+    const snap = await getDoc(doc(db, "users", userId, "settings", "uiPreferences"));
+    if (snap.exists()) {
+      const data = snap.data() || {};
+      currentThemeKey = sanitizeThemeKey(data.themeKey);
+      aiTonePreference = sanitizeAiTonePreference(data.aiTonePreference);
+      aiDetailPreference = sanitizeAiDetailPreference(data.aiDetailPreference);
+      recoveryModeEnabled = !!data.recoveryModeEnabled;
+    }
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+
+  if (currentThemeKey !== prefetchThemeKey) {
+    await applyThemeSelection(currentThemeKey, { persist: false, showToastMessage: false });
+  }
+  updateAccountPreferenceControls();
+  updateRecoveryModeUI();
+  updateMoodTriggersUI();
+}
+
+if (themeSelector) {
+  themeSelector.addEventListener("change", () => {
+    void applyThemeSelection(themeSelector.value, { persist: true, showToastMessage: true });
+  });
+}
+
+if (aiDetailSelector) {
+  aiDetailSelector.addEventListener("change", () => {
+    aiDetailPreference = sanitizeAiDetailPreference(aiDetailSelector.value);
+    updateAccountPreferenceControls();
+    if (auth.currentUser?.uid) void persistUserExperiencePreferences(auth.currentUser.uid);
+    showToast(`AI detail updated: ${aiDetailPreference}.`);
+  });
+}
+
+function isAppleShortcutPlatform() {
+  const platform = String(navigator.platform || "");
+  const userAgent = String(navigator.userAgent || "");
+  return /mac|iphone|ipad|ipod/i.test(platform) || /mac os|iphone|ipad|ipod/i.test(userAgent);
+}
+
+function isMobileOrTabletForShortcutHint() {
+  const userAgent = String(navigator.userAgent || "");
+  const mobilePattern = /android|iphone|ipad|ipod|mobile|tablet|silk|kindle|playbook/i;
+  const isTouchMac = /mac/i.test(String(navigator.platform || "")) && Number(navigator.maxTouchPoints || 0) > 1;
+  const coarseSmallViewport = !!window.matchMedia
+    && window.matchMedia("(pointer: coarse)").matches
+    && window.innerWidth <= 1024;
+  return mobilePattern.test(userAgent) || isTouchMac || coarseSmallViewport;
+}
+
+function getShortcutModifierLabel() {
+  return isAppleShortcutPlatform() ? "Option+Shift" : "Alt+Shift";
+}
+
+function getShortcutModifierLabelForDisplay() {
+  return isAppleShortcutPlatform() ? "Option + Shift" : "Alt + Shift";
+}
+
+function buildAccountShortcutHintText() {
+  const modifier = getShortcutModifierLabelForDisplay();
+  return [
+    "Keyboard Shortcuts:",
+    `AI: ${modifier} + A`,
+    `Task: ${modifier} + T`,
+    `Mood: ${modifier} + M`,
+    `Reminder: ${modifier} + R`,
+    `Water: ${modifier} + W`
+  ].join("<br>");
+}
+
+function buildKeyboardShortcutHelpText() {
+  const modifier = getShortcutModifierLabel();
+  return `Keyboard shortcuts: ${modifier}+A for AI, ${modifier}+T for Task, ${modifier}+M for Mood, ${modifier}+R for Reminder, ${modifier}+W for Water.`;
+}
+
+function isShortcutComboPressed(event) {
+  if (!event || event.repeat || !event.shiftKey) return false;
+  if (isAppleShortcutPlatform()) {
+    // Support Option (preferred) and Command fallback on Apple keyboards.
+    return !!(event.altKey || event.metaKey);
+  }
+  return !!event.altKey;
+}
+
+function updateAccountShortcutHint() {
+  if (!accountShortcutHint) return;
+  if (isMobileOrTabletForShortcutHint()) {
+    accountShortcutHint.style.display = "none";
+    return;
+  }
+  accountShortcutHint.style.display = "block";
+  accountShortcutHint.innerHTML = buildAccountShortcutHintText();
+}
+
+updateAccountShortcutHint();
+window.addEventListener("resize", updateAccountShortcutHint);
+window.addEventListener("orientationchange", updateAccountShortcutHint);
+
+document.addEventListener("keydown", (event) => {
+  if (!isShortcutComboPressed(event)) return;
+  const key = String(event.key || "").toLowerCase();
+
+  if (key === "a" && aiInput) {
+    event.preventDefault();
+    aiInput.focus();
+    return;
+  }
+  if (key === "t" && task) {
+    event.preventDefault();
+    task.focus();
+    return;
+  }
+  if (key === "m" && mood) {
+    event.preventDefault();
+    mood.focus();
+    return;
+  }
+  if (key === "r" && reminderText) {
+    event.preventDefault();
+    reminderText.focus();
+    return;
+  }
+  if (key === "w" && waterInput) {
+    event.preventDefault();
+    waterInput.focus();
+    return;
+  }
+});
 
 function hasAnyClearableData() {
   const hasAiChats = !!chat?.querySelector?.(".chat-message");
@@ -10494,6 +11232,54 @@ function clearMoodDailyResetSchedule() {
   }
 }
 
+function stopServerDayBoundaryWatcher() {
+  if (serverDayBoundaryWatcherIntervalId) {
+    clearInterval(serverDayBoundaryWatcherIntervalId);
+    serverDayBoundaryWatcherIntervalId = null;
+  }
+  serverDayBoundaryWatcherBusy = false;
+  serverDayBoundaryWatcherLastDateKey = "";
+}
+
+function startServerDayBoundaryWatcher(userId) {
+  stopServerDayBoundaryWatcher();
+  const targetUid = String(userId || "").trim();
+  if (!targetUid) return;
+
+  serverDayBoundaryWatcherLastDateKey = getTodayKey();
+  serverDayBoundaryWatcherIntervalId = setInterval(async () => {
+    if (serverDayBoundaryWatcherBusy) return;
+
+    const activeUser = auth.currentUser;
+    if (!activeUser || activeUser.uid !== targetUid) {
+      stopServerDayBoundaryWatcher();
+      return;
+    }
+
+    await ensureServerClockCurrent(targetUid);
+
+    const todayKey = getTodayKey();
+    if (todayKey === serverDayBoundaryWatcherLastDateKey) return;
+
+    serverDayBoundaryWatcherBusy = true;
+    try {
+      await ensureDateBoundResetCatchup(targetUid);
+      await Promise.allSettled([
+        loadDailyUsage(targetUid),
+        loadAiUsage(targetUid),
+        loadWaterData(targetUid),
+        loadSleepData(targetUid),
+        loadMoods(targetUid),
+        loadDailyChallenge(targetUid)
+      ]);
+      updateInsights();
+      serverDayBoundaryWatcherLastDateKey = todayKey;
+    } finally {
+      serverDayBoundaryWatcherBusy = false;
+    }
+  }, 12000);
+}
+
 function getMillisecondsUntilNextMidnight() {
   const now = getServerNowDate();
   const nextMidnight = new Date(now);
@@ -11106,6 +11892,8 @@ function updateInsights() {
   renderInsightMetricView(metricViews[insightMetricIndex]);
 
   updateWellnessScore();
+  updateMoodTriggersUI();
+  updateRecoveryModeUI();
   renderFriendMetricCardInsights();
   if (moodFriendInsight && !String(moodFriendInsight.innerText || "").trim()) {
     moodFriendInsight.innerText = "Friend benchmark: add a friend to compare average mood of the day.";
@@ -11866,6 +12654,10 @@ function buildComparisonResponse(left, right, snapshot) {
 }
 
 function buildModeAwarePrefix(tone) {
+  const tonePref = sanitizeAiTonePreference(aiTonePreference);
+  if (tonePref === "strict") return "Direct mode: ";
+  if (tonePref === "gentle") return "Friendly mode: ";
+
   const preset = getAiModePreset();
   if (preset.style === "strict") return "Direct answer: ";
   if (preset.style === "coach") return "Coach mode: ";
@@ -11874,6 +12666,37 @@ function buildModeAwarePrefix(tone) {
   if (tone === "supportive") return "I’m with you. ";
   if (tone === "compact") return "Quick answer: ";
   return "Let’s go: ";
+}
+
+function applyAiPreferencePostProcessing(responseText, isHtml) {
+  let text = String(responseText || "");
+  const html = !!isHtml;
+  const tonePref = sanitizeAiTonePreference(aiTonePreference);
+  const detailPref = sanitizeAiDetailPreference(aiDetailPreference);
+
+  if (!html) {
+    if (tonePref === "strict" && !/^Direct mode:\s*/i.test(text)) {
+      text = `Direct mode: ${text}`;
+    } else if (tonePref === "gentle" && !/^Friendly mode:\s*/i.test(text)) {
+      text = `Friendly mode: ${text}`;
+    }
+  }
+
+  if (!html && detailPref === "concise") {
+    const lines = text.split("\n").filter((line) => String(line || "").trim().length > 0);
+    if (lines.length > 6) {
+      text = `${lines.slice(0, 6).join("\n")}\n\nSay \"details\" for a deeper breakdown.`;
+    }
+  }
+
+  if (!html && detailPref === "detailed") {
+    text = `${text}\n\nIf helpful, ask me to expand this into a step-by-step plan with timeline and contingencies.`;
+  }
+
+  return {
+    text,
+    isHtml: html
+  };
 }
 
 function getRequestedAdviceIndex(inputText, adviceLength) {
@@ -12209,6 +13032,10 @@ function buildKnowledgeAnswer(input) {
 }
 
 function buildActionCoaching(snapshot) {
+  if (recoveryModeEnabled) {
+    return buildRecoveryModeActionPlan(snapshot, buildTrendSignals()).slice(0, 3);
+  }
+
   const actions = [];
   const hydration = buildHydrationPaceInsight(snapshot);
   if (snapshot.pendingTasks > 0) actions.push("Pick 1 pending task and do a focused 25-minute sprint.");
@@ -12976,6 +13803,83 @@ async function tryAiAction(input, user) {
     return "ℹ️ Unknown mode. Use: balanced, coach, strict, creative, ultra.";
   }
 
+  const themeMatch = msg.match(/^(?:set|change|switch)\s+(?:theme\s*(?:to)?\s*)?(default|sunrise|forest|midnight)$/i)
+    || msg.match(/^theme\s*[:\-]?\s*(default|sunrise|forest|midnight)$/i);
+  if (themeMatch?.[1]) {
+    await applyThemeSelection(themeMatch[1], { persist: true, showToastMessage: false });
+    return `✅ Theme set to ${sanitizeThemeKey(themeMatch[1])}.`;
+  }
+
+  const toneMatch = msg.match(/^(?:set\s+)?ai\s*tone\s*(?:to)?\s*(balanced|gentle|strict|friendly|direct|motivational)$/i);
+  if (toneMatch?.[1]) {
+    const toneRaw = String(toneMatch[1] || "").toLowerCase();
+    const toneNormalized = toneRaw === "friendly"
+      ? "gentle"
+      : (toneRaw === "direct" || toneRaw === "motivational")
+        ? "strict"
+        : toneRaw;
+    aiTonePreference = sanitizeAiTonePreference(toneNormalized);
+    updateAccountPreferenceControls();
+    if (user?.uid) await persistUserExperiencePreferences(user.uid);
+    return `✅ AI tone set to ${aiTonePreference}.`;
+  }
+
+  const detailMatch = msg.match(/^(?:set\s+)?ai\s*detail\s*(?:to)?\s*(concise|detailed|balanced|deep)$/i);
+  if (detailMatch?.[1]) {
+    const detailRaw = String(detailMatch[1] || "").toLowerCase();
+    const detailNormalized = detailRaw === "balanced"
+      ? "concise"
+      : detailRaw === "deep"
+        ? "detailed"
+        : detailRaw;
+    aiDetailPreference = sanitizeAiDetailPreference(detailNormalized);
+    updateAccountPreferenceControls();
+    if (user?.uid) await persistUserExperiencePreferences(user.uid);
+    return `✅ AI detail set to ${aiDetailPreference}.`;
+  }
+
+  if (/^(?:enable|turn\s*on|start)\s+recovery\s+mode$/i.test(msg)) {
+    await setRecoveryModeEnabled(true, { persist: true, showToast: false });
+    return "✅ Recovery Mode enabled.";
+  }
+
+  if (/^(?:disable|turn\s*off|stop)\s+recovery\s+mode$/i.test(msg)) {
+    await setRecoveryModeEnabled(false, { persist: true, showToast: false });
+    return "✅ Recovery Mode disabled.";
+  }
+
+  if (/^(?:toggle)\s+recovery\s+mode$/i.test(msg)) {
+    await toggleRecoveryMode();
+    return `✅ Recovery Mode ${recoveryModeEnabled ? "enabled" : "disabled"}.`;
+  }
+
+  if (/^(?:show|check|analy(?:s|z)e|view)\s+(?:my\s+)?mood\s+triggers$/i.test(msg)) {
+    const triggerData = buildMoodTriggerInsights();
+    if (!triggerData.triggers.length) {
+      return "Mood trigger status: Low signal. No major trigger clusters detected right now.";
+    }
+    return `Mood trigger status: ${triggerData.level}.\n- ${triggerData.triggers.slice(0, 4).join("\n- ")}`;
+  }
+
+  if (/(?:explain|break\s*down|why).*(?:wellness\s+score|score)/i.test(msg)) {
+    return buildWellnessScoreExplanationText();
+  }
+
+  if (/(?:if[\s-]*then).*(?:suggestion|advice|plan)|(?:suggest|give).*(?:if[\s-]*then)/i.test(msg)) {
+    const suggestions = buildIfThenSuggestions();
+    return `If-Then Suggestions:\n1) ${suggestions[0]}\n2) ${suggestions[1]}\n3) ${suggestions[2]}`;
+  }
+
+  if (/^(?:shortcuts|keyboard\s+shortcuts|show\s+shortcuts)$/i.test(msg)) {
+    return buildKeyboardShortcutHelpText();
+  }
+
+  if (/^(?:details|more\s+details|expand|go\s+deeper)$/i.test(msg)) {
+    const snapshot = getWellnessSnapshot();
+    const deepPlan = buildDeepPlan(snapshot);
+    return `Deeper plan:\n1) ${deepPlan[0]}\n2) ${deepPlan[1]}\n3) ${deepPlan[2]}\n4) ${deepPlan[3]}`;
+  }
+
   const rememberMatch = msg.match(/^remember\s+(?:that\s+)?(.+)/i);
   if (rememberMatch?.[1]) {
     learnFromUserInput(rememberMatch[1]);
@@ -13706,7 +14610,8 @@ async function editChatMessage(chatId, fieldName, textNode, role) {
     if (editedIndex < 0) return;
 
     const smart = await buildSmartAiResponse(nextText, user);
-    const safeEdited = applyAiOutputSafetyFilter(smart.response, smart.isHtml);
+    const adjusted = applyAiPreferencePostProcessing(smart.response, smart.isHtml);
+    const safeEdited = applyAiOutputSafetyFilter(adjusted.text, adjusted.isHtml);
     await updateDoc(doc(db, "users", user.uid, "aiChats", chatId), {
       userMessage: nextText,
       aiResponse: safeEdited.text,
@@ -13993,8 +14898,9 @@ async function aiChat(){
 
     try {
       const smart = await buildSmartAiResponse(input, user);
-      let response = smart.response;
-      let responseIsHtml = smart.isHtml;
+      const adjusted = applyAiPreferencePostProcessing(smart.response, smart.isHtml);
+      let response = adjusted.text;
+      let responseIsHtml = adjusted.isHtml;
       const shouldAttachWhy =
         !AI_CASUAL_MODE
         &&
