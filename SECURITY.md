@@ -6,7 +6,7 @@ NovaFix supports the following versions:
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 10.6.1  | :white_check_mark: |
+| 10.6.2  | :white_check_mark: |
 | 10.5.3  | :x:                |
 | < 10.0  | :x:                |
 
