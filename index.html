@@ -215,6 +215,17 @@ body::before{
   padding:16px;
 }
 
+#bedtimeReminderModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.78);
+  justify-content:center;
+  align-items:center;
+  z-index:10038;
+  padding:16px;
+}
+
 .import-transfer-card{
   width:min(420px, calc(100vw - 24px));
   max-width:100%;
@@ -316,6 +327,18 @@ body::before{
 
 .friend-row .friend-actions button{
   flex:1;
+}
+
+.friend-row .friend-actions .import-transfer-cancel{
+  background:linear-gradient(135deg,var(--primary),var(--accent)) !important;
+}
+
+#friendRequestsList .friend-row .friend-actions .import-transfer-cancel{
+  background:rgba(255,255,255,.24) !important;
+}
+
+#bedtimeReminderModal .import-transfer-actions .import-transfer-cancel{
+  background:linear-gradient(135deg,var(--primary),var(--accent)) !important;
 }
 
 
@@ -464,7 +487,7 @@ header p{margin:8px 0 0;opacity:.94}
 }
 
 #accountBtn{
-  position:absolute;
+  position:fixed;
   right:20px;
   top:30px;
   padding:8px 12px;
@@ -477,7 +500,33 @@ header p{margin:8px 0 0;opacity:.94}
   font-size:13px;
   line-height:1.25;
   box-shadow:none;
+  z-index:10019;
+  transform:translateY(0);
+  transition:top .28s ease, transform .28s ease, background .28s ease, box-shadow .28s ease, border-color .28s ease;
   display:none;
+}
+
+#accountBtn.account-btn-scrolled{
+  top:14px;
+  background:rgba(255,255,255,.18);
+  border-color:rgba(255,255,255,.34);
+  box-shadow:0 10px 22px rgba(0,0,0,.26);
+}
+
+#accountBtn:hover{
+  transform:translateY(-1px);
+}
+
+#accountBtn.has-pending-request::after{
+  content:"";
+  position:absolute;
+  top:5px;
+  right:5px;
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:#ff3b30;
+  box-shadow:0 0 0 1px rgba(255,255,255,.65);
 }
 
 #accountOverlay{
@@ -613,6 +662,18 @@ header p{margin:8px 0 0;opacity:.94}
   line-height:1.35;
 }
 
+.keyboard-shortcuts-toggle{
+  margin-top:8px;
+  width:100%;
+  border:1px solid rgba(255,255,255,.28);
+  border-radius:10px;
+  background:rgba(255,255,255,.12);
+  color:#fff;
+  font-size:12px;
+  font-weight:700;
+  padding:8px 10px;
+}
+
 @media (max-width: 640px){
   #accountPanel{
     width:min(420px, calc(100vw - 20px));
@@ -656,6 +717,12 @@ header p{margin:8px 0 0;opacity:.94}
   box-shadow:0 22px 46px rgba(0,0,0,.34);
   border-color:rgba(255,255,255,.35);
 }
+
+.card.shortcut-focus{
+  border-color:rgba(164, 225, 255, .95);
+  box-shadow:0 0 0 3px rgba(120, 205, 255, .42), 0 24px 52px rgba(0,0,0,.38);
+}
+
 .card h2{
   margin-top:0;
   color:var(--primary);
@@ -689,6 +756,13 @@ header p{margin:8px 0 0;opacity:.94}
   width:min(100%, 420px);
   margin-top:auto;
   margin-bottom:auto;
+}
+
+.music-card-status{
+  min-height:18px;
+  margin:6px 0 10px;
+  font-size:.9rem;
+  color:#9fd0ff;
 }
 
 .input-group{
@@ -849,11 +923,15 @@ textarea:focus-visible{
 }
 
 #dailyChallengeResetCountdown{
-  margin:14px 0;
+  margin:10px 0;
 }
 
 #dailyChallengeFriendInsight{
-  margin-top:0;
+  margin-top:10px;
+}
+
+#challengeResult{
+  margin:10px 0 0;
 }
 
 .status-loading,
@@ -951,8 +1029,38 @@ textarea:focus-visible{
   display:block;
 }
 
+#futureTask{
+  margin-top:14px;
+}
+
+.bedtime-input-group{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  margin-top:10px;
+}
+
+.bedtime-input-group :is(input,select,button){
+  width:100%;
+  max-width:100%;
+  box-sizing:border-box;
+  display:block;
+}
+
+.bedtime-input-group :is(input,select,button) + :is(input,select,button){
+  margin-top:0;
+}
+
+#sleepSaveBtn,
+#bedtimeSetBtn{
+  width:100%;
+  display:block;
+  text-align:center;
+}
+
 #reminderUnit,
-#mood{
+#mood,
+#bedtimeMeridiem{
   -webkit-appearance:none;
   -moz-appearance:none;
   appearance:none;
@@ -968,7 +1076,8 @@ textarea:focus-visible{
 }
 
 #reminderUnit option,
-#mood option{
+#mood option,
+#bedtimeMeridiem option{
   color:#111;
 }
 
@@ -992,6 +1101,14 @@ textarea:focus-visible{
   height:430px;
   max-height:430px;
   overflow:hidden;
+}
+
+.card-scroll-body{
+  flex:1 1 0;
+  min-height:0;
+  overflow-y:auto;
+  margin-top:8px;
+  padding-right:4px;
 }
 
 #timeMirror{white-space:pre-wrap;}
@@ -1687,6 +1804,10 @@ textarea:focus-visible{
     right:12px;
   }
 
+  #accountBtn.account-btn-scrolled{
+    top:8px;
+  }
+
   button{
     font-size:13px;
     padding:8px;
@@ -1791,10 +1912,11 @@ textarea:focus-visible{
 
 <div id="googleIdentityModal">
   <div class="modal-content" onclick="event.stopPropagation()">
-    <h2>Set Your Profile</h2>
-    <p class="identity-setup-note">For Google sign-up, choose your own username and display name before continuing.</p>
+    <h2 id="googleIdentityTitle">Set Your Profile</h2>
+    <p id="googleIdentityNote" class="identity-setup-note">For Google sign-up, choose your username/display name and set a password for Import Data verification.</p>
     <input id="googleIdentityUsernameInput" type="text" placeholder="Choose username">
     <input id="googleIdentityDisplayNameInput" type="text" placeholder="Choose display name">
+    <input id="googleIdentityPasswordInput" type="password" placeholder="Set password (min 6 chars)">
     <div class="identity-setup-actions">
       <button id="googleIdentitySaveBtn" onclick="submitGoogleIdentitySetup()">Continue</button>
       <button id="googleIdentityCancelBtn" onclick="cancelGoogleIdentitySetup()">Sign Out</button>
@@ -1825,8 +1947,9 @@ textarea:focus-visible{
 <header>
   <h1>NovaFix</h1>
   <p>Mind • Body • Money • Music • Productivity</p>
-<button id="accountBtn" onclick="toggleAccountPanel()">Account</button>
 </header>
+
+<button id="accountBtn" onclick="toggleAccountPanel()">Account</button>
 
 <div id="accountPanel">
   <h3 class="account-title">👤 Account</h3>
@@ -1834,6 +1957,7 @@ textarea:focus-visible{
   <div class="account-row"><b>Username:</b> <span id="accountName">-</span></div>
   <div class="account-row"><b>Display Name:</b> <span id="accountDisplayName">-</span></div>
   <button id="editDisplayNameBtn" onclick="editAccountDisplayName()">Edit Display Name</button>
+  <p id="accountDisplayNameError" class="limit-note" style="display:none;"></p>
   <div class="account-row"><b>Email:</b> <span id="accountEmail">-</span></div>
   <div class="account-row"><b>Verification:</b> <span id="accountVerifyStatus">-</span></div>
   <button id="accountResetPasswordBtn" onclick="sendAccountResetPasswordEmail()">Change Password</button>
@@ -1864,6 +1988,13 @@ textarea:focus-visible{
   <div class="account-transfer-box">
     <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Current Friends</h4>
     <div id="currentFriendsList" class="friends-list-box"></div>
+  </div>
+
+  <div class="account-transfer-box">
+    <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Keyboard Shortcuts</h4>
+    <p class="export-note" id="keyboardShortcutsSubtitle" style="margin-top:0;margin-bottom:8px;text-align:left;"></p>
+    <div id="keyboardShortcutsList" class="friends-list-box"></div>
+    <button id="keyboardShortcutsToggleBtn" type="button" class="keyboard-shortcuts-toggle">Show all shortcuts</button>
   </div>
 
 </div>
@@ -1902,6 +2033,17 @@ textarea:focus-visible{
     <h3>Pending Friend Request</h3>
     <p class="import-transfer-note">This user has already sent you a request. Accept or decline now.</p>
     <div id="reverseFriendRequestPreview" class="friends-list-box"></div>
+  </div>
+</div>
+
+<div id="bedtimeReminderModal" onclick="closeBedtimeReminderModal(event)">
+  <div class="import-transfer-card" onclick="event.stopPropagation()">
+    <h3>Bed Time Reminder</h3>
+    <p class="import-transfer-note">It's your scheduled bedtime. Start winding down now for better recovery.</p>
+    <div id="bedtimeReminderPreview" class="friends-list-box"></div>
+    <div class="import-transfer-actions">
+      <button class="import-transfer-cancel" onclick="closeBedtimeReminderModal(null, true)">Dismiss</button>
+    </div>
   </div>
 </div>
 
@@ -2001,7 +2143,7 @@ textarea:focus-visible{
 <p class="micro-tip">Tip: Set your daily goal once each morning.</p>
 <input id="waterGoalInput" placeholder="Daily goal">
 <button onclick="setWaterGoal()">Set Goal</button>
-<input id="waterInput" placeholder="Glasses">
+<input type="number" id="waterInput" placeholder="Glasses" min="0.1" step="0.1">
 <button id="waterTrackBtn" onclick="saveWater()">Track</button>
 <p id="waterGoalResetCountdown" class="reset-hint reset-countdown-alert"></p>
 <p id="waterLimitError" class="limit-note"></p>
@@ -2014,10 +2156,21 @@ textarea:focus-visible{
 <div class="card">
 <h2>💤 Sleep</h2>
 <p class="micro-tip">Tip: Log sleep after waking for a consistent trend.</p>
-<input id="sleepInput" placeholder="Hours">
+<input type="number" id="sleepInput" placeholder="Hours" min="0.1" step="0.1">
 <button id="sleepSaveBtn" onclick="saveSleep()">Save</button>
+<div class="input-group bedtime-input-group">
+  <input id="bedtimeTimeInput" placeholder="Bed time (e.g. 8:30)">
+  <select id="bedtimeMeridiem" aria-label="Bed time unit">
+    <option value="">AM/PM</option>
+    <option value="AM">AM</option>
+    <option value="PM">PM</option>
+  </select>
+  <button id="bedtimeSetBtn" onclick="setBedtimeReminder()">Set Bed Time</button>
+</div>
+<p id="bedtimeInputError" class="limit-note"></p>
 <p id="sleepResetCountdown" class="reset-hint reset-countdown-alert"></p>
 <p id="sleepLimitError" class="limit-note"></p>
+<button id="sleepClearBtn" class="water-clear-btn" onclick="clearSleepData()">Clear Sleep + Bed Time</button>
 <p id="sleepFriendInsight" class="friend-card-note">Friend benchmark: add a friend to compare sleep consistency.</p>
 <p id="sleepResult"></p>
 </div>
@@ -2025,12 +2178,16 @@ textarea:focus-visible{
 <!-- Wellness Music -->
 <div class="card wellness-music-card">
 <h2>🎵 Wellness Music</h2>
-<iframe style="border-radius:14px" src="https://open.spotify.com/embed/playlist/37i9dQZF1DX3rxVfibe1L0" width="100%" height="190"></iframe>
+<p id="wellnessMusicStatus" class="music-card-status" aria-live="polite"></p>
+<iframe id="wellnessMusicFrame" style="border-radius:14px" src="https://open.spotify.com/embed/playlist/37i9dQZF1DX3rxVfibe1L0" width="100%" height="190"></iframe>
 </div>
 
 <!-- Time Traveller Mirror -->
 <div class="card scroll-card">
+<div class="ai-header-row">
 <h2>🪞 Time Traveller Mirror</h2>
+<button id="timeMirrorClearBtn" class="ai-clear-btn" onclick="clearTimeMirror()">Clear</button>
+</div>
 <input id="futureTask" placeholder="Enter goal">
 <button onclick="timeTraveller()">Check</button>
 <div id="timeMirror"></div>
@@ -2049,6 +2206,7 @@ textarea:focus-visible{
 <p class="micro-tip">Tip: 1 line is enough — consistency beats length.</p>
 <textarea id="gratitudeInput" rows="3"></textarea>
 <button id="gratitudeSaveBtn" onclick="saveGratitude()">Save</button>
+<p id="gratitudeResetCountdown" class="reset-hint reset-countdown-alert"></p>
 <p id="gratitudeLimitError" class="limit-note"></p>
 <div id="gratitudeLogs"></div>
 <p id="gratitudeFriendInsight" class="friend-card-note">Friend benchmark: add a friend to compare gratitude consistency.</p>
@@ -2070,6 +2228,7 @@ textarea:focus-visible{
 <h2>⭐ Daily Wellness Score</h2>
 <div id="wellnessScore" class="wellness-badge">0/100</div>
 <p id="wellnessStatus" class="wellness-status">Needs Focus</p>
+<p id="wellnessScoreResetCountdown" class="reset-hint reset-countdown-alert"></p>
 <p id="wellnessReassurance" class="soft-note">Log one check-in to start momentum today.</p>
 <ul id="wellnessActions" class="wellness-actions">
   <li>Log your first check-in for today.</li>
@@ -2093,8 +2252,9 @@ textarea:focus-visible{
 </div>
 
 <!-- Weekly Review + AI Coach -->
-<div class="card">
+<div class="card scroll-card">
 <h2>🧠 Weekly Review + AI Coach</h2>
+<div class="card-scroll-body weekly-scroll-body">
 <p id="weeklyRange" class="weekly-range">Last 7 days review</p>
 
 <p class="weekly-section-title">✅ What Improved</p>
@@ -2105,6 +2265,9 @@ textarea:focus-visible{
 
 <p class="weekly-section-title">🎯 Top 3 Next-Week Actions</p>
 <ul id="weeklyActions" class="weekly-list"></ul>
+
+<p class="weekly-section-title">🧩 Mood Pattern Analysis</p>
+<ul id="weeklyPatternInsights" class="weekly-list"></ul>
 
 <p class="weekly-section-title">📊 Weekly Goal Scorecard</p>
 <ul id="weeklyGoalScorecard" class="weekly-list"></ul>
@@ -2117,10 +2280,12 @@ textarea:focus-visible{
   <button class="weekly-target-btn" onclick="setNextWeekTargets()">Set Next Week Targets</button>
 </div>
 </div>
+</div>
 
 <!-- Adaptive Habit Quest -->
-<div class="card quest-card" id="questCard">
+<div class="card quest-card scroll-card" id="questCard">
 <h2>🎮 Adaptive Habit Quest</h2>
+<div class="card-scroll-body quest-scroll-body">
 <p class="micro-tip">Tip: Finish all 4 quests before today’s reset countdown ends to lock streak progress.</p>
 <div class="quest-top">
   <div id="questXp" class="quest-stat">XP 0/100</div>
@@ -2134,6 +2299,7 @@ textarea:focus-visible{
 <p id="questShield" class="burnout-sub">Streak shield: Inactive</p>
 <p id="questProgressHint" class="soft-note">Complete all 4 quests to secure today’s streak.</p>
 <ul id="questList" class="quest-list"></ul>
+</div>
 </div>
 
 <!-- Predictive Burnout Radar -->
@@ -2219,7 +2385,7 @@ textarea:focus-visible{
 <script type="module">
   // 🔥 Firebase Imports
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { initializeFirestore, persistentLocalCache, getFirestore, collection, collectionGroup, addDoc, getDocs, getDocsFromServer, serverTimestamp, deleteDoc, doc, updateDoc, setDoc, getDoc, getDocFromServer, runTransaction, query, where } 
+import { initializeFirestore, persistentLocalCache, getFirestore, collection, collectionGroup, addDoc, getDocs, getDocsFromServer, serverTimestamp, deleteDoc, doc, updateDoc, setDoc, getDoc, getDocFromServer, runTransaction, query, where, onSnapshot } 
 from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { 
   getAuth,
@@ -2232,6 +2398,8 @@ import {
   fetchSignInMethodsForEmail,
   deleteUser,
   updateProfile,
+  EmailAuthProvider,
+  linkWithCredential,
   GoogleAuthProvider,
   signInWithPopup
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -2313,11 +2481,15 @@ const passwordInput = document.getElementById("passwordInput");
 const usernameInput = document.getElementById("usernameInput");
 const displayNameInput = document.getElementById("displayNameInput");
 const googleIdentityModal = document.getElementById("googleIdentityModal");
+const googleIdentityTitle = document.getElementById("googleIdentityTitle");
+const googleIdentityNote = document.getElementById("googleIdentityNote");
 const googleIdentityUsernameInput = document.getElementById("googleIdentityUsernameInput");
 const googleIdentityDisplayNameInput = document.getElementById("googleIdentityDisplayNameInput");
+const googleIdentityPasswordInput = document.getElementById("googleIdentityPasswordInput");
 const googleIdentitySaveBtn = document.getElementById("googleIdentitySaveBtn");
 const googleIdentityError = document.getElementById("googleIdentityError");
 const googleAuthButton = document.getElementById("googleAuthButton");
+const resetPasswordButton = document.getElementById("resetPasswordButton");
 const resendVerificationButton = document.getElementById("resendVerificationButton");
 const splash = document.getElementById("splash");
 const signInModal = document.getElementById("signInModal");
@@ -2343,6 +2515,9 @@ const reverseFriendRequestPreview = document.getElementById("reverseFriendReques
 const friendRequestsList = document.getElementById("friendRequestsList");
 const sentRequestsList = document.getElementById("sentRequestsList");
 const currentFriendsList = document.getElementById("currentFriendsList");
+const keyboardShortcutsSubtitle = document.getElementById("keyboardShortcutsSubtitle");
+const keyboardShortcutsList = document.getElementById("keyboardShortcutsList");
+const keyboardShortcutsToggleBtn = document.getElementById("keyboardShortcutsToggleBtn");
 const friendsInsightsList = document.getElementById("friendsInsightsList");
 const welcomeGuideModal = document.getElementById("welcomeGuideModal");
 const guideStepCounter = document.getElementById("guideStepCounter");
@@ -2362,6 +2537,7 @@ const weeklyRange = document.getElementById("weeklyRange");
 const weeklyImproved = document.getElementById("weeklyImproved");
 const weeklyDropped = document.getElementById("weeklyDropped");
 const weeklyActions = document.getElementById("weeklyActions");
+const weeklyPatternInsights = document.getElementById("weeklyPatternInsights");
 const weeklyGoalScorecard = document.getElementById("weeklyGoalScorecard");
 const progressMilestones = document.getElementById("progressMilestones");
 const weeklyTargetsDisplay = document.getElementById("weeklyTargetsDisplay");
@@ -2379,6 +2555,8 @@ const burnoutReasonEl = document.getElementById("burnoutReason");
 const burnoutScheduleEl = document.getElementById("burnoutSchedule");
 const accountName = document.getElementById("accountName");
 const accountDisplayName = document.getElementById("accountDisplayName");
+const accountDisplayNameError = document.getElementById("accountDisplayNameError");
+const editDisplayNameBtn = document.getElementById("editDisplayNameBtn");
 const accountEmail = document.getElementById("accountEmail");
 const accountVerifyStatus = document.getElementById("accountVerifyStatus");
 const accountUid = document.getElementById("accountUid");
@@ -2420,15 +2598,25 @@ const waterClearBtn = document.getElementById("waterClearBtn");
 const waterGoalResetCountdown = document.getElementById("waterGoalResetCountdown");
 const sleepInput = document.getElementById("sleepInput");
 const sleepSaveBtn = document.getElementById("sleepSaveBtn");
+const bedtimeTimeInput = document.getElementById("bedtimeTimeInput");
+const bedtimeMeridiem = document.getElementById("bedtimeMeridiem");
+const bedtimeSetBtn = document.getElementById("bedtimeSetBtn");
+const bedtimeInputError = document.getElementById("bedtimeInputError");
 const sleepResetCountdown = document.getElementById("sleepResetCountdown");
 const sleepLimitError = document.getElementById("sleepLimitError");
 const sleepFriendInsight = document.getElementById("sleepFriendInsight");
 const sleepResult = document.getElementById("sleepResult");
+const bedtimeReminderModal = document.getElementById("bedtimeReminderModal");
+const bedtimeReminderPreview = document.getElementById("bedtimeReminderPreview");
+const wellnessMusicFrame = document.getElementById("wellnessMusicFrame");
+const wellnessMusicStatus = document.getElementById("wellnessMusicStatus");
 const futureTask = document.getElementById("futureTask");
 const timeMirror = document.getElementById("timeMirror");
+const timeMirrorClearBtn = document.getElementById("timeMirrorClearBtn");
 const quoteDisplay = document.getElementById("quoteDisplay");
 const gratitudeInput = document.getElementById("gratitudeInput");
 const gratitudeSaveBtn = document.getElementById("gratitudeSaveBtn");
+const gratitudeResetCountdown = document.getElementById("gratitudeResetCountdown");
 const gratitudeLimitError = document.getElementById("gratitudeLimitError");
 const gratitudeLogs = document.getElementById("gratitudeLogs");
 const gratitudeFriendInsight = document.getElementById("gratitudeFriendInsight");
@@ -2439,6 +2627,7 @@ const dailyChallengeResetCountdown = document.getElementById("dailyChallengeRese
 const dailyChallengeFriendInsight = document.getElementById("dailyChallengeFriendInsight");
 const wellnessScoreEl = document.getElementById("wellnessScore");
 const wellnessStatusEl = document.getElementById("wellnessStatus");
+const wellnessScoreResetCountdown = document.getElementById("wellnessScoreResetCountdown");
 const wellnessReassuranceEl = document.getElementById("wellnessReassurance");
 const wellnessActionsEl = document.getElementById("wellnessActions");
 const wellnessFriendInsight = document.getElementById("wellnessFriendInsight");
@@ -2470,6 +2659,90 @@ const startupReportResetCountdown = document.getElementById("startupReportResetC
 document.body.style.overflow = "hidden";
 if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 let splashRemoved = false;
+let appBackGuardInitialized = false;
+
+function hasAppBackGuardState() {
+  return !!(history?.state && history.state.__novaBackGuard === true);
+}
+
+function ensureAppBackGuardState(reason = "guard", forcePush = false) {
+  try {
+    if (!forcePush && hasAppBackGuardState()) return;
+    history.pushState({
+      ...(history.state && typeof history.state === "object" ? history.state : {}),
+      __novaBackGuard: true,
+      reason,
+      ts: Date.now()
+    }, "", location.href);
+  } catch (_) {}
+}
+
+function closeTopLayerForSystemBack() {
+  if (isEditableElementActive()) {
+    const active = document.activeElement;
+    if (active && typeof active.blur === "function") active.blur();
+    return true;
+  }
+
+  if (welcomeGuideModal && welcomeGuideModal.style.display === "flex") {
+    closeWelcomeGuide();
+    return true;
+  }
+
+  if (reverseFriendRequestModal && reverseFriendRequestModal.style.display === "flex") {
+    closeReverseFriendRequestModal(null, true, "dismiss");
+    return true;
+  }
+
+  if (addFriendModal && addFriendModal.style.display === "flex") {
+    closeAddFriendModal(null, true);
+    return true;
+  }
+
+  if (importTransferModal && importTransferModal.style.display === "flex") {
+    closeImportTransferModal(null, true);
+    return true;
+  }
+
+  if (bedtimeReminderModal && bedtimeReminderModal.style.display === "flex") {
+    closeBedtimeReminderModal(null, true);
+    return true;
+  }
+
+  if (googleIdentityModal && googleIdentityModal.style.display === "flex") {
+    closeGoogleIdentitySetupModal();
+    return true;
+  }
+
+  if (accountPanel && accountPanel.style.display === "block") {
+    closeAccountPanel();
+    return true;
+  }
+
+  if (signInModal && signInModal.style.display === "flex" && authMode === "signup") {
+    toggleAuth();
+    return true;
+  }
+
+  return false;
+}
+
+function initializeUniversalBackHandling() {
+  if (appBackGuardInitialized) return;
+  appBackGuardInitialized = true;
+
+  ensureAppBackGuardState("init");
+
+  window.addEventListener("popstate", () => {
+    const consumed = closeTopLayerForSystemBack();
+    if (consumed) ensureAppBackGuardState("consumed");
+  });
+
+  document.addEventListener("focusin", () => {
+    if (!isEditableElementActive()) return;
+    ensureAppBackGuardState("input-focus");
+  });
+}
 
 function hideSplash() {
   if (splashRemoved || !splash) return;
@@ -2484,11 +2757,26 @@ function hideSplash() {
   }, 1000);
 }
 
+function updateAccountButtonScrollState() {
+  if (!accountBtn) return;
+  const isScrolled = window.scrollY > 18;
+  accountBtn.classList.toggle("account-btn-scrolled", isScrolled);
+}
+
+window.addEventListener("scroll", updateAccountButtonScrollState, { passive: true });
+window.addEventListener("resize", updateAccountButtonScrollState);
+updateAccountButtonScrollState();
+
 function toggleAccountPanel() {
   if (!accountPanel || !accountOverlay) return;
   const isOpen = accountPanel.style.display === "block";
   accountPanel.style.display = isOpen ? "none" : "block";
   accountOverlay.style.display = isOpen ? "none" : "block";
+  if (!isOpen) ensureAppBackGuardState("account-panel", true);
+  if (!isOpen) {
+    acknowledgeFriendRequestsOnNextRender = true;
+    if (accountBtn) accountBtn.classList.remove("has-pending-request");
+  }
   if (isOpen) {
     accountPanel.scrollTop = 0;
     return;
@@ -2512,10 +2800,18 @@ function closeAccountPanel() {
   accountOverlay.style.display = "none";
 }
 
+function setAccountDisplayNameError(message = "") {
+  if (!accountDisplayNameError) return;
+  const text = String(message || "").trim();
+  accountDisplayNameError.innerText = text;
+  accountDisplayNameError.style.display = text ? "block" : "none";
+}
+
 function updateAccountPanel(user) {
   if (!user) {
     if (accountName) accountName.innerText = "-";
     if (accountDisplayName) accountDisplayName.innerText = "-";
+    setAccountDisplayNameError("");
     if (accountEmail) accountEmail.innerText = "-";
     if (accountVerifyStatus) accountVerifyStatus.innerText = "-";
     if (accountUid) accountUid.innerText = "-";
@@ -2533,11 +2829,18 @@ function updateAccountPanel(user) {
   const fallbackName = (isGoogleAccount
     ? (buildUsernameSeedFromDisplayName(user.displayName) || "user")
     : ((user.email || "").split("@")[0] || "User"));
+  const rawDisplayName = String(user.displayName || "").trim();
+  const rawDisplayValidation = validateSignupDisplayName(rawDisplayName);
   if (accountName) accountName.innerText = fallbackName;
-  if (accountDisplayName) accountDisplayName.innerText = normalizeDisplayNameValue(user.displayName) || fallbackName;
+  if (accountDisplayName) accountDisplayName.innerText = normalizeDisplayNameValue(rawDisplayName) || fallbackName;
   if (accountEmail) accountEmail.innerText = user.email || "Not available";
   if (accountVerifyStatus) accountVerifyStatus.innerText = user.emailVerified ? "Verified ✅" : "Not verified ⚠️";
   if (accountUid) accountUid.innerText = user.uid || "Not available";
+  if (rawDisplayName && !rawDisplayValidation.ok) {
+    setAccountDisplayNameError("Legacy display name contains unsupported symbols. Edit Display Name to fix it.");
+  } else {
+    setAccountDisplayNameError("");
+  }
 
   void syncAccountIdentityFromProfile(user);
 }
@@ -2564,11 +2867,16 @@ async function syncAccountIdentityFromProfile(user) {
     || (isGoogleAccount ? googleSeed : normalizeUsernameForLookup(emailLocal))
     || "user";
   let displayNameValue = normalizeDisplayNameValue(user?.displayName) || usernameValue;
+  let hasLegacyInvalidDisplayName = false;
 
   try {
     const profileSnap = await getDoc(doc(db, "users", activeUid, "settings", "profile"));
     if (profileSnap.exists()) {
       const profileData = profileSnap.data() || {};
+      const profileDisplayRaw = String(profileData.displayName || "").trim();
+      if (profileDisplayRaw && !validateSignupDisplayName(profileDisplayRaw).ok) {
+        hasLegacyInvalidDisplayName = true;
+      }
       usernameValue = normalizeResolvedUsername(profileData.username || profileData.name || "")
         || usernameValue;
       displayNameValue = normalizeDisplayNameValue(profileData.displayName)
@@ -2598,6 +2906,9 @@ async function syncAccountIdentityFromProfile(user) {
 
   if (accountName) accountName.innerText = usernameValue;
   if (accountDisplayName) accountDisplayName.innerText = displayNameValue;
+  if (hasLegacyInvalidDisplayName) {
+    setAccountDisplayNameError("Legacy display name contains unsupported symbols. Edit Display Name to fix it.");
+  }
 }
 
 document.addEventListener("click", (event) => {
@@ -2661,6 +2972,24 @@ if (reminderUnit) {
   reminderUnit.addEventListener("change", clearReminderInputError);
 }
 
+if (bedtimeTimeInput) {
+  bedtimeTimeInput.addEventListener("input", () => {
+    if (bedtimeInputError) {
+      bedtimeInputError.innerText = "";
+      bedtimeInputError.classList.remove("show");
+    }
+  });
+}
+
+if (bedtimeMeridiem) {
+  bedtimeMeridiem.addEventListener("change", () => {
+    if (bedtimeInputError) {
+      bedtimeInputError.innerText = "";
+      bedtimeInputError.classList.remove("show");
+    }
+  });
+}
+
 async function clearAllAccountData() {
   const user = auth.currentUser;
   if (!user) {
@@ -2668,10 +2997,10 @@ async function clearAllAccountData() {
     return;
   }
 
-  const warningOne = confirm("⚠️ This will permanently delete your NovaFix app data (tasks, mood, water, sleep, gratitude, reminders, AI chats, and insights). All STREAKS will also be cleared. Daily limits for AI, mood, sleep, water, tasks, reminders, and gratitude will NOT be reset. Continue?");
+  const warningOne = confirm("⚠️ Warning: Clear All Data also removes your friends, incoming/outgoing friend requests, and related social data. It will permanently delete your NovaFix app data (tasks, mood, water, sleep, gratitude, reminders, AI chats, and insights). All STREAKS will also be cleared. Daily limits for AI, mood, sleep, water, tasks, reminders, and gratitude will NOT be reset. Continue?");
   if (!warningOne) return;
 
-  const warningTwo = confirm("Final warning: this cannot be undone. Your account will stay signed in, but all app data will be erased. Proceed?");
+  const warningTwo = confirm("Final warning: this cannot be undone. Your account will stay signed in, but all app data and social links (friends, sent requests, pending requests) will be erased. Proceed?");
   if (!warningTwo) return;
 
   try {
@@ -2712,7 +3041,9 @@ async function clearAllAccountData() {
 
     let friendIds = [];
     let sentRequestTargetIds = [];
+    let incomingRequestSourceIds = [];
     let queueRequestDocIds = [];
+    const userEmail = String(user.email || "").trim().toLowerCase();
     try {
       const friendsSnap = await getDocs(collection(db, "users", user.uid, "friends"));
       friendIds = friendsSnap.docs.map((docSnap) => String(docSnap.id || "")).filter(Boolean);
@@ -2733,13 +3064,28 @@ async function clearAllAccountData() {
     }
 
     try {
-      const [queueFromSnap, queueToSnap] = await Promise.all([
+      const incomingSnap = await getDocs(collection(db, "users", user.uid, "friendRequests"));
+      incomingRequestSourceIds = incomingSnap.docs
+        .map((docSnap) => {
+          const data = docSnap.data() || {};
+          return String(data.fromUid || docSnap.id || "");
+        })
+        .filter(Boolean);
+    } catch (_) {
+      incomingRequestSourceIds = [];
+    }
+
+    try {
+      const queueQueries = [
         getDocs(query(collection(db, "friendRequestsQueue"), where("fromUid", "==", user.uid))),
         getDocs(query(collection(db, "friendRequestsQueue"), where("toUid", "==", user.uid)))
-      ]);
+      ];
+      if (userEmail) {
+        queueQueries.push(getDocs(query(collection(db, "friendRequestsQueue"), where("toEmail", "==", userEmail))));
+      }
+      const queueSnapshots = await Promise.all(queueQueries);
       queueRequestDocIds = [...new Set([
-        ...queueFromSnap.docs.map((docSnap) => String(docSnap.id || "")),
-        ...queueToSnap.docs.map((docSnap) => String(docSnap.id || ""))
+        ...queueSnapshots.flatMap((snap) => snap.docs.map((docSnap) => String(docSnap.id || "")))
       ].filter(Boolean))];
     } catch (_) {
       queueRequestDocIds = [];
@@ -2750,6 +3096,7 @@ async function clearAllAccountData() {
       "tasks",
       "waterIntake",
       "sleepLogs",
+      "musicSessions",
       "gratitudeLogs",
       "aiChats",
       "reminders",
@@ -2763,6 +3110,7 @@ async function clearAllAccountData() {
 
     await Promise.all(targetCollections.map((name) => clearUserCollection(user.uid, name)));
     await deleteDoc(doc(db, "users", user.uid, "settings", "water")).catch(() => {});
+    await deleteDoc(doc(db, "users", user.uid, "settings", "sleep")).catch(() => {});
     await deleteDoc(doc(db, "users", user.uid, "settings", "dailyChallenge")).catch(() => {});
     await deleteDoc(doc(db, "users", user.uid, "settings", "weeklyTargets")).catch(() => {});
     await deleteDoc(doc(db, "users", user.uid, "settings", "habitQuest")).catch(() => {});
@@ -2782,6 +3130,12 @@ async function clearAllAccountData() {
     if (sentRequestTargetIds.length) {
       await Promise.all(sentRequestTargetIds.map((targetUid) => {
         return deleteDoc(doc(db, "users", targetUid, "friendRequests", user.uid)).catch(() => {});
+      }));
+    }
+
+    if (incomingRequestSourceIds.length) {
+      await Promise.all(incomingRequestSourceIds.map((sourceUid) => {
+        return deleteDoc(doc(db, "users", sourceUid, "friendRequestsSent", user.uid)).catch(() => {});
       }));
     }
 
@@ -2831,6 +3185,21 @@ async function clearAllAccountData() {
     renderFriendMetricCardInsights();
     waterProgress.innerText = "";
     sleepResult.innerText = "";
+    if (timeMirror) timeMirror.innerHTML = "";
+    setTimeMirrorClearButtonState(false);
+    bedtimeSettings = { timeText: "", meridiem: "", enabled: false };
+    bedtimeReminderLastTriggeredKey = "";
+    if (bedtimeReminderTimeoutId) {
+      clearTimeout(bedtimeReminderTimeoutId);
+      bedtimeReminderTimeoutId = null;
+    }
+    if (bedtimeTimeInput) bedtimeTimeInput.value = "";
+    if (bedtimeMeridiem) bedtimeMeridiem.value = "";
+    if (bedtimeInputError) {
+      bedtimeInputError.innerText = "";
+      bedtimeInputError.classList.remove("show");
+    }
+    if (bedtimeReminderModal) bedtimeReminderModal.style.display = "none";
     challengeResultElement.innerText = "";
     waterGoalInput.value = "";
     waterInput.value = "";
@@ -2870,6 +3239,7 @@ async function clearAllAccountData() {
       loadReminders(user.uid),
       loadWaterData(user.uid),
       loadSleepData(user.uid),
+      loadBedtimeSettings(user.uid),
       loadGratitude(user.uid),
       loadWeeklyTargets(user.uid),
       loadRescueEvents(user.uid),
@@ -2928,9 +3298,19 @@ try {
         stopWeeklyGraphResetCountdown();
         stopStartupResetCountdown();
         startExportCooldown(0);
+        startDisplayNameEditCooldown(0);
         clearWaterGoalResetSchedule();
         clearSleepDailyResetSchedule();
         clearMoodDailyResetSchedule();
+        clearBedtimeReminderSchedule();
+        closeBedtimeReminderModal(null, true);
+        bedtimeSettings = { timeText: "", meridiem: "", enabled: false };
+        bedtimeReminderLastTriggeredKey = "";
+        if (pendingFriendProfileSyncTimer) {
+          clearTimeout(pendingFriendProfileSyncTimer);
+          pendingFriendProfileSyncTimer = null;
+        }
+        pendingFriendProfileSnapshot = null;
         closeAccountPanel();
         closeAddFriendModal(null, true);
         closeGoogleIdentitySetupModal();
@@ -2950,6 +3330,11 @@ try {
         clearAllReminderTimers();
         waterProgress.innerText = "";
         sleepResult.innerText = "";
+        if (timeMirror) timeMirror.innerHTML = "";
+        setTimeMirrorClearButtonState(false);
+        if (bedtimeTimeInput) bedtimeTimeInput.value = "";
+        if (bedtimeMeridiem) bedtimeMeridiem.value = "";
+        setBedtimeInputError("");
         wellnessScoreEl.innerText = "0/100";
         wellnessStatusEl.innerText = "Needs Focus";
         wellnessActionsEl.innerHTML = "<li>Log your first check-in for today.</li><li>Set your water target and drink one glass.</li><li>Add one gratitude note tonight.</li>";
@@ -2983,6 +3368,7 @@ try {
         if (weeklyImproved) weeklyImproved.innerHTML = "";
         if (weeklyDropped) weeklyDropped.innerHTML = "";
         if (weeklyActions) weeklyActions.innerHTML = "";
+        if (weeklyPatternInsights) weeklyPatternInsights.innerHTML = "";
         if (weeklyGoalScorecard) weeklyGoalScorecard.innerHTML = "";
         if (progressMilestones) progressMilestones.innerHTML = "";
         if (questXpEl) questXpEl.innerText = "XP 0/100";
@@ -3002,9 +3388,11 @@ try {
         moodHistory.length = 0;
         waterHistory.length = 0;
         sleepHistory.length = 0;
+        musicSessionDates.length = 0;
         moodDates.length = 0;
         waterDates.length = 0;
         sleepDates.length = 0;
+        musicSessionDayKeys.clear();
         taskEntries.length = 0;
         gratitudeEntries.length = 0;
         challengeDates.length = 0;
@@ -3012,6 +3400,12 @@ try {
         if (sentRequestsList) sentRequestsList.innerHTML = "";
         if (currentFriendsList) currentFriendsList.innerHTML = "";
         if (friendsInsightsList) friendsInsightsList.innerHTML = "";
+        if (accountBtn) accountBtn.classList.remove("has-pending-request");
+        seenFriendRequestKeys = new Set();
+        acknowledgeFriendRequestsOnNextRender = false;
+        seenFriendRequestKeysLoadedForUid = "";
+        seenFriendRequestKeysLoadingForUid = "";
+        seenFriendRequestKeysLoadPromise = null;
         friendInsightProfiles = [];
         renderFriendMetricCardInsights();
         dailyChallengeCompleted = false;
@@ -3048,12 +3442,14 @@ try {
     accountBtn.style.display = "none";
     setAiClearButtonState(false);
     startExportCooldown(0);
+    startDisplayNameEditCooldown(0);
     closeAccountPanel();
     updateAccountPanel(null);
   }, 1000);
 }
 
 setTimeout(hideSplash, 2000);
+initializeUniversalBackHandling();
 
 // ---------- COLOR WAVES ----------
 const waveSchemes = [
@@ -3208,8 +3604,11 @@ let usernameLiveCheckTimer = null;
 let usernameLiveCheckSequence = 0;
 let googleIdentitySetupInProgress = false;
 let googleIdentitySetupUserId = "";
+let googleIdentityPasswordOnlyMode = false;
 let googleIdentityUsernameLiveCheckTimer = null;
 let googleIdentityUsernameLiveCheckSequence = 0;
+let authEmailProviderCheckTimer = null;
+let authEmailProviderCheckSequence = 0;
 
 function showAuthModalError(message, kind = "generic", color = "#ff6b6b") {
   const error = document.getElementById("signInError");
@@ -3226,6 +3625,12 @@ function hideAuthModalError() {
   authModalErrorKind = "";
   error.style.display = "none";
   error.innerText = "";
+}
+
+function clearAuthProgressMessage() {
+  if (authModalErrorKind === "auth_progress") {
+    hideAuthModalError();
+  }
 }
 
 function clearAuthModalErrorOnInput(fieldName) {
@@ -3252,6 +3657,12 @@ function canOverrideAuthUsernameMessage() {
     || authModalErrorKind === "username_exists"
     || authModalErrorKind === "username_check"
     || authModalErrorKind === "username_available";
+}
+
+function canOverrideAuthDisplayNameMessage() {
+  return !authModalErrorKind
+    || authModalErrorKind === "display_name"
+    || authModalErrorKind === "display_name_valid";
 }
 
 function validateSignupUsername(usernameValue) {
@@ -3380,7 +3791,10 @@ function scheduleLiveUsernameAvailabilityCheck() {
 }
 
 if (emailInput) {
-  emailInput.addEventListener("input", () => clearAuthModalErrorOnInput("email"));
+  emailInput.addEventListener("input", () => {
+    clearAuthModalErrorOnInput("email");
+    scheduleAuthEmailProviderCheck();
+  });
 }
 if (passwordInput) {
   passwordInput.addEventListener("input", () => clearAuthModalErrorOnInput("password"));
@@ -3394,8 +3808,42 @@ if (usernameInput) {
   });
 }
 if (displayNameInput) {
-  displayNameInput.addEventListener("input", () => clearAuthModalErrorOnInput("display_name"));
+  displayNameInput.addEventListener("input", () => {
+    clearAuthModalErrorOnInput("display_name");
+    if (authMode !== "signup") return;
+    const raw = String(displayNameInput.value || "").trim();
+    if (!raw) return;
+    const validation = validateSignupDisplayName(raw);
+    if (!validation.ok) {
+      showAuthModalError(validation.message, "display_name");
+      return;
+    }
+    if (canOverrideAuthDisplayNameMessage()) {
+      showAuthModalError("Display name looks good.", "display_name_valid", "#7CFFB2");
+    }
+  });
 }
+
+function shouldSubmitAuthOnEnter(event) {
+  if (!signInModal || signInModal.style.display !== "flex") return false;
+  if (event.key !== "Enter") return false;
+  if (event.shiftKey || event.ctrlKey || event.metaKey || event.isComposing) return false;
+  return true;
+}
+
+function bindAuthEnterSubmit(inputEl) {
+  if (!inputEl) return;
+  inputEl.addEventListener("keydown", (event) => {
+    if (!shouldSubmitAuthOnEnter(event)) return;
+    event.preventDefault();
+    void handleAuth();
+  });
+}
+
+bindAuthEnterSubmit(emailInput);
+bindAuthEnterSubmit(passwordInput);
+bindAuthEnterSubmit(usernameInput);
+bindAuthEnterSubmit(displayNameInput);
 
 const PAGE_TITLES = {
   dashboard: "NovaFix - Dashboard",
@@ -3423,6 +3871,50 @@ function isGoogleProviderUser(user) {
   return providerIds.includes("google.com");
 }
 
+function hasPasswordProviderLinked(user) {
+  const providerIds = Array.isArray(user?.providerData)
+    ? user.providerData.map((entry) => String(entry?.providerId || "").trim().toLowerCase())
+    : [];
+  return providerIds.includes("password");
+}
+
+async function isGoogleOnlySignInEmail(email) {
+  const safeEmail = String(email || "").trim().toLowerCase();
+  if (!safeEmail) return false;
+  try {
+    const methods = await fetchSignInMethodsForEmail(auth, safeEmail);
+    return methods.includes("google.com") && !methods.includes("password");
+  } catch (_) {
+    return false;
+  }
+}
+
+function scheduleAuthEmailProviderCheck() {
+  if (authEmailProviderCheckTimer) {
+    clearTimeout(authEmailProviderCheckTimer);
+    authEmailProviderCheckTimer = null;
+  }
+
+  const localSeq = ++authEmailProviderCheckSequence;
+  authEmailProviderCheckTimer = setTimeout(async () => {
+    if (localSeq !== authEmailProviderCheckSequence) return;
+    if (authMode !== "signin") return;
+
+    const email = String(emailInput?.value || "").trim().toLowerCase();
+    if (!email || !email.includes("@")) return;
+
+    const googleOnly = await isGoogleOnlySignInEmail(email);
+    if (localSeq !== authEmailProviderCheckSequence || authMode !== "signin") return;
+    if (!googleOnly) return;
+
+    showAuthModalError(
+      "This email was signed up with Google. Use Sign In with Google to continue.",
+      "credentials",
+      "#ffb37a"
+    );
+  }, 260);
+}
+
 function showGoogleIdentityError(message, color = "#ff6b6b") {
   if (!googleIdentityError) return;
   googleIdentityError.style.display = "block";
@@ -3446,6 +3938,12 @@ function closeGoogleIdentitySetupModal() {
   googleIdentityUsernameLiveCheckSequence += 1;
   if (googleIdentityUsernameInput) googleIdentityUsernameInput.value = "";
   if (googleIdentityDisplayNameInput) googleIdentityDisplayNameInput.value = "";
+  if (googleIdentityPasswordInput) googleIdentityPasswordInput.value = "";
+  if (googleIdentityTitle) googleIdentityTitle.innerText = "Set Your Profile";
+  if (googleIdentityNote) {
+    googleIdentityNote.innerText = "For Google sign-up, choose your username/display name and set a password for Import Data verification.";
+  }
+  googleIdentityPasswordOnlyMode = false;
   googleIdentitySetupInProgress = false;
   googleIdentitySetupUserId = "";
 }
@@ -3504,13 +4002,25 @@ function scheduleGoogleIdentityUsernameAvailabilityCheck() {
   }, 320);
 }
 
-function openGoogleIdentitySetupModal(user) {
+function openGoogleIdentitySetupModal(user, defaults = {}) {
   const activeUserId = String(user?.uid || "").trim();
   if (!googleIdentityModal || !activeUserId) return;
-  if (googleIdentityUsernameInput) googleIdentityUsernameInput.value = "";
-  if (googleIdentityDisplayNameInput) googleIdentityDisplayNameInput.value = "";
+  const passwordOnly = !!defaults?.passwordOnly;
+  googleIdentityPasswordOnlyMode = passwordOnly;
+  if (googleIdentityUsernameInput) googleIdentityUsernameInput.value = String(defaults?.username || "").trim();
+  if (googleIdentityDisplayNameInput) googleIdentityDisplayNameInput.value = String(defaults?.displayName || "").trim();
+  if (googleIdentityPasswordInput) googleIdentityPasswordInput.value = "";
+  if (googleIdentityTitle) {
+    googleIdentityTitle.innerText = passwordOnly ? "Set Account Password" : "Set Your Profile";
+  }
+  if (googleIdentityNote) {
+    googleIdentityNote.innerText = passwordOnly
+      ? "Your legacy Google account needs a password for Import Data verification. Set one below to continue."
+      : "For Google sign-up, choose your username/display name and set a password for Import Data verification.";
+  }
   hideGoogleIdentityError();
   googleIdentityModal.style.display = "flex";
+  ensureAppBackGuardState("google-identity", true);
   signInModal.style.display = "none";
   googleIdentitySetupInProgress = true;
   googleIdentitySetupUserId = activeUserId;
@@ -3536,7 +4046,8 @@ async function ensureGoogleIdentitySetupIfNeeded(user) {
     profileData = {};
   }
 
-  if (profileData.googleIdentitySetupCompleted === true) {
+  const hasPasswordProvider = hasPasswordProviderLinked(user);
+  if (profileData.googleIdentitySetupCompleted === true && hasPasswordProvider) {
     return true;
   }
 
@@ -3544,9 +4055,11 @@ async function ensureGoogleIdentitySetupIfNeeded(user) {
   const fallbackDisplayName = normalizeDisplayNameValue(profileData.displayName)
     || normalizeDisplayNameValue(user?.displayName)
     || "";
+  const passwordOnly = profileData.googleIdentitySetupCompleted === true && !hasPasswordProvider;
   openGoogleIdentitySetupModal(user, {
     username: fallbackUsername,
-    displayName: fallbackDisplayName
+    displayName: fallbackDisplayName,
+    passwordOnly
   });
   return false;
 }
@@ -3564,6 +4077,7 @@ async function initializeAuthenticatedSession(user) {
   await Promise.allSettled([
     syncServerClock(user.uid),
     refreshExportCooldownState(user.uid),
+    refreshDisplayNameEditCooldownState(user.uid),
     upsertUserDirectoryProfile(user),
     loadPersistedBarGraphs(user.uid)
   ]);
@@ -3584,6 +4098,9 @@ async function initializeAuthenticatedSession(user) {
     loadStartupFeatureState(user.uid),
     loadWaterData(user.uid),
     loadSleepData(user.uid),
+    loadMusicSessions(user.uid),
+    loadMusicSessions(user.uid),
+    loadBedtimeSettings(user.uid),
     loadGratitude(user.uid)
   ];
   const shouldShowPendingRequestLoginAlert = consumePendingRequestLoginAlertFlag();
@@ -3620,6 +4137,14 @@ async function submitGoogleIdentitySetup() {
 
   const usernameRaw = String(googleIdentityUsernameInput?.value || "").trim();
   const displayNameRaw = String(googleIdentityDisplayNameInput?.value || "").trim();
+  const googlePasswordRaw = String(googleIdentityPasswordInput?.value || "");
+  const hasPasswordProvider = hasPasswordProviderLinked(user);
+  const needsPasswordSetup = !hasPasswordProvider;
+  if (needsPasswordSetup && googlePasswordRaw.length < 6) {
+    showGoogleIdentityError("Set a password with at least 6 characters for import access.");
+    return;
+  }
+
   const usernameValidation = validateSignupUsername(usernameRaw);
   if (!usernameValidation.ok) {
     showGoogleIdentityError(usernameValidation.message);
@@ -3664,6 +4189,16 @@ async function submitGoogleIdentitySetup() {
     }
 
     const safeEmail = String(user.email || "").trim().toLowerCase();
+    if (!safeEmail) {
+      showGoogleIdentityError("Could not read your Google account email. Sign out and try again.");
+      return;
+    }
+
+    if (needsPasswordSetup) {
+      const credential = EmailAuthProvider.credential(safeEmail, googlePasswordRaw);
+      await linkWithCredential(user, credential);
+    }
+
     await claimUsernameDirectoryEntry(user.uid, usernameKey, safeEmail, normalizedDisplayName);
     await updateProfile(user, { displayName: normalizedDisplayName });
     await upsertUserDirectoryProfile(user, {
@@ -3674,6 +4209,8 @@ async function submitGoogleIdentitySetup() {
     await setDoc(doc(db, "users", user.uid, "settings", "profile"), {
       googleIdentitySetupCompleted: true,
       googleIdentitySetupCompletedAt: serverTimestamp(),
+      googleImportPasswordEnabled: true,
+      googleImportPasswordEnabledAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     }, { merge: true });
 
@@ -3683,6 +4220,10 @@ async function submitGoogleIdentitySetup() {
     const claimCode = String(err?.message || "");
     if (claimCode === "USERNAME_TAKEN") {
       showGoogleIdentityError("This username already exists. Choose a different username.");
+      return;
+    }
+    if (err?.code === "auth/weak-password") {
+      showGoogleIdentityError("Password must be at least 6 characters.");
       return;
     }
     if (isFirestorePermissionDeniedError(err)) {
@@ -3708,6 +4249,9 @@ if (googleIdentityUsernameInput) {
 if (googleIdentityDisplayNameInput) {
   googleIdentityDisplayNameInput.addEventListener("input", () => hideGoogleIdentityError());
 }
+if (googleIdentityPasswordInput) {
+  googleIdentityPasswordInput.addEventListener("input", () => hideGoogleIdentityError());
+}
 
 let verificationCooldownTimer = null;
 let verificationCooldownRemaining = 0;
@@ -3716,6 +4260,31 @@ const AUTH_BACKOFF_FAIL_THRESHOLD = 3;
 const AUTH_BACKOFF_BASE_MS = 15 * 1000;
 const AUTH_BACKOFF_MAX_MS = 10 * 60 * 1000;
 const AUTH_BACKOFF_STORAGE_PREFIX = "novafix_auth_backoff_";
+const IS_MAC_OS = /mac|iphone|ipad|ipod/i.test(String(navigator.platform || navigator.userAgentData?.platform || navigator.userAgent || "").toLowerCase());
+const SHORTCUT_MOD_LABEL = IS_MAC_OS ? "Option" : "Alt";
+const CARD_SHORTCUTS = [
+  { cardIndex: 0, keys: ["a", "i"], label: "AI Companion" },
+  { cardIndex: 1, keys: ["r", "e"], label: "Reminders" },
+  { cardIndex: 2, keys: ["p", "r"], label: "Productivity" },
+  { cardIndex: 3, keys: ["g", "f"], label: "Grocery Financing" },
+  { cardIndex: 4, keys: ["m", "t"], label: "Mood Tracker" },
+  { cardIndex: 5, keys: ["w", "t"], label: "Water Intake" },
+  { cardIndex: 6, keys: ["s", "l"], label: "Sleep" },
+  { cardIndex: 7, keys: ["m", "u"], label: "Wellness Music" },
+  { cardIndex: 8, keys: ["t", "m"], label: "Time Traveller Mirror" },
+  { cardIndex: 9, keys: ["q", "t"], label: "Motivational Quotes" },
+  { cardIndex: 10, keys: ["g", "j"], label: "Gratitude Journal" },
+  { cardIndex: 11, keys: ["d", "c"], label: "Daily Challenge" },
+  { cardIndex: 12, keys: ["w", "s"], label: "Daily Wellness Score" },
+  { cardIndex: 13, keys: ["m", "c"], label: "Mood Crash Prevention" },
+  { cardIndex: 14, keys: ["w", "r"], label: "Weekly Review + AI Coach" },
+  { cardIndex: 15, keys: ["h", "q"], label: "Adaptive Habit Quest" },
+  { cardIndex: 16, keys: ["b", "r"], label: "Predictive Burnout Radar" },
+  { cardIndex: 17, keys: ["i", "s"], label: "Insights & Streaks" },
+  { cardIndex: 18, keys: ["d", "p"], label: "Personalized Daily Plan" },
+  { cardIndex: 19, keys: ["s", "r"], label: "Weekly Startup Report" },
+  { cardIndex: 20, keys: ["b", "g"], label: "Behavior Memory Graph" }
+];
 let welcomeGuideStepIndex = 0;
 let welcomeGuideUserId = "";
 let welcomeGuideCheckedThisSession = false;
@@ -3749,9 +4318,66 @@ const WELCOME_GUIDE_STEPS = [
   {
     title: "Account Controls",
     text: "Use the Account button to export/import data, change password, or clear app data when needed.",
-    tip: "You’re all set — click Finish and start your first check-in."
+    tip: "Tip: Account also contains your shortcuts box with OS-aware key combos."
+  },
+  {
+    title: "Keyboard Shortcuts",
+    text: "All dashboard cards have shortcuts. Hold {shortcut_mod}, then press two letters quickly to jump to a card, including Personalized Daily Plan, Weekly Startup Report, and Behavior Memory Graph.",
+    tip: "Shortcut list is shown below.",
+    showShortcutList: true
   }
 ];
+
+function formatShortcutAwareText(text = "") {
+  return String(text || "")
+    .replaceAll("{shortcut_mod}", SHORTCUT_MOD_LABEL);
+}
+
+function getShortcutDisplay(def) {
+  const keys = Array.isArray(def?.keys) ? def.keys : [];
+  const first = String(keys[0] || "").toUpperCase();
+  const second = String(keys[1] || "").toUpperCase();
+  return `${SHORTCUT_MOD_LABEL} + ${first} + ${second}`;
+}
+
+function getShortcutOverviewText() {
+  return CARD_SHORTCUTS
+    .map((def) => `${getShortcutDisplay(def)} -> ${def.label}`)
+    .join("\\n");
+}
+
+let keyboardShortcutsExpanded = false;
+
+function toggleKeyboardShortcutsVisibility() {
+  keyboardShortcutsExpanded = !keyboardShortcutsExpanded;
+  renderKeyboardShortcutsBox();
+}
+
+if (keyboardShortcutsToggleBtn) {
+  keyboardShortcutsToggleBtn.addEventListener("click", () => {
+    toggleKeyboardShortcutsVisibility();
+  });
+}
+
+function renderKeyboardShortcutsBox() {
+  if (keyboardShortcutsSubtitle) {
+    keyboardShortcutsSubtitle.innerText = `Showing ${IS_MAC_OS ? "macOS" : "Windows/Linux"} shortcuts for this device. Hold ${SHORTCUT_MOD_LABEL}, then press the two letters. Includes Personalized Daily Plan, Weekly Startup Report, and Behavior Memory Graph shortcuts.`;
+  }
+  if (!keyboardShortcutsList) return;
+  const visibleShortcuts = keyboardShortcutsExpanded ? CARD_SHORTCUTS : CARD_SHORTCUTS.slice(0, 3);
+  keyboardShortcutsList.innerHTML = visibleShortcuts.map((def) => `
+    <div class="friend-row">
+      <strong>${getShortcutDisplay(def)}</strong>
+      <small>Jump to ${def.label}.</small>
+    </div>
+  `).join("");
+
+  if (keyboardShortcutsToggleBtn) {
+    const canExpand = CARD_SHORTCUTS.length > 3;
+    keyboardShortcutsToggleBtn.style.display = canExpand ? "block" : "none";
+    keyboardShortcutsToggleBtn.innerText = keyboardShortcutsExpanded ? "Hide shortcuts" : "Show all shortcuts";
+  }
+}
 
 function getVerificationSentStorageKey(email) {
   return `novafix_verification_sent_${String(email || "").toLowerCase()}`;
@@ -3971,8 +4597,14 @@ function renderWelcomeGuideStep() {
   const current = WELCOME_GUIDE_STEPS[safeIndex];
   guideStepCounter.innerText = `Step ${safeIndex + 1}/${total}`;
   guideStepTitle.innerText = current.title;
-  guideStepText.innerText = current.text;
-  guideStepTip.innerText = current.tip;
+  guideStepText.innerText = formatShortcutAwareText(current.text);
+  if (current.showShortcutList) {
+    guideStepTip.style.whiteSpace = "pre-line";
+    guideStepTip.innerText = getShortcutOverviewText();
+  } else {
+    guideStepTip.style.whiteSpace = "normal";
+    guideStepTip.innerText = formatShortcutAwareText(current.tip);
+  }
   guideNextBtn.innerText = safeIndex === total - 1 ? "Finish" : "Next";
 
   guideDots.innerHTML = "";
@@ -3989,12 +4621,119 @@ function openWelcomeGuide(userId = "") {
   welcomeGuideStepIndex = 0;
   renderWelcomeGuideStep();
   welcomeGuideModal.style.display = "flex";
+  ensureAppBackGuardState("welcome-guide", true);
 }
 
 function closeWelcomeGuide() {
   if (!welcomeGuideModal) return;
   welcomeGuideModal.style.display = "none";
 }
+
+function isEditableElementActive() {
+  const active = document.activeElement;
+  if (!active) return false;
+  const tagName = String(active.tagName || "").toLowerCase();
+  if (tagName === "input" || tagName === "textarea" || tagName === "select") return true;
+  return !!active.isContentEditable;
+}
+
+const activeShortcutKeys = new Set();
+let activeShortcutLastKeyAt = 0;
+
+function resetActiveShortcutSequence() {
+  activeShortcutKeys.clear();
+  activeShortcutLastKeyAt = 0;
+}
+
+function getShortcutLetterFromEvent(event) {
+  const code = String(event?.code || "");
+  const match = code.match(/^Key([A-Z])$/);
+  if (!match) return "";
+  return String(match[1] || "").toLowerCase();
+}
+
+function activateCardShortcut(definition) {
+  if (!dashboard || getComputedStyle(dashboard).display === "none") return;
+  if (!definition) return;
+
+  const cards = dashboard.querySelectorAll(".card");
+  const card = cards[Number(definition.cardIndex)];
+  if (!card) return;
+
+  if (accountPanel && accountPanel.style.display === "block") {
+    closeAccountPanel();
+  }
+
+  card.scrollIntoView({ behavior: "smooth", block: "center" });
+  card.classList.remove("shortcut-focus");
+  void card.offsetWidth;
+  card.classList.add("shortcut-focus");
+  setTimeout(() => card.classList.remove("shortcut-focus"), 1250);
+
+  const firstFocusable = card.querySelector("input, textarea, select, button");
+  if (firstFocusable && typeof firstFocusable.focus === "function") {
+    setTimeout(() => {
+      try {
+        firstFocusable.focus({ preventScroll: true });
+      } catch (_) {
+        firstFocusable.focus();
+      }
+    }, 160);
+  }
+}
+
+function handleGlobalShortcut(event) {
+  if (!event.altKey) {
+    resetActiveShortcutSequence();
+    return;
+  }
+  if (isEditableElementActive() || event.repeat) return;
+
+  const letter = getShortcutLetterFromEvent(event);
+  if (!letter) return;
+
+  const now = Date.now();
+  const sequenceTimeoutMs = 1600;
+  if (now - activeShortcutLastKeyAt > sequenceTimeoutMs) {
+    resetActiveShortcutSequence();
+  }
+  activeShortcutLastKeyAt = now;
+
+  if (!activeShortcutKeys.has(letter)) {
+    activeShortcutKeys.add(letter);
+    if (activeShortcutKeys.size > 2) {
+      const currentKeys = Array.from(activeShortcutKeys);
+      activeShortcutKeys.clear();
+      activeShortcutKeys.add(currentKeys[currentKeys.length - 2]);
+      activeShortcutKeys.add(currentKeys[currentKeys.length - 1]);
+    }
+  }
+
+  if (activeShortcutKeys.size < 2) return;
+
+  const [first, second] = Array.from(activeShortcutKeys);
+  const matchedShortcut = CARD_SHORTCUTS.find((def) => def.keys[0] === first && def.keys[1] === second);
+  if (!matchedShortcut) return;
+
+  event.preventDefault();
+  activateCardShortcut(matchedShortcut);
+  resetActiveShortcutSequence();
+}
+
+function handleGlobalShortcutKeyup(event) {
+  const releasedKey = String(event.key || "").toLowerCase();
+  if (releasedKey === "alt") {
+    resetActiveShortcutSequence();
+  }
+}
+
+document.addEventListener("keydown", handleGlobalShortcut);
+document.addEventListener("keyup", handleGlobalShortcutKeyup);
+window.addEventListener("blur", () => {
+  resetActiveShortcutSequence();
+});
+
+renderKeyboardShortcutsBox();
 
 async function completeWelcomeGuide() {
   const activeUserId = String(welcomeGuideUserId || auth.currentUser?.uid || "");
@@ -4066,7 +4805,13 @@ async function maybeShowWelcomeGuide(userId) {
 }
 
 function toggleAuth(){
+  if (authMode === "signin") ensureAppBackGuardState("auth-signup", true);
   authMode=authMode==="signin"?"signup":"signin";
+  authEmailProviderCheckSequence += 1;
+  if (authEmailProviderCheckTimer) {
+    clearTimeout(authEmailProviderCheckTimer);
+    authEmailProviderCheckTimer = null;
+  }
   if (usernameLiveCheckTimer) {
     clearTimeout(usernameLiveCheckTimer);
     usernameLiveCheckTimer = null;
@@ -4083,6 +4828,7 @@ function toggleAuth(){
     toggleText.innerText="Already have an account? Sign In";
     usernameInput.style.display = "block";
     if (displayNameInput) displayNameInput.style.display = "block";
+    if (resetPasswordButton) resetPasswordButton.style.display = "none";
     setPageTitle("signup");
   } else {
     title.innerText="Welcome to NovaFix 🌟";
@@ -4090,6 +4836,7 @@ function toggleAuth(){
     googleAuthButton.innerText = "Sign In with Google";
     toggleText.innerText="Don't have an account? Sign Up";
     usernameInput.style.display = "none";
+    if (resetPasswordButton) resetPasswordButton.style.display = "block";
     if (displayNameInput) {
       displayNameInput.style.display = "none";
       displayNameInput.value = "";
@@ -4115,6 +4862,7 @@ async function resendVerificationEmailFromModal() {
   }
 
   try {
+    showAuthModalError("Hang on, resending verification email...", "auth_progress", "#9fd0ff");
     const credential = await signInWithEmailAndPassword(auth, email, password);
     await credential.user.reload();
 
@@ -4142,6 +4890,8 @@ async function resendVerificationEmailFromModal() {
     error.style.display = "block";
     error.style.color = "#ff6b6b";
     error.innerText = err?.message || "Could not resend verification email.";
+  } finally {
+    clearAuthProgressMessage();
   }
 }
 
@@ -4184,6 +4934,11 @@ async function handleAuth() {
   }
 
   try {
+    showAuthModalError(
+      authMode === "signup" ? "Hang on, signing up..." : "Hang on, signing in...",
+      "auth_progress",
+      "#9fd0ff"
+    );
     if (authMode === "signup") {
       try {
         const usernameExists = await usernameExistsLiveInFirestore(usernameKey);
@@ -4240,6 +4995,7 @@ async function handleAuth() {
       googleAuthButton.innerText = "Sign In with Google";
       toggleText.innerText = "Don't have an account? Sign Up";
       usernameInput.style.display = "none";
+      if (resetPasswordButton) resetPasswordButton.style.display = "block";
       if (displayNameInput) {
         displayNameInput.style.display = "none";
         displayNameInput.value = "";
@@ -4291,6 +5047,14 @@ async function handleAuth() {
       || code === "auth/wrong-password"
       || code === "auth/invalid-email";
 
+    if (authMode === "signin" && credentialError) {
+      const googleOnlyEmail = await isGoogleOnlySignInEmail(email);
+      if (googleOnlyEmail) {
+        showAuthModalError("This email was signed up with Google. Use Sign In with Google to continue.", "credentials");
+        return;
+      }
+    }
+
     if (authMode === "signin") {
       const authFailure = credentialError || code === "auth/too-many-requests";
 
@@ -4320,16 +5084,24 @@ async function handleAuth() {
 
     showAuthModalError(err?.message || "Could not sign in right now.");
   } finally {
+    clearAuthProgressMessage();
     if (startedSignupAuthFlow) {
       signupFlowInProgress = false;
     }
   }
 }
 
-function signOutUser() {
+async function signOutUser() {
   closeAccountPanel();
   closeAddFriendModal(null, true);
-  signOut(auth);
+  const pendingToastId = showPendingToast("Hang on, signing out...");
+  try {
+    await signOut(auth);
+  } catch (_) {
+    showToast("Could not sign out right now.");
+  } finally {
+    clearPendingToast(pendingToastId);
+  }
 }
 
 async function handleGoogleAuth() {
@@ -4343,6 +5115,7 @@ async function handleGoogleAuth() {
   }
 
   try {
+    showAuthModalError("Hang on, signing in with Google...", "auth_progress", "#9fd0ff");
     markPendingRequestLoginAlertForNextSessionStart();
     await signInWithPopup(auth, googleProvider);
   } catch (err) {
@@ -4354,6 +5127,8 @@ async function handleGoogleAuth() {
     error.innerText = isUnauthorizedDomain
       ? `Unauthorized domain. Current origin: ${currentOrigin}. Add '${currentHost}' in Firebase Auth > Settings > Authorized domains, then hard refresh.`
       : (err.message || "Google authentication failed.");
+  } finally {
+    clearAuthProgressMessage();
   }
 }
 
@@ -4370,6 +5145,7 @@ async function sendResetPasswordEmail() {
   }
 
   try {
+    showAuthModalError("Hang on, sending reset password email...", "auth_progress", "#9fd0ff");
     const methods = await fetchSignInMethodsForEmail(auth, email);
     if (methods.includes("google.com") && !methods.includes("password")) {
       error.style.display = "block";
@@ -4390,6 +5166,8 @@ async function sendResetPasswordEmail() {
     error.style.color = "#ff6b6b";
     error.innerText = err?.message || "Could not send reset email.";
     console.error("Reset password error:", err?.code || err);
+  } finally {
+    clearAuthProgressMessage();
   }
 }
 
@@ -4406,9 +5184,13 @@ async function sendAccountResetPasswordEmail() {
     return;
   }
 
+  let pendingToastId = 0;
   try {
+    pendingToastId = showPendingToast("Hang on, sending reset password email...");
     const methods = await fetchSignInMethodsForEmail(auth, email);
     if (methods.includes("google.com") && !methods.includes("password")) {
+      clearPendingToast(pendingToastId);
+      pendingToastId = 0;
       showToast("This account uses Google sign-in, so no password reset is needed.");
       return;
     }
@@ -4417,10 +5199,21 @@ async function sendAccountResetPasswordEmail() {
     if (!resetResult.ok) {
       throw resetResult.error;
     }
+    clearPendingToast(pendingToastId);
+    pendingToastId = 0;
     showToast(`Password reset email sent to ${email}.`);
   } catch (err) {
     console.error("Account reset password error:", err?.code || err);
+    clearPendingToast(pendingToastId);
+    pendingToastId = 0;
     showToast(err?.message || "Could not send reset email.");
+  } finally {
+    clearPendingToast(pendingToastId);
+    if (!pendingToastId) {
+      setTimeout(() => {
+        if (activePendingToastId === 0) hideToast();
+      }, 0);
+    }
   }
 }
 
@@ -4431,30 +5224,44 @@ async function editAccountDisplayName() {
     return;
   }
 
+  const cooldownRemaining = Math.max(0, displayNameEditCooldownUntilMs - getServerNowDate().getTime());
+  if (cooldownRemaining > 0) {
+    setAccountDisplayNameError(`Display name can be changed again in ${formatDisplayNameCooldownClock(cooldownRemaining)}.`);
+    return;
+  }
+
   const currentDisplayName = normalizeDisplayNameValue(accountDisplayName?.innerText || user.displayName || "")
     || "";
-  const nextRaw = prompt(
-    "Enter display name (1-20 chars; letters, numbers, spaces, underscores, dashes).",
-    currentDisplayName
-  );
-  if (nextRaw === null) return;
+  let nextDisplayName = "";
+  let promptSeed = currentDisplayName;
+  while (true) {
+    const nextRaw = prompt(
+      "Enter display name (1-20 chars; letters, numbers, spaces, underscores, dashes).",
+      promptSeed
+    );
+    if (nextRaw === null) return;
 
-  const nextTrimmed = String(nextRaw || "").trim();
-  if (!nextTrimmed) {
-    showToast("Display name is required.");
-    return;
-  }
+    const nextTrimmed = String(nextRaw || "").trim();
+    if (!nextTrimmed) {
+      alert("Display name is required.");
+      promptSeed = "";
+      continue;
+    }
 
-  const validation = validateSignupDisplayName(nextTrimmed);
-  if (!validation.ok) {
-    showToast(validation.message || "Invalid display name.");
-    return;
-  }
+    const validation = validateSignupDisplayName(nextTrimmed);
+    if (!validation.ok) {
+      alert(validation.message || "Invalid display name.");
+      promptSeed = nextTrimmed;
+      continue;
+    }
 
-  const nextDisplayName = validation.normalized || normalizeDisplayNameValue(nextTrimmed);
-  if (!nextDisplayName) {
-    showToast("Display name is required.");
-    return;
+    nextDisplayName = validation.normalized || normalizeDisplayNameValue(nextTrimmed);
+    if (!nextDisplayName) {
+      alert("Display name is required.");
+      promptSeed = nextTrimmed;
+      continue;
+    }
+    break;
   }
 
   if (nextDisplayName === currentDisplayName) {
@@ -4465,10 +5272,21 @@ async function editAccountDisplayName() {
   try {
     await updateProfile(user, { displayName: nextDisplayName });
     if (accountDisplayName) accountDisplayName.innerText = nextDisplayName;
+    setAccountDisplayNameError("");
+
+    const cooldownUntilMs = getServerNowDate().getTime() + DISPLAY_NAME_EDIT_COOLDOWN_MS;
+    startDisplayNameEditCooldown(DISPLAY_NAME_EDIT_COOLDOWN_MS);
 
     await upsertUserDirectoryProfile(user, {
       displayName: nextDisplayName
     });
+
+    await setDoc(doc(db, "users", user.uid, "settings", "profile"), {
+      displayName: nextDisplayName,
+      displayNameDashboardChangedAt: serverTimestamp(),
+      displayNameDashboardCooldownUntilMs: cooldownUntilMs,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
 
     const socialProfile = buildUserSocialProfileSnapshot(user);
     await Promise.allSettled([
@@ -4522,6 +5340,7 @@ function startAddFriendRequest() {
     return;
   }
   if (addFriendModal) addFriendModal.style.display = "flex";
+  ensureAppBackGuardState("add-friend", true);
   setAddFriendBusy(false);
   setAddFriendError("");
   if (addFriendEmailInput) {
@@ -4857,8 +5676,7 @@ function normalizeUsernameForLookup(usernameValue) {
   return withoutAt
     .replace(/\s+/g, "")
     .replace(/\./g, "")
-    .trim()
-    .toLowerCase();
+    .trim();
 }
 
 function buildUsernameSeedFromDisplayName(displayNameValue) {
@@ -4964,7 +5782,7 @@ async function resolveUserDirectoryByUsername(usernameValue, options = {}) {
   const rawInput = String(usernameValue || "").trim();
   const rawWithoutAt = rawInput.startsWith("@") ? rawInput.slice(1).trim() : rawInput;
   const usernameKey = normalizeUsernameForLookup(usernameValue);
-  const legacyDottedKey = rawWithoutAt.replace(/\s+/g, "").trim().toLowerCase();
+  const legacyDottedKey = rawWithoutAt.replace(/\s+/g, "").trim();
   const forceRefresh = !!options?.forceRefresh;
   const preferServer = !!options?.preferServer;
   if (!usernameKey) return null;
@@ -5247,7 +6065,7 @@ async function claimUsernameDirectoryEntry(userId, usernameValue, emailValue, di
     const staleEntries = [...staleMap.values()];
     if (staleEntries.length) {
       await Promise.all(staleEntries.map((docSnap) => {
-        const staleKey = String(docSnap.id || "").trim().toLowerCase();
+        const staleKey = String(docSnap.id || "").trim();
         if (staleKey) usernameDirectoryCache.delete(staleKey);
         return deleteDoc(docSnap.ref);
       }));
@@ -5676,23 +6494,19 @@ function renderFriendMetricCardInsights() {
 
   if (sleepFriendInsight) {
     const myToday = Number(myMetrics.sleepToday) || 0;
-    const hasFriendToday = compareProfiles.some((profile) => (Number(profile?.metrics?.sleepToday) || 0) > 0);
-    const useToday = myToday > 0 || hasFriendToday;
-    const sleepUnit = useToday ? "h today" : "h/night";
+    const sleepUnit = "h today";
     const sleepFriends = compareProfiles.map((profile, index) => ({
       name: friendNames[index],
-      value: useToday
-        ? (Number(profile?.metrics?.sleepToday) || 0)
-        : (Number(profile?.metrics?.avgSleepHours) || 0)
+      value: Number(profile?.metrics?.sleepToday) || 0
     }));
-    const myValue = useToday ? myToday : (Number(myMetrics.avgSleepHours) || 0);
+    const myValue = myToday;
     sleepFriendInsight.innerText = buildNumericFriendComparisonText({
       friends: sleepFriends,
       myValue,
       unit: sleepUnit,
       digits: 1,
       leadThreshold: 0.3,
-      noDataMessage: "no sleep comparison yet. Log sleep for a few days to unlock this benchmark"
+      noDataMessage: "no sleep comparison yet. Log sleep today to start today-only comparison"
     });
   }
 
@@ -5717,7 +6531,7 @@ function renderFriendMetricCardInsights() {
 
     const availableMoodRows = moodRows.filter((entry) => (Number(entry.value) || 0) > 0);
     if (!availableMoodRows.length && !(Number(myValue) > 0)) {
-      moodFriendInsight.innerText = "no mood comparison yet. Add a mood check-in and track your average mood of the day";
+      moodFriendInsight.innerText = `${header}: No mood comparison yet. Add a mood check-in and track your average mood of the day.`;
     } else {
       const myComparable = Number((Number(myValue) || 0).toFixed(2));
       const topComparable = Math.max(
@@ -5757,19 +6571,38 @@ function renderFriendMetricCardInsights() {
   }
 
   if (gratitudeFriendInsight) {
-    const gratitudeFriends = compareProfiles.map((profile, index) => ({
+    const gratitudeRows = compareProfiles.map((profile, index) => ({
       name: friendNames[index],
-      value: Number(profile?.metrics?.gratitudeToday) || 0
+      count: Math.max(0, Number(profile?.metrics?.gratitudeToday) || 0)
     }));
-    const myValue = Number(myMetrics.gratitudeToday) || 0;
-    gratitudeFriendInsight.innerText = buildNumericFriendComparisonText({
-      friends: gratitudeFriends,
-      myValue,
-      unit: "gratitude notes today",
-      digits: 0,
-      leadThreshold: 0,
-      noDataMessage: "no gratitude comparison yet. Add one gratitude note now to start your consistency streak"
-    });
+    const myCount = Math.max(0, Number(myMetrics.gratitudeToday) || 0);
+    const allCounts = [myCount, ...gratitudeRows.map((entry) => entry.count)];
+    const hasAnyData = allCounts.some((value) => value > 0);
+
+    if (!hasAnyData) {
+      gratitudeFriendInsight.innerText = `${header}: no gratitude comparison yet. Add one gratitude note now to start your consistency streak.`;
+    } else {
+      const friendSummary = gratitudeRows
+        .map((entry) => `${entry.name} wrote ${entry.count} gratitude note${entry.count === 1 ? "" : "s"} today`)
+        .join("; ");
+
+      const topFriendCount = Math.max(0, ...gratitudeRows.map((entry) => entry.count));
+      const leaders = gratitudeRows
+        .filter((entry) => entry.count === topFriendCount && topFriendCount > 0)
+        .map((entry) => entry.name);
+
+      let motivation = "Great consistency. Keep logging one more gratitude note to build momentum.";
+      if (myCount > topFriendCount) {
+        motivation = "You are ahead right now. Keep the streak strong and inspire your circle.";
+      } else if (myCount === topFriendCount && topFriendCount > 0) {
+        motivation = `You are tied with ${formatLeaderNames(leaders)}. One more gratitude note puts you in front.`;
+      } else if (myCount < topFriendCount) {
+        const gap = topFriendCount - myCount;
+        motivation = `${formatLeaderNames(leaders)} ${leaders.length > 1 ? "are" : "is"} ahead by ${gap} note${gap === 1 ? "" : "s"}. Add one now and close the gap.`;
+      }
+
+      gratitudeFriendInsight.innerText = `${header}: You wrote ${myCount} gratitude note${myCount === 1 ? "" : "s"} today; ${friendSummary}. ${motivation}`;
+    }
   }
 
   if (dailyChallengeFriendInsight) {
@@ -5844,14 +6677,27 @@ function renderFriendMetricCardInsights() {
 }
 
 function renderFriendRequests(rows) {
+  const safeRows = Array.isArray(rows) ? rows : [];
+
+  const accountOpen = !!(accountPanel && accountPanel.style.display === "block");
+  if (acknowledgeFriendRequestsOnNextRender || accountOpen) {
+    safeRows.forEach((entry) => {
+      const key = buildFriendRequestSeenKey(entry);
+      if (!seenFriendRequestKeys.has(key)) seenFriendRequestKeys.add(key);
+    });
+    acknowledgeFriendRequestsOnNextRender = false;
+  }
+
+  const unseenCount = safeRows.filter((entry) => !seenFriendRequestKeys.has(buildFriendRequestSeenKey(entry))).length;
+  if (accountBtn) accountBtn.classList.toggle("has-pending-request", unseenCount > 0 && !accountOpen);
   if (!friendRequestsList) return;
-  if (!rows.length) {
+  if (!safeRows.length) {
     friendRequestsList.innerHTML = `<div class="friend-row"><small>No pending requests yet.</small></div>`;
     return;
   }
 
   friendRequestsList.innerHTML = "";
-  rows.forEach((entry) => {
+  safeRows.forEach((entry) => {
     const row = document.createElement("div");
     row.className = "friend-row";
     const senderDisplayName = escapeHtml(getFriendDisplayName({
@@ -6163,9 +7009,7 @@ async function loadSentFriendRequests(userId) {
         const terminalQueueStatus = isTerminalFriendRequestStatus(queueStatus);
         if (terminalQueueStatus
           && !nonceMismatch
-          && !missingQueueNonceForKnownSent
-          && queueStatusUpdatedAtMs > 0
-          && queueStatusUpdatedAtMs >= sentEntryUpdatedAtMs) {
+          && !missingQueueNonceForKnownSent) {
           statusSyncUpdates.push(setDoc(entry.ref, {
             status: queueStatus,
             updatedAt: serverTimestamp(),
@@ -6329,6 +7173,24 @@ async function unfriendByUid(friendUid) {
     } catch (_) {
       friendEmail = "";
     }
+
+    // Persistent local block so background self-heal/history recovery cannot resurrect this friendship.
+    await setDoc(doc(db, "users", user.uid, "friendUnfriended", safeFriendUid), {
+      friendUid: safeFriendUid,
+      status: "unfriended",
+      unfriendedBy: user.uid,
+      unfriendedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }, { merge: true }).catch(() => {});
+
+    // Best-effort remote block so reverse-side recovery also stays blocked.
+    await setDoc(doc(db, "users", safeFriendUid, "friendUnfriended", user.uid), {
+      friendUid: user.uid,
+      status: "unfriended",
+      unfriendedBy: user.uid,
+      unfriendedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }, { merge: true }).catch(() => {});
 
     // Local safety mark: if delete is blocked/transient, this keeps it hidden from accepted-only views.
     await setDoc(doc(db, "users", user.uid, "friends", safeFriendUid), {
@@ -6768,6 +7630,32 @@ async function loadFriendRequests(userId, showLoginAlert = false) {
       };
     });
 
+    await loadSeenFriendRequestKeysForUser(userId);
+    const pendingKeys = new Set(rows.map((entry) => buildFriendRequestSeenKey(entry)));
+    let seenSetChanged = false;
+
+    [...seenFriendRequestKeys].forEach((key) => {
+      if (!pendingKeys.has(key)) {
+        seenFriendRequestKeys.delete(key);
+        seenSetChanged = true;
+      }
+    });
+
+    if (acknowledgeFriendRequestsOnNextRender || (accountPanel && accountPanel.style.display === "block")) {
+      rows.forEach((entry) => {
+        const key = buildFriendRequestSeenKey(entry);
+        if (!seenFriendRequestKeys.has(key)) {
+          seenFriendRequestKeys.add(key);
+          seenSetChanged = true;
+        }
+      });
+      acknowledgeFriendRequestsOnNextRender = false;
+    }
+
+    if (seenSetChanged) {
+      await persistSeenFriendRequestKeysForUser(userId);
+    }
+
     renderFriendRequests(rows);
     if (rows.length && showLoginAlert && !friendRequestLoginAlertShown) {
       friendRequestLoginAlertShown = true;
@@ -6816,6 +7704,20 @@ async function loadFriendsInsights(userId) {
       if (candidateSignal > currentSignal) return candidate;
       return current;
     };
+    let locallyUnfriendedFriendUids = new Set();
+    try {
+      const unfriendedSnap = await getDocs(collection(db, "users", userId, "friendUnfriended"));
+      locallyUnfriendedFriendUids = new Set(
+        unfriendedSnap.docs
+          .map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() || {}) }))
+          .filter((entry) => String(entry.status || "unfriended").trim().toLowerCase() === "unfriended")
+          .map((entry) => String(entry.friendUid || entry.id || "").trim())
+          .filter(Boolean)
+      );
+    } catch (_) {
+      locallyUnfriendedFriendUids = new Set();
+    }
+
     const friendsSnap = await getDocs(collection(db, "users", userId, "friends"));
     const persistedFriends = friendsSnap.docs
       .map((docSnap) => {
@@ -6829,7 +7731,17 @@ async function loadFriendsInsights(userId) {
         };
       });
     let friends = persistedFriends
-      .filter((entry) => String(entry.status || "accepted") === "accepted" && !!entry.friendUid);
+      .filter((entry) => String(entry.status || "accepted") === "accepted" && !!entry.friendUid)
+      .filter((entry) => !locallyUnfriendedFriendUids.has(String(entry.friendUid || "").trim()));
+
+    // Clean up resurrected local docs that were re-added by stale remote self-heal/history flows.
+    if (locallyUnfriendedFriendUids.size) {
+      await Promise.all([...locallyUnfriendedFriendUids].map((blockedUid) => {
+        if (!blockedUid) return Promise.resolve();
+        return deleteDoc(doc(db, "users", userId, "friends", blockedUid)).catch(() => {});
+      }));
+    }
+
     const persistedFriendUids = new Set(friends.map((entry) => String(entry.friendUid || "")).filter(Boolean));
 
     // Self-heal one-sided friendships: if I have an accepted friend doc,
@@ -6856,7 +7768,7 @@ async function loadFriendsInsights(userId) {
 
     let queueFriends = [];
     const latestQueueProfileByFriendUid = new Map();
-    const unfriendedFriendUids = new Set();
+    const unfriendedFriendUids = new Set(locallyUnfriendedFriendUids);
     try {
       const [sentAcceptedSnap, receivedAcceptedSnap, receivedAcceptedByEmailSnap] = await Promise.all([
         getDocs(query(
@@ -7166,8 +8078,15 @@ async function loadFriendsInsights(userId) {
       // Always check remote social profile and choose the fresher signal source.
       // This prevents stale sharedProfile rows from hiding recent mood updates.
       try {
-        const profileSnap = await getDoc(doc(db, "users", entry.friendUid, "social", "profile"));
-        if (profileSnap.exists()) {
+        const profileRef = doc(db, "users", entry.friendUid, "social", "profile");
+        let profileSnap = null;
+        try {
+          profileSnap = await getDocFromServer(profileRef);
+        } catch (_) {
+          profileSnap = await getDoc(profileRef).catch(() => null);
+        }
+
+        if (profileSnap?.exists && profileSnap.exists()) {
           const remoteProfile = profileSnap.data() || null;
           if (!profile) {
             profile = remoteProfile;
@@ -7444,6 +8363,10 @@ async function submitAddFriendRequest() {
     }
 
     if (targetUid) {
+      const localUnfriendedSnap = await getDoc(doc(db, "users", user.uid, "friendUnfriended", targetUid)).catch(() => null);
+      const localUnfriendedStatus = String(localUnfriendedSnap?.data?.()?.status || "").trim().toLowerCase();
+      const locallyUnfriended = localUnfriendedSnap?.exists?.() && localUnfriendedStatus === "unfriended";
+
       const existingFriend = await getDoc(doc(db, "users", user.uid, "friends", targetUid));
       if (existingFriend.exists()) {
         const existingFriendData = existingFriend.data() || {};
@@ -7456,7 +8379,7 @@ async function submitAddFriendRequest() {
 
         const activeFriendByDoc = existingFriendStatus === "accepted";
         const queueMarkedUnfriended = queueStatus === "unfriended";
-        if (activeFriendByDoc && !queueMarkedUnfriended) {
+        if (activeFriendByDoc && !queueMarkedUnfriended && !locallyUnfriended) {
           await loadFriendsInsights(user.uid);
           closeAddFriendModal(null, true);
           showToast("You are already friends with this account.");
@@ -7795,6 +8718,10 @@ async function respondToFriendRequest(requestEntry, action) {
 
       requestData.fromProfile = senderProfileSnapshot;
       requestData.toProfile = myProfileSnapshot;
+
+      // Explicit accept re-opens this relationship after a previous unfriend block.
+      await deleteDoc(doc(db, "users", user.uid, "friendUnfriended", fromUid)).catch(() => {});
+      await deleteDoc(doc(db, "users", fromUid, "friendUnfriended", user.uid)).catch(() => {});
     }
 
     // Keep queue docs in sync so accepted/declined state is visible to both users.
@@ -7911,6 +8838,8 @@ const moodHistory=[],waterHistory=[],sleepHistory=[];
 const moodDates=[];
 const waterDates=[];
 const sleepDates=[];
+const musicSessionDates=[];
+const musicSessionDayKeys = new Set();
 const taskEntries=[];
 const gratitudeEntries=[];
 const rescueEvents=[];
@@ -7931,7 +8860,8 @@ const aiSessionState = {
   },
   lastSnapshot: null,
   conversationSummary: "",
-  topicHistory: []
+  topicHistory: [],
+  memoryPairs: []
 };
 const AI_MODE_PRESETS = {
   balanced: { depth: 2, style: "balanced" },
@@ -7943,13 +8873,22 @@ const AI_MODE_PRESETS = {
 let aiReasoningMode = "ultra";
 const AI_CASUAL_MODE = true;
 const AI_CLARIFY_INTENT_THRESHOLD = 0.74;
-const AI_COMMAND_HELP_LINE = "I can also do: add task ..., complete task 2, reopen task 2, set water goal 8, I drank 2 glasses just now, log mood stressed, log mood angry, log sleep 7h, set reminder call mom in 30 sec, set reminder call mom in 2 months, list tasks, list reminders, delete reminder 1, clear chat, what is my name, i have exam next month.";
+const AI_COMMAND_HELP_LINE = "I can help with logging tasks, water, mood, sleep, reminders, and quick account actions.";
 const challengeDates=[];
 let dailyChallengeCompleted=false;
 let currentChallengeText="";
 let currentChallengeDateKey="";
 let challengeWatcherInterval=null;
 let friendInsightsWatcherIntervalId = null;
+let friendRealtimeUnsubscribers = [];
+let friendRealtimeRefreshTimerId = null;
+let friendRealtimeRefreshInFlight = false;
+let friendRealtimeRefreshQueued = false;
+let seenFriendRequestKeys = new Set();
+let acknowledgeFriendRequestsOnNextRender = false;
+let seenFriendRequestKeysLoadedForUid = "";
+let seenFriendRequestKeysLoadingForUid = "";
+let seenFriendRequestKeysLoadPromise = null;
 let dailyChallengeResetTimeoutId = null;
 let weeklyGraphResetTimeoutId = null;
 let weeklyGraphCountdownIntervalId = null;
@@ -8017,8 +8956,18 @@ let persistedBehaviorPatterns = null;
 const reminderIntervals = new Map();
 let uxToastTimer = null;
 let uxToastActionHandler = null;
+let pendingToastCounter = 0;
+let activePendingToastId = 0;
+let activePendingToastShownAtMs = 0;
 let pendingAiClearOperation = null;
 let pendingWaterClearOperation = null;
+let bedtimeReminderTimeoutId = null;
+let bedtimeReminderLastTriggeredKey = "";
+let bedtimeSettings = {
+  timeText: "",
+  meridiem: "",
+  enabled: false
+};
 let aiChatSubmitting = false;
 let aiAbuseStrikeCount = 0;
 let aiAbuseCooldownUntilMs = 0;
@@ -8031,9 +8980,13 @@ let sleepSubmitting = false;
 let gratitudeSubmitting = false;
 let importTransferSubmitting = false;
 let addFriendSubmitting = false;
+let importBackoffCooldownEmail = "";
+let importBackoffCooldownIntervalId = null;
 let friendRequestLoginAlertShown = false;
 let friendInsightProfiles = [];
 let lastFriendQueueProfileSyncAt = 0;
+let pendingFriendProfileSyncTimer = null;
+let pendingFriendProfileSnapshot = null;
 let sentRequestExpiryTicker = null;
 let reverseFriendRequestPromptResolver = null;
 let reverseFriendRequestPromptBusy = false;
@@ -8042,6 +8995,74 @@ const userDirectoryIdentityCache = new Map();
 const usernameDirectoryCache = new Map();
 let exportCooldownUntilMs = 0;
 let exportCooldownIntervalId = null;
+let displayNameEditCooldownUntilMs = 0;
+let displayNameEditCooldownIntervalId = null;
+
+function buildFriendRequestSeenKey(entry) {
+  const source = entry && typeof entry === "object" ? entry : {};
+  const requestId = String(source.requestId || source.id || "").trim();
+  if (requestId) return `id:${requestId}`;
+  const uid = String(source.fromUid || "").trim();
+  const email = String(source.fromEmail || "").trim().toLowerCase();
+  const createdAtMs = Number(source.createdAtMs) || getOptionalTimestampMs(source.createdAt) || 0;
+  return `actor:${uid}|${email}|${createdAtMs}`;
+}
+
+async function loadSeenFriendRequestKeysForUser(userId) {
+  const safeUid = String(userId || "").trim();
+  if (!safeUid) {
+    seenFriendRequestKeys = new Set();
+    seenFriendRequestKeysLoadedForUid = "";
+    seenFriendRequestKeysLoadingForUid = "";
+    seenFriendRequestKeysLoadPromise = null;
+    return;
+  }
+  if (seenFriendRequestKeysLoadedForUid === safeUid) return;
+  if (seenFriendRequestKeysLoadingForUid === safeUid && seenFriendRequestKeysLoadPromise) {
+    await seenFriendRequestKeysLoadPromise;
+    return;
+  }
+
+  seenFriendRequestKeysLoadingForUid = safeUid;
+  seenFriendRequestKeysLoadPromise = (async () => {
+    const loadedKeys = new Set();
+    try {
+      const seenSnap = await getDoc(doc(db, "users", safeUid, "settings", "friendRequestDot"));
+      if (seenSnap.exists()) {
+        const parsed = seenSnap.data()?.seenKeys;
+        if (Array.isArray(parsed)) {
+          parsed.forEach((key) => {
+            const safeKey = String(key || "").trim();
+            if (safeKey) loadedKeys.add(safeKey);
+          });
+        }
+      }
+    } catch (_) {}
+
+    if (seenFriendRequestKeysLoadingForUid === safeUid) {
+      seenFriendRequestKeys = loadedKeys;
+      seenFriendRequestKeysLoadedForUid = safeUid;
+      seenFriendRequestKeysLoadingForUid = "";
+      seenFriendRequestKeysLoadPromise = null;
+    }
+  })();
+
+  await seenFriendRequestKeysLoadPromise;
+}
+
+async function persistSeenFriendRequestKeysForUser(userId) {
+  const safeUid = String(userId || "").trim();
+  if (!safeUid) return;
+  try {
+    const seenKeys = [...seenFriendRequestKeys].slice(-300);
+    await setDoc(doc(db, "users", safeUid, "settings", "friendRequestDot"), {
+      seenKeys,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  } catch (_) {}
+}
+
+const DISPLAY_NAME_EDIT_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 
 const AI_ABUSE_COOLDOWN_MS = 2 * 60 * 1000;
 const AI_ABUSE_TERMS = ["fuck", "fuk", "fucc", "shit", "bitch", "asshole", "bastard", "motherfucker", "niga", "fucker"];
@@ -8190,10 +9211,52 @@ function showToast(message, options = {}) {
 
   uxToast.style.display = "flex";
   uxToastTimer = setTimeout(() => {
-    uxToast.style.display = "none";
-    uxToastTimer = null;
-    uxToastActionHandler = null;
+    hideToast();
   }, duration);
+}
+
+function hideToast() {
+  if (!uxToast) return;
+  uxToast.style.display = "none";
+  if (uxToastTimer) {
+    clearTimeout(uxToastTimer);
+    uxToastTimer = null;
+  }
+  uxToastActionHandler = null;
+  if (uxToastAction) {
+    uxToastAction.style.display = "none";
+    uxToastAction.innerText = "";
+  }
+}
+
+function showPendingToast(message) {
+  pendingToastCounter += 1;
+  activePendingToastId = pendingToastCounter;
+  activePendingToastShownAtMs = Date.now();
+  showToast(message, { duration: 600000 });
+  return activePendingToastId;
+}
+
+function clearPendingToast(pendingId) {
+  if (!pendingId) return;
+  if (activePendingToastId !== pendingId) return;
+
+  const minVisibleMs = 900;
+  const elapsedMs = Date.now() - Number(activePendingToastShownAtMs || 0);
+  const waitMs = Math.max(0, minVisibleMs - elapsedMs);
+
+  const finalize = () => {
+    if (activePendingToastId !== pendingId) return;
+    activePendingToastId = 0;
+    activePendingToastShownAtMs = 0;
+    hideToast();
+  };
+
+  if (waitMs > 0) {
+    setTimeout(finalize, waitMs);
+    return;
+  }
+  finalize();
 }
 
 if (uxToastAction) {
@@ -8203,12 +9266,69 @@ if (uxToastAction) {
       uxToastActionHandler = null;
       handler();
     }
-    if (uxToast) uxToast.style.display = "none";
-    if (uxToastTimer) {
-      clearTimeout(uxToastTimer);
-      uxToastTimer = null;
-    }
+    hideToast();
   };
+}
+
+if (wellnessMusicFrame && wellnessMusicStatus) {
+  let userStartedMusic = false;
+  let musicEmbedLoaded = false;
+  let musicStatusClearTimer = 0;
+
+  const setMusicCardStatus = (message) => {
+    if (!wellnessMusicStatus) return;
+    wellnessMusicStatus.textContent = message || "";
+  };
+
+  const clearMusicCardStatusSoon = (delayMs = 2400) => {
+    if (musicStatusClearTimer) clearTimeout(musicStatusClearTimer);
+    musicStatusClearTimer = window.setTimeout(() => {
+      setMusicCardStatus("");
+      musicStatusClearTimer = 0;
+    }, Math.max(0, Number(delayMs) || 0));
+  };
+
+  const logMusicSessionIntent = async () => {
+    const user = auth.currentUser;
+    if (!user?.uid) return;
+    const dayKey = getTodayKey();
+    if (!dayKey || musicSessionDayKeys.has(dayKey)) return;
+
+    musicSessionDayKeys.add(dayKey);
+    musicSessionDates.push(getServerNowDate());
+    updateWeeklyReview();
+
+    try {
+      await setDoc(doc(db, "users", user.uid, "musicSessions", dayKey), {
+        dayKey,
+        played: true,
+        time: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+    } catch (_) {}
+  };
+
+  const onUserMusicIntent = () => {
+    if (userStartedMusic) return;
+    userStartedMusic = true;
+    void logMusicSessionIntent();
+    if (musicEmbedLoaded) {
+      setMusicCardStatus("Playing music.");
+      clearMusicCardStatusSoon();
+      return;
+    }
+    setMusicCardStatus("Hang on, loading music...");
+  };
+
+  wellnessMusicFrame.addEventListener("load", () => {
+    musicEmbedLoaded = true;
+    if (!userStartedMusic) return;
+    setMusicCardStatus("Playing music.");
+    clearMusicCardStatusSoon();
+  });
+
+  wellnessMusicFrame.addEventListener("pointerdown", onUserMusicIntent, { passive: true });
+  wellnessMusicFrame.addEventListener("focus", onUserMusicIntent);
 }
 
 function setEmptyState(containerEl, message) {
@@ -8320,6 +9440,21 @@ function formatCountdownClock(milliseconds) {
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function formatDisplayNameCooldownClock(milliseconds) {
+  const safeMs = Math.max(0, Number(milliseconds) || 0);
+  const totalSeconds = Math.floor(safeMs / 1000);
+  if (totalSeconds >= 86400) {
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    return `${days}d ${hours}h ${String(minutes).padStart(2, "0")}m`;
+  }
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${hours}h ${minutes}m ${seconds}s`;
 }
 
 function getDailyResetCountdownText() {
@@ -8879,16 +10014,20 @@ function isInRange(dateValue, startDate, endDate) {
 
 function getWeekRanges() {
   const now = getServerNowDate();
-  const currentEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
-  const currentStart = new Date(currentEnd);
-  currentStart.setUTCDate(currentStart.getUTCDate() - 6);
-  currentStart.setUTCHours(0, 0, 0, 0);
+  const currentStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+  currentStart.setUTCDate(currentStart.getUTCDate() - currentStart.getUTCDay());
 
-  const previousEnd = new Date(currentStart);
-  previousEnd.setMilliseconds(previousEnd.getMilliseconds() - 1);
-  const previousStart = new Date(previousEnd);
-  previousStart.setUTCDate(previousStart.getUTCDate() - 6);
+  const currentEnd = new Date(currentStart);
+  currentEnd.setUTCDate(currentStart.getUTCDate() + 6);
+  currentEnd.setUTCHours(23, 59, 59, 999);
+
+  const previousStart = new Date(currentStart);
+  previousStart.setUTCDate(currentStart.getUTCDate() - 7);
   previousStart.setUTCHours(0, 0, 0, 0);
+
+  const previousEnd = new Date(previousStart);
+  previousEnd.setUTCDate(previousStart.getUTCDate() + 6);
+  previousEnd.setUTCHours(23, 59, 59, 999);
 
   return {
     currentStart,
@@ -9031,7 +10170,9 @@ function updateWeeklyReview() {
   const previous = computeWeekMetrics(previousStart, previousEnd);
 
   if (weeklyRange) {
-    weeklyRange.innerText = `Review window: ${currentStart.toLocaleDateString()} - ${currentEnd.toLocaleDateString()}`;
+    const startLabelDate = dateKeyToDate(dateToKey(currentStart)) || currentStart;
+    const endLabelDate = dateKeyToDate(dateToKey(currentEnd)) || currentEnd;
+    weeklyRange.innerText = `Review window: ${startLabelDate.toLocaleDateString()} - ${endLabelDate.toLocaleDateString()}`;
   }
 
   const improved = [];
@@ -9056,9 +10197,62 @@ function updateWeeklyReview() {
   if (current.rescues >= 3) actions.push("Use preventive reset every afternoon before the usual dip window.");
   while (actions.length < 3) actions.push("Keep the current routine and protect your strongest streak.");
 
+  const patternInsights = [];
+  const behaviorPatterns = buildBehaviorPatternMemoryFromLocal(30);
+
+  if (behaviorPatterns?.waterMood && (behaviorPatterns.waterMood.highCount >= 2) && (behaviorPatterns.waterMood.lowCount >= 2)) {
+    const hydrationHigher = Number(behaviorPatterns.waterMood.highAvg) >= Number(behaviorPatterns.waterMood.lowAvg);
+    patternInsights.push(
+      hydrationHigher
+        ? "Your mood increases when your water intake is high and drops when your water intake is low."
+        : "Your mood increases when your water intake is low and drops when your water intake is high."
+    );
+  } else {
+    patternInsights.push("Your mood and water-intake pattern needs more logged days to lock a high/low signal.");
+  }
+
+  if (behaviorPatterns?.sleepMood && (behaviorPatterns.sleepMood.highCount >= 2) && (behaviorPatterns.sleepMood.lowCount >= 2)) {
+    const sleepHigher = Number(behaviorPatterns.sleepMood.highAvg) >= Number(behaviorPatterns.sleepMood.lowAvg);
+    patternInsights.push(
+      sleepHigher
+        ? "Your mood increases when your sleep is high and drops when your sleep is low."
+        : "Your mood increases when your sleep is low and drops when your sleep is high."
+    );
+  } else {
+    patternInsights.push("Your mood and sleep pattern needs more logged days to lock a high/low signal.");
+  }
+
+  {
+    const musicDayKeys = new Set([...musicSessionDayKeys]);
+    const moodByDay = buildMoodAverageByDayMap(new Set(getRecentDayKeys(30)));
+    const moodWithMusic = [];
+    const moodWithoutMusic = [];
+
+    moodByDay.forEach((moodAvg, dayKey) => {
+      const value = Number(moodAvg) || 0;
+      if (value <= 0) return;
+      if (musicDayKeys.has(dayKey)) moodWithMusic.push(value);
+      else moodWithoutMusic.push(value);
+    });
+
+    if (moodWithMusic.length >= 2 && moodWithoutMusic.length >= 2) {
+      const withMusicAvg = safeAvg(moodWithMusic);
+      const withoutMusicAvg = safeAvg(moodWithoutMusic);
+      const improvesWithMusic = withMusicAvg >= withoutMusicAvg;
+      patternInsights.push(
+        improvesWithMusic
+          ? "Your mood increases when you listen to music."
+          : "Your mood drops when you listen to music."
+      );
+    } else {
+      patternInsights.push("Your music-mood pattern needs more music sessions to confirm whether mood drops or increases.");
+    }
+  }
+
   setListItems(weeklyImproved, improved, "No major gains yet — consistency this week will unlock visible progress.");
   setListItems(weeklyDropped, dropped, "No clear drops this week — maintain the trend.");
   setListItems(weeklyActions, actions.slice(0, 3), "Set one small target and repeat it daily.");
+  setListItems(weeklyPatternInsights, patternInsights.slice(0, 3), "Pattern analysis will appear after enough logs.");
   renderWeeklyGoalScorecard(currentStart, currentEnd);
   renderWeeklyTargets();
 }
@@ -9101,6 +10295,38 @@ async function loadRescueEvents(userId) {
   }
   updateWeeklyReview();
   updateClearDataButtonState();
+}
+
+async function loadMusicSessions(userId) {
+  musicSessionDates.length = 0;
+  musicSessionDayKeys.clear();
+  if (!userId) {
+    updateWeeklyReview();
+    return;
+  }
+
+  try {
+    const snapshot = await getDocs(collection(db, "users", userId, "musicSessions"));
+    const docs = snapshot.docs
+      .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+      .sort((a, b) => {
+        const aTime = getOptionalTimestampMs(a.time) || 0;
+        const bTime = getOptionalTimestampMs(b.time) || 0;
+        return aTime - bTime;
+      });
+
+    docs.forEach((entry) => {
+      const dayKey = String(entry.dayKey || entry.id || "").trim();
+      if (!dayKey) return;
+      musicSessionDayKeys.add(dayKey);
+      const playedAt = toDateSafe(entry.time) || dateKeyToDate(dayKey) || getServerNowDate();
+      musicSessionDates.push(playedAt);
+    });
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+
+  updateWeeklyReview();
 }
 
 async function setNextWeekTargets() {
@@ -9190,26 +10416,26 @@ const QUEST_LIBRARY = [
   { id: "grat6_1", text: "Write six gratitude notes today.", type: "mind", requirement: { kind: "gratitude", min: 6 } },
   { id: "grat6_2", text: "Hit 6 gratitude entries today.", type: "mind", requirement: { kind: "gratitude", min: 6 } },
 
-  { id: "task1_1", text: "Complete at least 1 task today.", type: "focus", requirement: { kind: "tasksCompleted", min: 1 } },
-  { id: "task1_2", text: "Close out 1 task today.", type: "focus", requirement: { kind: "tasksCompleted", min: 1 } },
-  { id: "task2_1", text: "Complete at least 2 tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 2 } },
-  { id: "task2_2", text: "Finish 2 tasks on your list today.", type: "focus", requirement: { kind: "tasksCompleted", min: 2 } },
-  { id: "task3_1", text: "Complete at least 3 tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 3 } },
-  { id: "task3_2", text: "Push through and complete 3 tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 3 } },
-  { id: "task4_1", text: "Complete at least 4 tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 4 } },
-  { id: "task4_2", text: "Mark 4 tasks as done today.", type: "focus", requirement: { kind: "tasksCompleted", min: 4 } },
-  { id: "task5_1", text: "Complete at least 5 tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 5 } },
-  { id: "task5_2", text: "Finish 5 tasks for a strong focus day.", type: "focus", requirement: { kind: "tasksCompleted", min: 5 } },
-  { id: "task6_1", text: "Complete at least 6 tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 6 } },
-  { id: "task6_2", text: "Hit 6 completed tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 6 } },
-  { id: "task7_1", text: "Complete at least 7 tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 7 } },
-  { id: "task7_2", text: "Close 7 tasks today for momentum.", type: "focus", requirement: { kind: "tasksCompleted", min: 7 } },
-  { id: "task8_1", text: "Complete at least 8 tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 8 } },
-  { id: "task8_2", text: "Reach 8 finished tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 8 } },
-  { id: "task9_1", text: "Complete at least 9 tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 9 } },
-  { id: "task9_2", text: "Drive to 9 completed tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 9 } },
-  { id: "task10_1", text: "Complete at least 10 tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 10 } },
-  { id: "task10_2", text: "Crush 10 tasks today.", type: "focus", requirement: { kind: "tasksCompleted", min: 10 } },
+  { id: "task1_1", text: "Complete all your tasks today.", type: "focus", requirement: { kind: "tasksAll" } },
+  { id: "task1_2", text: "Finish all your tasks today.", type: "focus", requirement: { kind: "tasksAll" } },
+  { id: "task2_1", text: "Wrap up all your tasks today.", type: "focus", requirement: { kind: "tasksAll" } },
+  { id: "task2_2", text: "Clear your full task list today.", type: "focus", requirement: { kind: "tasksAll" } },
+  { id: "task3_1", text: "Complete all pending tasks today.", type: "focus", requirement: { kind: "tasksAll" } },
+  { id: "task3_2", text: "Close every task on your list today.", type: "focus", requirement: { kind: "tasksAll" } },
+  { id: "task4_1", text: "Complete all your tasks today.", type: "focus", requirement: { kind: "tasksAll" } },
+  { id: "task4_2", text: "Finish all your tasks before day-end.", type: "focus", requirement: { kind: "tasksAll" } },
+  { id: "task5_1", text: "Complete all your tasks today.", type: "focus", requirement: { kind: "tasksAll" } },
+  { id: "task5_2", text: "Get every task done today.", type: "focus", requirement: { kind: "tasksAll" } },
+  { id: "task6_1", text: "Complete all your tasks today.", type: "focus", requirement: { kind: "tasksAll" } },
+  { id: "task6_2", text: "Clear all unfinished tasks today.", type: "focus", requirement: { kind: "tasksAll" } },
+  { id: "task7_1", text: "Complete all your tasks today.", type: "focus", requirement: { kind: "tasksAll" } },
+  { id: "task7_2", text: "Finish your complete task list today.", type: "focus", requirement: { kind: "tasksAll" } },
+  { id: "task8_1", text: "Complete all your tasks today.", type: "focus", requirement: { kind: "tasksAll" } },
+  { id: "task8_2", text: "Complete every open task today.", type: "focus", requirement: { kind: "tasksAll" } },
+  { id: "task9_1", text: "Complete all your tasks today.", type: "focus", requirement: { kind: "tasksAll" } },
+  { id: "task9_2", text: "End the day with all tasks completed.", type: "focus", requirement: { kind: "tasksAll" } },
+  { id: "task10_1", text: "Complete all your tasks today.", type: "focus", requirement: { kind: "tasksAll" } },
+  { id: "task10_2", text: "Finish all tasks on your plate today.", type: "focus", requirement: { kind: "tasksAll" } },
 
   { id: "challenge_1", text: "Complete today’s daily challenge.", type: "consistency", requirement: { kind: "challenge" } },
   { id: "challenge_2", text: "Finish the daily challenge today.", type: "consistency", requirement: { kind: "challenge" } },
@@ -9561,6 +10787,13 @@ function validateHabitQuestCompletion(quest) {
     if (completed < min) return { valid: false, message: `Complete at least ${min} task${min > 1 ? "s" : ""} first (current: ${completed}).` };
     return { valid: true };
   }
+  if (requirement.kind === "tasksAll") {
+    const pending = Math.max(0, Number(snapshot.pendingTasks) || 0);
+    if (pending > 0) {
+      return { valid: false, message: `Complete all your tasks first (${pending} still pending).` };
+    }
+    return { valid: true };
+  }
   if (requirement.kind === "challenge") {
     if (!dailyChallengeCompleted) return { valid: false, message: "Complete today’s daily challenge first." };
     return { valid: true };
@@ -9883,7 +11116,45 @@ async function forceSyncFriendProfileFromLocalSnapshot(user) {
       syncSocialProfileToFriendQueue(user, socialProfile),
       syncSocialProfileToFriendsMirror(user, socialProfile)
     ]);
+    lastFriendQueueProfileSyncAt = Date.now();
   } catch (_) {}
+}
+
+async function syncFriendProfileSnapshotNow(user, socialProfile) {
+  if (!user || !socialProfile || typeof socialProfile !== "object") return;
+  lastFriendQueueProfileSyncAt = Date.now();
+  await Promise.allSettled([
+    syncSocialProfileToFriendQueue(user, socialProfile),
+    syncSocialProfileToFriendsMirror(user, socialProfile)
+  ]);
+}
+
+function queueFriendProfileSnapshotSync(user, socialProfile) {
+  if (!user || !socialProfile || typeof socialProfile !== "object") return;
+  pendingFriendProfileSnapshot = socialProfile;
+
+  const nowMs = Date.now();
+  const waitMs = Math.max(0, 12000 - (nowMs - lastFriendQueueProfileSyncAt));
+
+  if (pendingFriendProfileSyncTimer) {
+    clearTimeout(pendingFriendProfileSyncTimer);
+    pendingFriendProfileSyncTimer = null;
+  }
+
+  if (waitMs === 0) {
+    const snapshotToSync = pendingFriendProfileSnapshot;
+    pendingFriendProfileSnapshot = null;
+    void syncFriendProfileSnapshotNow(user, snapshotToSync);
+    return;
+  }
+
+  pendingFriendProfileSyncTimer = setTimeout(() => {
+    pendingFriendProfileSyncTimer = null;
+    const snapshotToSync = pendingFriendProfileSnapshot;
+    pendingFriendProfileSnapshot = null;
+    if (!snapshotToSync) return;
+    void syncFriendProfileSnapshotNow(user, snapshotToSync);
+  }, waitMs);
 }
 
 function queueInsightsPersist(payload) {
@@ -9916,15 +11187,7 @@ function queueInsightsPersist(payload) {
           ...payload.socialProfile,
           updatedAt: serverTimestamp()
         }, { merge: true });
-
-        const nowMs = Date.now();
-        if (nowMs - lastFriendQueueProfileSyncAt > 12000) {
-          lastFriendQueueProfileSyncAt = nowMs;
-          await Promise.allSettled([
-            syncSocialProfileToFriendQueue(user, payload.socialProfile),
-            syncSocialProfileToFriendsMirror(user, payload.socialProfile)
-          ]);
-        }
+        queueFriendProfileSnapshotSync(user, payload.socialProfile);
       }
     } catch (err) {
       notifyFirestoreError(err);
@@ -10406,19 +11669,86 @@ function startFriendInsightsWatcher(userId) {
   const targetUid = String(userId || "").trim();
   if (!targetUid) return;
 
+  const queueRealtimeRefresh = () => {
+    if (friendRealtimeRefreshTimerId) {
+      clearTimeout(friendRealtimeRefreshTimerId);
+      friendRealtimeRefreshTimerId = null;
+    }
+
+    friendRealtimeRefreshTimerId = setTimeout(async () => {
+      friendRealtimeRefreshTimerId = null;
+      const activeUser = auth.currentUser;
+      if (!activeUser || activeUser.uid !== targetUid) {
+        stopFriendInsightsWatcher();
+        return;
+      }
+
+      if (friendRealtimeRefreshInFlight) {
+        friendRealtimeRefreshQueued = true;
+        return;
+      }
+
+      friendRealtimeRefreshInFlight = true;
+      try {
+        await Promise.all([
+          loadFriendRequests(targetUid),
+          loadSentFriendRequests(targetUid),
+          loadFriendsInsights(targetUid)
+        ]);
+      } finally {
+        friendRealtimeRefreshInFlight = false;
+        if (friendRealtimeRefreshQueued) {
+          friendRealtimeRefreshQueued = false;
+          queueRealtimeRefresh();
+        }
+      }
+    }, 220);
+  };
+
+  const queueRef = collection(db, "friendRequestsQueue");
+  const activeEmail = String(auth.currentUser?.email || "").trim().toLowerCase();
+
+  friendRealtimeUnsubscribers.push(
+    onSnapshot(collection(db, "users", targetUid, "friendRequests"), queueRealtimeRefresh),
+    onSnapshot(collection(db, "users", targetUid, "friendRequestsSent"), queueRealtimeRefresh),
+    onSnapshot(collection(db, "users", targetUid, "friends"), queueRealtimeRefresh),
+    onSnapshot(query(queueRef, where("toUid", "==", targetUid)), queueRealtimeRefresh),
+    onSnapshot(query(queueRef, where("fromUid", "==", targetUid)), queueRealtimeRefresh)
+  );
+
+  if (activeEmail) {
+    friendRealtimeUnsubscribers.push(
+      onSnapshot(query(queueRef, where("toEmail", "==", activeEmail)), queueRealtimeRefresh)
+    );
+  }
+
+  queueRealtimeRefresh();
+
   friendInsightsWatcherIntervalId = setInterval(async () => {
     const activeUser = auth.currentUser;
     if (!activeUser || activeUser.uid !== targetUid) {
       stopFriendInsightsWatcher();
       return;
     }
-    await loadFriendRequests(targetUid);
-    await loadSentFriendRequests(targetUid);
-    await loadFriendsInsights(targetUid);
-  }, 12000);
+    queueRealtimeRefresh();
+  }, 30000);
 }
 
 function stopFriendInsightsWatcher() {
+  if (friendRealtimeRefreshTimerId) {
+    clearTimeout(friendRealtimeRefreshTimerId);
+    friendRealtimeRefreshTimerId = null;
+  }
+  friendRealtimeRefreshInFlight = false;
+  friendRealtimeRefreshQueued = false;
+  if (friendRealtimeUnsubscribers.length) {
+    friendRealtimeUnsubscribers.forEach((unsubscribe) => {
+      try {
+        if (typeof unsubscribe === "function") unsubscribe();
+      } catch (_) {}
+    });
+    friendRealtimeUnsubscribers = [];
+  }
   if (friendInsightsWatcherIntervalId) {
     clearInterval(friendInsightsWatcherIntervalId);
     friendInsightsWatcherIntervalId = null;
@@ -10547,9 +11877,19 @@ function updateStartupResetCountdownNotes() {
     moodResetCountdown.innerText = `Mood reset in ${formatCountdownClock(dailyRemaining)} (server time)`;
   }
 
+  if (gratitudeResetCountdown) {
+    const dailyRemaining = getMillisecondsUntilNextMidnight();
+    gratitudeResetCountdown.innerText = `Gratitude reset in ${formatCountdownClock(dailyRemaining)} (server time)`;
+  }
+
   if (dailyChallengeResetCountdown) {
     const dailyRemaining = getMillisecondsUntilNextMidnight();
     dailyChallengeResetCountdown.innerText = `Daily challenge reset in ${formatCountdownClock(dailyRemaining)} (server time)`;
+  }
+
+  if (wellnessScoreResetCountdown) {
+    const dailyRemaining = getMillisecondsUntilNextMidnight();
+    wellnessScoreResetCountdown.innerText = `Daily wellness score reset in ${formatCountdownClock(dailyRemaining)} (server time)`;
   }
 
   if (startupPlanResetCountdown) {
@@ -10586,7 +11926,9 @@ function stopStartupResetCountdown() {
   if (waterGoalResetCountdown) waterGoalResetCountdown.innerText = "";
   if (sleepResetCountdown) sleepResetCountdown.innerText = "";
   if (moodResetCountdown) moodResetCountdown.innerText = "";
+  if (gratitudeResetCountdown) gratitudeResetCountdown.innerText = "";
   if (dailyChallengeResetCountdown) dailyChallengeResetCountdown.innerText = "";
+  if (wellnessScoreResetCountdown) wellnessScoreResetCountdown.innerText = "";
   if (startupPlanResetCountdown) startupPlanResetCountdown.innerText = "";
   if (startupReportResetCountdown) startupReportResetCountdown.innerText = "";
 }
@@ -10666,8 +12008,6 @@ function scheduleWeeklyGraphReset(userId) {
 
 async function resetWaterDayData(userId, dateKey = getTodayKey()) {
   try {
-    const intakeSnapshot = await getDocs(collection(db, "users", userId, "waterIntake"));
-    await Promise.all(intakeSnapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
     await setDoc(doc(db, "users", userId, "settings", "water"), {
       goal: 0,
       goalDateKey: dateKey,
@@ -10831,6 +12171,7 @@ function getCrashRiskSnapshot() {
     const dateKey = dateToKey(waterDates[index]);
     return dateKey === todayKey ? sum + value : sum;
   }, 0);
+  const hasCustomWaterGoal = Number(waterGoal) > 0;
   const effectiveWaterGoal = waterGoal > 0 ? waterGoal : 8;
   const waterRatio = Math.min(1, waterToday / effectiveWaterGoal);
 
@@ -10866,7 +12207,9 @@ function getCrashRiskSnapshot() {
 
   const hydrationRisk = Math.round((1 - waterRatio) * 25);
   risk += hydrationRisk;
-  if (hydrationRisk >= 10) reasons.push("Hydration below target");
+  if (hydrationRisk >= 10) {
+    reasons.push(hasCustomWaterGoal ? "Hydration below target" : "Hydration low today");
+  }
 
   if (!moodMeta.logged) {
     risk += 14;
@@ -11039,10 +12382,17 @@ function updateInsights() {
   const sleepSeries = getSeriesWithPersistedFallback("sleep", getInsightSeries("sleep"), weekRange);
   const waterSeries = getSeriesWithPersistedFallback("water", getInsightSeries("water"), weekRange);
   const moodSeries = getSeriesWithPersistedFallback("mood", getInsightSeries("mood"), weekRange);
-  const moodToday = getTodayMood();
-  const moodScoreToday = moodToScore(moodToday);
-  const moodLabel = moodToday ? getMoodLabelFromScore(moodScoreToday) : "Not logged";
-  const moodPercent = Math.max(0, Math.min(100, Math.round((moodScoreToday / 3) * 100)));
+  const moodValuesForWeek = Array.isArray(moodSeries?.values)
+    ? moodSeries.values.map((value) => Number(value) || 0).filter((value) => value > 0)
+    : [];
+  const weeklyMoodAvgScore = safeAvg(moodValuesForWeek);
+  const hasWeeklyMoodLogs = moodValuesForWeek.length > 0;
+  const moodWeeklyLabel = hasWeeklyMoodLogs
+    ? getMoodLabelFromScore(weeklyMoodAvgScore)
+    : "Not logged";
+  const moodPercent = hasWeeklyMoodLogs
+    ? Math.max(0, Math.min(100, Math.round((weeklyMoodAvgScore / 3) * 100)))
+    : 0;
 
   const taskValues = Array.isArray(taskSeries?.values) ? taskSeries.values.map((value) => Number(value) || 0) : [];
   const taskLabels = Array.isArray(taskSeries?.labels) ? taskSeries.labels : [];
@@ -11073,7 +12423,9 @@ function updateInsights() {
   const roundedMoodChange = Math.round(moodChangePct);
   const moodChangeLabel = previousWeekMetrics.moodScore > 0
     ? `Mood ${roundedMoodChange >= 0 ? "improving" : "down"}: ${roundedMoodChange >= 0 ? "+" : ""}${roundedMoodChange}% vs last week`
-    : `Mood baseline this week: ${moodLabel}`;
+    : (hasWeeklyMoodLogs
+      ? `Mood baseline this week: ${moodWeeklyLabel} (${weeklyMoodAvgScore.toFixed(2)})`
+      : "Mood baseline this week: Not logged yet");
 
   const metricViews = [
     {
@@ -11469,10 +12821,46 @@ function getPreferredAiDisplayName(user) {
 }
 
 function isClearChatCommand(inputText) {
-  const text = String(inputText || "").trim().toLowerCase();
+  const text = String(inputText || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[!?.,;:]+$/g, "");
   if (!text) return false;
-  return /^(?:clear|delete|wipe|reset|remove)\s+(?:the\s+)?(?:ai\s+)?chat(?:s)?$/.test(text)
-    || /^(?:clear|delete|wipe|reset|remove)\s+(?:my\s+)?conversation(?:s)?$/.test(text);
+
+  const hasNegatedClear = /\b(?:do\s*not|don't|dont|never)\b[\s\S]*\b(?:clear|delete|wipe|reset|remove)\b[\s\S]*\b(?:chat|conversation)s?\b/.test(text);
+  if (hasNegatedClear) return false;
+
+  const clearChatIntent = /\b(?:clear|delete|wipe|reset|remove)\b[\s\S]*\b(?:the\s+)?(?:ai\s+)?chat(?:s)?\b/.test(text)
+    || /\b(?:clear|delete|wipe|reset|remove)\b[\s\S]*\b(?:my\s+)?conversation(?:s)?\b/.test(text)
+    || /\bclear\b[\s\S]*\bthe\s+chat\b/.test(text);
+
+  return clearChatIntent;
+}
+
+function normalizeTyposForAi(text) {
+  const map = {
+    analize: "analyze",
+    analyz: "analyze",
+    anlyze: "analyze",
+    delet: "delete",
+    delte: "delete",
+    delee: "delete",
+    rember: "remember",
+    remembr: "remember",
+    happi: "happy",
+    happyness: "happiness",
+    sadnes: "sadness",
+    stres: "stress",
+    strees: "stress",
+    angy: "angry",
+    anxios: "anxious",
+    gratitute: "gratitude"
+  };
+
+  return String(text || "").replace(/\b[a-z]{3,}\b/gi, (token) => {
+    const lower = token.toLowerCase();
+    return map[lower] || token;
+  });
 }
 
 function rememberPrompt(promptText) {
@@ -11587,15 +12975,18 @@ function calculateExpressionFromText(text) {
 }
 
 function normalizeLocalIntentText(input) {
-  const source = String(input || "").toLowerCase();
+  const source = normalizeTyposForAi(String(input || "")).toLowerCase();
   return source
     .replace(/\bu\b/g, "you")
     .replace(/\bur\b/g, "your")
     .replace(/\bidk\b/g, "i do not know")
+    .replace(/\bik\b/g, "i know")
+    .replace(/\bikr\b/g, "i know right")
     .replace(/\bwanna\b/g, "want to")
     .replace(/\bgonna\b/g, "going to")
     .replace(/\bim\b/g, "i am")
     .replace(/\bpls\b|\bplz\b/g, "please")
+    .replace(/[!?.,;:]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -11633,8 +13024,8 @@ function getTemplateIntentScore(msg, intentKey) {
 
 function detectEmotionFromText(text) {
   const normalized = normalizeLocalIntentText(text);
-  if (/\b(stress|anxious|anxiety|overwhelm|panic|sad|depressed|down|tired|burnout|lonely|hopeless|empty|numb|worthless|angry|frustrated|scared|lost|confused|drained|meh)\b/.test(normalized)) return "low";
-  if (/\b(good|great|awesome|amazing|happy|motivated|energized|fine|yay|let'?s\s*go|woo+|nice|pumped)\b/.test(normalized)) return "positive";
+  if (/\b(stress|stressed|anxious|anxiety|overwhelm|panic|sad|sadness|depressed|down|tired|burnout|lonely|hopeless|empty|numb|worthless|angry|anger|frustrated|scared|lost|confused|drained|meh)\b/.test(normalized)) return "low";
+  if (/\b(good|great|awesome|amazing|happy|happiness|motivated|energized|fine|yay|let'?s\s*go|woo+|nice|pumped)\b/.test(normalized)) return "positive";
   return "neutral";
 }
 
@@ -11849,6 +13240,11 @@ function parseCompareRequest(input) {
 
 function buildComparisonResponse(left, right, snapshot) {
   const remainingWater = Math.max(0, snapshot.todayGoal - snapshot.waterToday);
+  const hydrationClause = snapshot.hasWaterGoal
+    ? (remainingWater > 0
+      ? `(${remainingWater} cup${remainingWater === 1 ? "" : "s"} left today)`
+      : "and maintain hydration")
+    : "and set a water goal when ready";
   return {
     summary: `If your priority is fast execution today, choose the option with lower setup friction right now.`,
     prosLeft: [
@@ -11861,7 +13257,7 @@ function buildComparisonResponse(left, right, snapshot) {
       `${right} can improve skill depth if sustained consistently.`,
       `${right} might align better if your energy is high right now.`
     ],
-    decisionRule: `Decision rule: pick the option you can start in <10 minutes, then hydrate ${remainingWater > 0 ? `(${remainingWater} glass(es) left today)` : "and maintain hydration"}.`
+    decisionRule: `Decision rule: pick the option you can start in <10 minutes, then hydrate ${hydrationClause}.`
   };
 }
 
@@ -11964,7 +13360,7 @@ function buildCasualAiResponse(context) {
       return {
         lastIntent: key,
         advice: coachingMoves.slice(0, 2),
-        response: `${greeting}, ${name} 👋 You are at ${snapshot.score}/100. ${pending} task${pending === 1 ? "" : "s"} left and ${waterLeft} water left. Want a quick 3-step plan?`,
+        response: `${greeting}, ${name} 👋 You are at ${snapshot.score}/100. ${pending} task${pending === 1 ? "" : "s"} left, and ${getAiWaterStatusText(snapshot)}. Want a quick 3-step plan?`,
         isHtml: false
       };
     case "smalltalk-health":
@@ -11976,7 +13372,7 @@ function buildCasualAiResponse(context) {
     case "smalltalk-activity":
       return {
         lastIntent: key,
-        response: `Just hanging with your stats rn - tasks ${snapshot.doneTasks}/${snapshot.totalTasks}, water ${snapshot.waterToday}/${snapshot.todayGoal}, sleep ${snapshot.sleepToday || 0}h.`,
+        response: `Just hanging with your stats rn - tasks ${snapshot.doneTasks}/${snapshot.totalTasks}, ${getAiWaterStatusText(snapshot)}, sleep ${snapshot.sleepToday || 0}h.`,
         isHtml: false
       };
     case "date-local":
@@ -11988,6 +13384,9 @@ function buildCasualAiResponse(context) {
     case "smalltalk-casual":
       if (/\bbrb|ttyl\b/.test(msg)) {
         return { lastIntent: key, response: `Bet, catch you in a bit 👋`, isHtml: false };
+      }
+      if (aiSessionState.lastIntent === "date-local" && /\b(i know right|ikr|right)\b/.test(msg)) {
+        return { lastIntent: key, response: `Yep, exactly 😄`, isHtml: false };
       }
       if (/\bsup|wassup|wsg\b/.test(msg)) {
         return { lastIntent: key, response: `yooo ${name} 😄 all good here. wanna do a quick best move now?`, isHtml: false };
@@ -12119,13 +13518,13 @@ function buildCasualAiResponse(context) {
     case "identity":
       return {
         lastIntent: key,
-        response: `I am NovaFix AI - casual by default, and I can also run app actions for you.`,
+        response: "I am NovaFix AI. I can help you plan, log, and stay on track.",
         isHtml: false
       };
     case "capabilities":
       return {
         lastIntent: key,
-        response: `I can log your productivity tasks, mood, sleep, water, and reminders. ${AI_COMMAND_HELP_LINE.replace("I can also do: ", "Try: ")}`,
+        response: "I can help with tasks, water, mood, sleep, reminders, and quick app actions. Tell me what to do in one line.",
         isHtml: false
       };
     default:
@@ -12675,7 +14074,8 @@ function getTodaySleep() {
 
 function getWellnessSnapshot() {
   const waterToday = getTodayWater();
-  const todayGoal = waterGoal > 0 ? waterGoal : 8;
+  const hasWaterGoal = waterGoal > 0;
+  const todayGoal = hasWaterGoal ? waterGoal : 8;
   const moodToday = getTodayMood();
   const sleepToday = getTodaySleep();
   const totalTasks = taskEntries.length;
@@ -12686,6 +14086,7 @@ function getWellnessSnapshot() {
 
   return {
     waterToday,
+    hasWaterGoal,
     todayGoal,
     moodToday,
     sleepToday,
@@ -12695,6 +14096,17 @@ function getWellnessSnapshot() {
     gratitudeToday,
     score
   };
+}
+
+function getAiWaterStatusText(snapshot) {
+  const safeSnapshot = snapshot && typeof snapshot === "object" ? snapshot : getWellnessSnapshot();
+  const waterToday = Math.max(0, Number(safeSnapshot.waterToday) || 0);
+  if (!safeSnapshot.hasWaterGoal) {
+    return `you logged ${waterToday} cup${waterToday === 1 ? "" : "s"}, and no water goal is set yet`;
+  }
+  const goal = Math.max(1, Number(safeSnapshot.todayGoal) || 8);
+  const waterLeft = Math.max(0, goal - waterToday);
+  return `you logged ${waterToday}/${goal} cups, with ${waterLeft} cup${waterLeft === 1 ? "" : "s"} left`;
 }
 
 function normalizeReminderUnitValue(unitRaw) {
@@ -12952,7 +14364,7 @@ async function setTaskCompletionFromAi(user, query, completed) {
 }
 
 async function tryAiAction(input, user) {
-  const msg = input.trim();
+  const msg = normalizeTyposForAi(String(input || "").trim()).replace(/[!?]+$/g, "");
   const lower = msg.toLowerCase();
 
   if (/^(?:what(?:'s|\s+is)\s+my\s+name|who\s+am\s+i)(?:\?)?$/i.test(msg)) {
@@ -13044,24 +14456,59 @@ async function tryAiAction(input, user) {
   const waterGoalMatch = lower.match(/(?:set|update)\s+(?:my\s+)?water\s+goal\s+(?:to\s+)?(\d+(?:\.\d+)?)/i)
     || lower.match(/water\s+goal\s*[:\-]?\s*(\d+(?:\.\d+)?)/i);
   if (waterGoalMatch) {
-    waterGoalInput.value = String(Number(waterGoalMatch[1]) || 0);
+    const nextGoal = Number(waterGoalMatch[1]) || 0;
+    waterGoalInput.value = String(nextGoal);
     await setWaterGoal();
-    return `✅ Water goal updated to ${waterGoalInput.value} glasses.`;
+    return `✅ Water goal updated to ${nextGoal} glasses.`;
   }
 
   const waterLogMatch = lower.match(/(?:log|add|track|drink|drank|had|have\s+had)\s+(\d+(?:\.\d+)?)\s*(?:glass|glasses|cup|cups)?\s*(?:of\s+)?(?:water)?(?:\s+just\s+now)?/i)
     || lower.match(/\bi\s+(?:just\s+)?(?:drank|drink|had)\s+(\d+(?:\.\d+)?)\s*(?:glass|glasses|cup|cups)(?:\s+of\s+water)?/i);
   const waterSignal = /\b(water|hydrate|hydration|glass|glasses|cup|cups|drink|drank)\b/.test(lower);
   if (waterLogMatch && waterSignal) {
-    waterInput.value = String(Number(waterLogMatch[1]) || 0);
+    const loggedAmount = Math.max(0, Number(waterLogMatch[1]) || 0);
+    const isIncrementCommand = /\b(more|additional|another)\b/.test(lower);
+    const latestTodayValue = (() => {
+      const todayKey = getTodayKey();
+      for (let index = waterHistory.length - 1; index >= 0; index -= 1) {
+        if (dateToKey(waterDates[index]) !== todayKey) continue;
+        return Number(waterHistory[index]) || 0;
+      }
+      return 0;
+    })();
+
+    const nextWaterValue = isIncrementCommand
+      ? Number((latestTodayValue + loggedAmount).toFixed(1))
+      : loggedAmount;
+    waterInput.value = String(nextWaterValue);
     await saveWater();
-    return `✅ Logged ${waterInput.value || waterLogMatch[1]} cups of water.`;
+    if (isIncrementCommand) {
+      return `✅ Logged ${loggedAmount} more cups of water. Total now ${nextWaterValue}.`;
+    }
+    return `✅ Logged ${nextWaterValue} cups of water.`;
   }
   if (waterSignal && /\b(log|add|track|drink|drank|had)\b/.test(lower) && !waterLogMatch) {
     return "ℹ️ Tell me how much water, like: I drank 2 glasses just now.";
   }
 
-  const sleepMatch = lower.match(/(?:log|save|track|set)\s+(?:my\s+)?sleep\s*(?:for\s+)?(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)?/i)
+  const bedtimeCommandMatch = msg.match(/(?:set|save|update|add)\s+(?:my\s+)?(?:bed\s*time|bedtime|sleep\s*time|down\s*time|downtime)\s*(?:to|at)?\s*(\d{1,2}:\d{2})(?:\s*(am|pm))?/i)
+    || msg.match(/^(?:bed\s*time|bedtime|sleep\s*time|down\s*time|downtime)\s*[:\-]?\s*(\d{1,2}:\d{2})(?:\s*(am|pm))?/i);
+  if (bedtimeCommandMatch?.[1]) {
+    const aiTime = bedtimeCommandMatch[1];
+    const aiMeridiem = normalizeBedtimeMeridiem(bedtimeCommandMatch[2] || "");
+    if (!aiMeridiem) {
+      return "ℹ️ Include AM or PM too, like: set bedtime 8:30 PM.";
+    }
+    const bedtimeResult = await setBedtimeReminder(aiTime, aiMeridiem);
+    if (!bedtimeResult.ok) return `ℹ️ ${bedtimeResult.message}`;
+    return `✅ Bed time set to ${bedtimeResult.label}. I will remind you in-app at that time.`;
+  }
+  if (/(?:set|save|update|add)\b.*\b(?:bed\s*time|bedtime|sleep\s*time|down\s*time|downtime)\b/i.test(msg) && !bedtimeCommandMatch) {
+    return "ℹ️ Use format HH:MM with AM/PM, like: set sleep time 10:30 PM.";
+  }
+
+  const sleepMatch = lower.match(/(?:log|save|track|set)\s+(?:my\s+)?sleep\s*(?:to\s+|for\s+)?(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)?(?:\s+of\s+sleep)?(?:\s+right\s+now)?/i)
+    || lower.match(/(?:log|save|track|set)\s+(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)\s*(?:of\s+)?sleep(?:\s+right\s+now)?/i)
     || lower.match(/(?:slept|sleep)\s*(?:for\s+)?(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)\b/i)
     || lower.match(/(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)\s*(?:sleep|slept)\b/i);
   if (sleepMatch?.[1]) {
@@ -13167,28 +14614,29 @@ async function tryAiAction(input, user) {
 }
 
 async function buildSmartAiResponse(input, user) {
-  const actionResult = await tryAiAction(input, user);
+  const normalizedInput = normalizeTyposForAi(String(input || "")).trim();
+  const actionResult = await tryAiAction(normalizedInput, user);
   if (actionResult) {
     return {
-      response: `${actionResult} 😎\n${AI_COMMAND_HELP_LINE}`,
+      response: `${actionResult} 😎`,
       isHtml: false
     };
   }
 
-  const msg = input.toLowerCase();
+  const msg = normalizeLocalIntentText(normalizedInput);
   const baseName = getUserName(user);
-  learnFromUserInput(input);
+  learnFromUserInput(normalizedInput);
   const name = buildUserContextLabel(baseName);
   const greeting = getTimeOfDayGreeting();
   const snapshot = getWellnessSnapshot();
   aiSessionState.lastSnapshot = snapshot;
   const recentContext = aiRecentPrompts.slice(-3).join(" • ");
-  const mathResult = calculateExpressionFromText(input);
+  const mathResult = calculateExpressionFromText(normalizedInput);
   const emotion = detectEmotionFromText(msg);
-  const intent = classifyIntent(input);
+  const intent = classifyIntent(normalizedInput);
   const tone = buildAdaptiveTone(emotion, aiSessionState.turnCount);
-  const knowledgeAnswer = buildKnowledgeAnswer(input);
-  const compareRequest = parseCompareRequest(input);
+  const knowledgeAnswer = buildKnowledgeAnswer(normalizedInput);
+  const compareRequest = parseCompareRequest(normalizedInput);
   const modePreset = getAiModePreset();
   const trendSignals = buildTrendSignals();
   const priorityBoard = buildPriorityBoard(snapshot, trendSignals);
@@ -13196,11 +14644,11 @@ async function buildSmartAiResponse(input, user) {
   const behaviorPatterns = getBehaviorPatternMemory(35);
 
   aiSessionState.turnCount += 1;
-  aiSessionState.lastUserMessage = input;
+  aiSessionState.lastUserMessage = normalizedInput;
   aiSessionState.userEmotion = emotion;
   pushTopicHistory(intent.key);
 
-  if (shouldAskIntentClarification(intent, input)) {
+  if (shouldAskIntentClarification(intent, normalizedInput)) {
     aiSessionState.lastIntent = "clarify";
     aiSessionState.lastAdvice = [];
     aiSessionState.conversationSummary = `Need clarification: ${intent.key} vs ${intent.secondaryKey || "fallback"}`;
@@ -13260,10 +14708,9 @@ async function buildSmartAiResponse(input, user) {
 
   if (intent.key === "greeting") {
     const pending = snapshot.pendingTasks;
-    const waterLeft = Math.max(0, snapshot.todayGoal - snapshot.waterToday);
     aiSessionState.lastIntent = "greeting";
     return {
-      response: `${greeting}, ${name}! 🌟 Quick status: score ${snapshot.score}/100, ${pending} pending task${pending === 1 ? "" : "s"}, ${waterLeft} glass${waterLeft === 1 ? "" : "es"} left. Want a high-performance 60-minute plan?`,
+      response: `${greeting}, ${name}! 🌟 Quick status: score ${snapshot.score}/100, ${pending} pending task${pending === 1 ? "" : "s"}, ${getAiWaterStatusText(snapshot)}. Want a high-performance 60-minute plan?`,
       isHtml: false
     };
   }
@@ -13294,7 +14741,7 @@ async function buildSmartAiResponse(input, user) {
 
   if (intent.key === "smalltalk-casual") {
     aiSessionState.lastIntent = "smalltalk-casual";
-    const waterLeft = Math.max(0, snapshot.todayGoal - snapshot.waterToday);
+    const waterSummary = getAiWaterStatusText(snapshot);
     if (/\bbrb|ttyl\b/.test(msg)) {
       return {
         response: `Got you. When you’re back, say "plan now" and I’ll generate the fastest high-impact sequence from your live data.`,
@@ -13314,7 +14761,7 @@ async function buildSmartAiResponse(input, user) {
       };
     }
     return {
-      response: `Locked in. Current state: score ${snapshot.score}/100, tasks ${snapshot.doneTasks}/${snapshot.totalTasks}, water gap ${waterLeft}. If you want speed, ask: "best move now".`,
+      response: `Locked in. Current state: score ${snapshot.score}/100, tasks ${snapshot.doneTasks}/${snapshot.totalTasks}, ${waterSummary}. If you want speed, ask: "best move now".`,
       isHtml: false
     };
   }
@@ -13550,7 +14997,7 @@ async function buildSmartAiResponse(input, user) {
   if (intent.key === "capabilities") {
     aiSessionState.lastIntent = "capabilities";
     return {
-      response: `I run fully local and can execute app actions directly. ${AI_COMMAND_HELP_LINE.replace("I can also do:", "Commands:")}, clear all reminders, add gratitude....`,
+      response: "I run fully local and can execute app actions directly. Tell me the action in one line and I will do it.",
       isHtml: false
     };
   }
@@ -13732,6 +15179,14 @@ async function editChatMessage(chatId, fieldName, textNode, role) {
 function renderChatPair(entry) {
   renderChatMessage("user", entry.userMessage || "", false, entry.id, "userMessage");
   renderChatMessage("ai", entry.aiResponse || "", !!entry.aiResponseIsHtml, entry.id, "aiResponse");
+
+  aiSessionState.memoryPairs.push({
+    user: String(entry.userMessage || ""),
+    ai: String(entry.aiResponse || "")
+  });
+  if (aiSessionState.memoryPairs.length > 24) {
+    aiSessionState.memoryPairs.splice(0, aiSessionState.memoryPairs.length - 24);
+  }
 }
 
 function setAiClearButtonState(hasChats) {
@@ -13740,6 +15195,23 @@ function setAiClearButtonState(hasChats) {
   aiClearBtn.disabled = !canClear;
   aiClearBtn.title = canClear ? "" : "No AI chats to clear";
 }
+
+function setTimeMirrorClearButtonState(hasContent) {
+  if (!timeMirrorClearBtn) return;
+  const canClear = !!hasContent;
+  timeMirrorClearBtn.disabled = !canClear;
+  timeMirrorClearBtn.title = canClear ? "" : "No time mirror content to clear";
+}
+
+function clearTimeMirror() {
+  if (!timeMirror || timeMirrorClearBtn?.disabled) return;
+  const confirmed = confirm("Clear Time Traveller Mirror output?");
+  if (!confirmed) return;
+  timeMirror.innerHTML = "";
+  setTimeMirrorClearButtonState(false);
+}
+
+setTimeMirrorClearButtonState(!!String(timeMirror?.textContent || "").trim());
 
 function containsAbusiveLanguage(inputText) {
   const raw = String(inputText || "").toLowerCase();
@@ -13836,6 +15308,7 @@ async function loadAiChats(userId) {
   aiSessionState.lastUserMessage = "";
   aiSessionState.conversationSummary = "";
   aiSessionState.topicHistory.length = 0;
+  aiSessionState.memoryPairs.length = 0;
 
   try {
     const snapshot = await getDocs(collection(db, "users", userId, "aiChats"));
@@ -13964,7 +15437,7 @@ async function aiChat(){
   }
 
   if (isClearChatCommand(input)) {
-    await clearAiChats({ skipConfirm: true });
+    await clearAiChats();
     aiInput.value = "";
     return;
   }
@@ -14644,6 +16117,7 @@ async function setWaterGoal(){
   } else {
     alert("ℹ️ Water goal cleared.");
   }
+  waterGoalInput.value = "";
 
   if (!user) return;
   try {
@@ -14733,8 +16207,13 @@ async function saveWater() {
     return;
   }
 
-  const v = +waterInput.value;
-  if (!v) return; // ignore empty or 0 input
+  const rawWater = String(waterInput?.value || "").trim();
+  if (!rawWater) return;
+  const v = Number(rawWater);
+  if (!Number.isFinite(v) || v <= 0) {
+    showToast("Water amount must be greater than 0.");
+    return;
+  }
   if (v > WATER_MAX_GLASSES_PER_ENTRY) {
     showToast(`You can log a maximum of ${WATER_MAX_GLASSES_PER_ENTRY} glasses at once.`);
     return;
@@ -14868,6 +16347,183 @@ async function clearWaterData() {
 }
 
 // Sleep
+function normalizeBedtimeMeridiem(value) {
+  const raw = String(value || "").trim().toUpperCase();
+  if (raw === "AM" || raw === "PM") return raw;
+  return "";
+}
+
+function parseBedtimeInput(timeText, meridiemValue) {
+  const safeTime = String(timeText || "").trim();
+  const meridiem = normalizeBedtimeMeridiem(meridiemValue);
+  const match = safeTime.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) {
+    return { ok: false, message: "Use bedtime format HH:MM, for example 8:30." };
+  }
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (!Number.isInteger(hour) || hour < 1 || hour > 12) {
+    return { ok: false, message: "Bedtime hour must be between 1 and 12." };
+  }
+  if (!Number.isInteger(minute) || minute < 0 || minute > 59) {
+    return { ok: false, message: "Bedtime minutes must be between 00 and 59." };
+  }
+  if (!meridiem) {
+    return { ok: false, message: "Select AM or PM for bedtime." };
+  }
+
+  return {
+    ok: true,
+    hour,
+    minute,
+    meridiem,
+    formattedTime: `${hour}:${String(minute).padStart(2, "0")}`,
+    label: `${hour}:${String(minute).padStart(2, "0")} ${meridiem}`
+  };
+}
+
+function setBedtimeInputError(message = "") {
+  if (!bedtimeInputError) return;
+  const text = String(message || "").trim();
+  bedtimeInputError.innerText = text;
+  bedtimeInputError.classList.toggle("show", !!text);
+}
+
+function closeBedtimeReminderModal(event, force = false) {
+  if (event?.target && event.target !== bedtimeReminderModal) return;
+  if (bedtimeReminderModal && (force || bedtimeReminderModal.style.display === "flex")) {
+    bedtimeReminderModal.style.display = "none";
+  }
+}
+
+function openBedtimeReminderModal() {
+  if (!bedtimeReminderModal || !bedtimeReminderPreview) return;
+  const label = bedtimeSettings?.timeText && bedtimeSettings?.meridiem
+    ? `${bedtimeSettings.timeText} ${bedtimeSettings.meridiem}`
+    : "your scheduled bedtime";
+  bedtimeReminderPreview.innerHTML = `
+    <div class="friend-row">
+      <strong>${escapeHtml(label)}</strong>
+      <small>It is time for bed. Start your wind-down routine now.</small>
+    </div>
+  `;
+  bedtimeReminderModal.style.display = "flex";
+  ensureAppBackGuardState("bedtime-reminder", true);
+}
+
+function clearBedtimeReminderSchedule() {
+  if (bedtimeReminderTimeoutId) {
+    clearTimeout(bedtimeReminderTimeoutId);
+    bedtimeReminderTimeoutId = null;
+  }
+}
+
+function scheduleBedtimeReminder() {
+  clearBedtimeReminderSchedule();
+  if (!bedtimeSettings?.enabled) return;
+
+  const parsed = parseBedtimeInput(bedtimeSettings.timeText, bedtimeSettings.meridiem);
+  if (!parsed.ok) return;
+
+  const now = getServerNowDate();
+  const target = new Date(now);
+  const hour24 = parsed.hour % 12 + (parsed.meridiem === "PM" ? 12 : 0);
+  target.setHours(hour24, parsed.minute, 0, 0);
+  if (target.getTime() <= now.getTime()) {
+    target.setDate(target.getDate() + 1);
+  }
+
+  const delayMs = Math.max(1000, target.getTime() - now.getTime());
+  bedtimeReminderTimeoutId = setTimeout(() => {
+    bedtimeReminderTimeoutId = null;
+    const triggerKey = `${dateToKey(getServerNowDate()) || "today"}_${parsed.label}`;
+    if (bedtimeReminderLastTriggeredKey !== triggerKey) {
+      bedtimeReminderLastTriggeredKey = triggerKey;
+      openBedtimeReminderModal();
+    }
+    scheduleBedtimeReminder();
+  }, delayMs);
+}
+
+async function loadBedtimeSettings(userId) {
+  bedtimeSettings = { timeText: "", meridiem: "", enabled: false };
+  bedtimeReminderLastTriggeredKey = "";
+  if (bedtimeTimeInput) bedtimeTimeInput.value = "";
+  if (bedtimeMeridiem) bedtimeMeridiem.value = "";
+  setBedtimeInputError("");
+  closeBedtimeReminderModal(null, true);
+  clearBedtimeReminderSchedule();
+
+  if (!userId) return;
+
+  try {
+    const snap = await getDoc(doc(db, "users", userId, "settings", "sleep"));
+    if (!snap.exists()) return;
+
+    const data = snap.data() || {};
+    const parsed = parseBedtimeInput(data.bedtimeTime || "", data.bedtimeMeridiem || "");
+    if (!parsed.ok || data.bedtimeEnabled === false) return;
+
+    bedtimeSettings = {
+      timeText: parsed.formattedTime,
+      meridiem: parsed.meridiem,
+      enabled: true
+    };
+
+    if (bedtimeTimeInput) bedtimeTimeInput.value = parsed.formattedTime;
+    if (bedtimeMeridiem) bedtimeMeridiem.value = parsed.meridiem;
+    scheduleBedtimeReminder();
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+}
+
+async function setBedtimeReminder(timeOverride = "", meridiemOverride = "") {
+  const user = auth.currentUser;
+  if (!user?.uid) {
+    showToast("Please sign in first.");
+    return { ok: false, message: "Please sign in first." };
+  }
+
+  const timeText = String(timeOverride || bedtimeTimeInput?.value || "").trim();
+  const meridiem = normalizeBedtimeMeridiem(meridiemOverride || bedtimeMeridiem?.value || "");
+  const parsed = parseBedtimeInput(timeText, meridiem);
+  if (!parsed.ok) {
+    setBedtimeInputError(parsed.message);
+    return { ok: false, message: parsed.message };
+  }
+
+  setBedtimeInputError("");
+
+  try {
+    await setDoc(doc(db, "users", user.uid, "settings", "sleep"), {
+      bedtimeEnabled: true,
+      bedtimeTime: parsed.formattedTime,
+      bedtimeMeridiem: parsed.meridiem,
+      updatedAt: serverTimestamp(),
+      updatedAtMs: Date.now()
+    }, { merge: true });
+
+    bedtimeSettings = {
+      timeText: parsed.formattedTime,
+      meridiem: parsed.meridiem,
+      enabled: true
+    };
+
+    if (bedtimeTimeInput) bedtimeTimeInput.value = parsed.formattedTime;
+    if (bedtimeMeridiem) bedtimeMeridiem.value = parsed.meridiem;
+    bedtimeReminderLastTriggeredKey = "";
+    scheduleBedtimeReminder();
+
+    showToast(`Bed time set for ${parsed.label}.`);
+    return { ok: true, label: parsed.label };
+  } catch (err) {
+    notifyFirestoreError(err);
+    return { ok: false, message: "Could not save bed time right now." };
+  }
+}
+
 async function loadSleepData(userId) {
   sleepHistory.length = 0;
   sleepDates.length = 0;
@@ -14919,8 +16575,13 @@ async function saveSleep(){
     return;
   }
 
-  const hours = +sleepInput.value;
-  if (!hours) return;
+  const rawSleep = String(sleepInput?.value || "").trim();
+  if (!rawSleep) return;
+  const hours = Number(rawSleep);
+  if (!Number.isFinite(hours) || hours <= 0) {
+    showToast("Sleep hours must be greater than 0.");
+    return;
+  }
 
   sleepSubmitting = true;
   if (sleepSaveBtn) sleepSaveBtn.disabled = true;
@@ -14961,6 +16622,46 @@ async function saveSleep(){
   }
 }
 
+async function clearSleepData() {
+  const user = auth.currentUser;
+  if (!user?.uid) {
+    showToast("Please sign in first.");
+    return;
+  }
+
+  const shouldClear = confirm("Clear all sleep logs and reset your bed time reminder?");
+  if (!shouldClear) return;
+
+  // Reset local UI/state first so fields clear even if network cleanup fails.
+  sleepHistory.length = 0;
+  sleepDates.length = 0;
+  if (sleepInput) sleepInput.value = "";
+  if (sleepResult) sleepResult.innerText = "";
+
+  bedtimeSettings = { timeText: "", meridiem: "", enabled: false };
+  bedtimeReminderLastTriggeredKey = "";
+  clearBedtimeReminderSchedule();
+  closeBedtimeReminderModal(null, true);
+  if (bedtimeTimeInput) bedtimeTimeInput.value = "";
+  if (bedtimeMeridiem) {
+    bedtimeMeridiem.value = "";
+    bedtimeMeridiem.selectedIndex = 0;
+  }
+  setBedtimeInputError("");
+  updateSleepLimitUI();
+  updateInsights();
+
+  try {
+    await Promise.allSettled([
+      clearUserCollection(user.uid, "sleepLogs"),
+      deleteDoc(doc(db, "users", user.uid, "settings", "sleep"))
+    ]);
+    showToast("Sleep logs and bed time reminder cleared.");
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+}
+
 // Time Mirror
 function timeTraveller() {
   const goalText = futureTask.value.trim();
@@ -14971,6 +16672,8 @@ function timeTraveller() {
 
   const snapshot = getWellnessSnapshot();
   const lower = goalText.toLowerCase();
+  const timeline = parseTimelineFromInput(goalText);
+  const moodMeta = getMoodStateMeta(snapshot.moodToday);
 
   const goalType =
     /study|exam|learn|course|revision|assignment/.test(lower) ? "learning" :
@@ -14983,6 +16686,21 @@ function timeTraveller() {
   const energyState = snapshot.sleepToday >= 7 ? "steady" : "low";
   const focusState = snapshot.pendingTasks <= 2 ? "clear" : "crowded";
   const hydrationLeft = Math.max(0, snapshot.todayGoal - snapshot.waterToday);
+  const hydrationState = hydrationLeft > 0 ? "behind" : "good";
+
+  const blockerTag =
+    /procrastinat|delay|later|tomorrow/.test(lower) ? "delay" :
+    /overwhelm|stuck|confused|unclear/.test(lower) ? "clarity" :
+    /anxious|stress|nervous|fear/.test(lower) ? "anxiety" :
+    /tired|drained|exhaust|sleepy/.test(lower) ? "fatigue" :
+    "none";
+
+  const urgency = (() => {
+    if (!timeline?.minutes) return "normal";
+    if (timeline.minutes <= 24 * 60) return "high";
+    if (timeline.minutes <= 3 * 24 * 60) return "medium";
+    return "normal";
+  })();
 
   const typeBoost = {
     learning: "your understanding compounds and recall becomes faster",
@@ -15002,7 +16720,7 @@ function timeTraveller() {
     general: "the task becomes heavier emotionally and mentally"
   };
 
-  const firstStep =
+  const firstStepBase =
     goalType === "learning" ? "Open your notes and do a 15-minute focused sprint." :
     goalType === "fitness" ? "Do a 5-minute warm-up and start the first set." :
     goalType === "career" ? "Break this into one shippable 20-minute action." :
@@ -15010,22 +16728,115 @@ function timeTraveller() {
     goalType === "hydration" ? "Drink one glass now, then set a 30-minute follow-up." :
     "Do one 10-minute starter action right now.";
 
-  const readinessHint = `${energyState === "steady" ? "Energy is on your side" : "Energy is low, so start tiny"} • ${focusState === "clear" ? "task load is manageable" : "task load is crowded"}${hydrationLeft > 0 ? ` • ${hydrationLeft} glass(es) hydration gap` : ""}`;
+  const blockerStep =
+    blockerTag === "delay" ? "Use a 5-minute countdown and start before the timer ends." :
+    blockerTag === "clarity" ? "Write the task in one sentence, then pick only the very first sub-step." :
+    blockerTag === "anxiety" ? "Take 3 slow breaths, then do a tiny version of the task for 8 minutes." :
+    blockerTag === "fatigue" ? "Start with a low-friction micro-step for 5 minutes, then reassess." :
+    "";
+
+  const urgencyStep =
+    urgency === "high" ? "Deadline is close, so protect a 25-minute distraction-free block now." :
+    urgency === "medium" ? "Start today with one focused block to avoid deadline compression." :
+    "Progress compounds best when you start early and repeat daily.";
+
+  const firstStep = blockerStep || firstStepBase;
+  const readinessHint = `${energyState === "steady" ? "Energy is usable" : "Energy is low, keep actions tiny"} • ${focusState === "clear" ? "focus lane is clear" : "task load is crowded"} • mood: ${moodMeta.label}${hydrationState === "behind" ? ` • hydrate +${hydrationLeft}` : " • hydration on track"}`;
+
+  const horizonLabel = timeline?.label || "next 24 hours";
+  const moodRiskLine = moodMeta.logged && moodMeta.score <= 1
+    ? "Emotional load is elevated, so consistency beats intensity today."
+    : "Emotional baseline is stable enough for focused execution.";
+
+  const followUpPlan =
+    goalType === "learning" ? "Block 2 study sprints and close with a 5-minute recall test." :
+    goalType === "fitness" ? "Lock workout time and prep clothes/shoes now." :
+    goalType === "career" ? "Ship one visible milestone today and define tomorrow's next ship item." :
+    goalType === "recovery" ? "Set bedtime trigger and cap screens 45 minutes before sleep." :
+    goalType === "hydration" ? "Pair each meal with water and complete the remaining glasses before evening." :
+    "Choose one measurable output and finish it before day-end.";
 
   timeMirror.innerHTML = `
-    <p>✨ <b>Future if you do "${escapeHtml(goalText)}"</b><br>
-    In 24 hours: ${typeBoost[goalType]}, and your self-trust strengthens. 💪</p>
-    <p>⏳ <b>Future if you delay it</b><br>
-    In 24 hours: ${skipCost[goalType]}, and starting feels harder than it is now. 😔</p>
-    <p>🧭 <b>Best first step</b><br>${firstStep}</p>
+    <p>✨ <b>Likely future if you execute: "${escapeHtml(goalText)}"</b><br>
+    By ${escapeHtml(horizonLabel)}: ${typeBoost[goalType]}. ${moodRiskLine}</p>
+    <p>⏳ <b>If you delay</b><br>
+    By ${escapeHtml(horizonLabel)}: ${skipCost[goalType]}.</p>
+    <p>🧭 <b>Best next move (context-aware)</b><br>${firstStep}<br>${urgencyStep}</p>
+    <p>📈 <b>Execution plan</b><br>${followUpPlan}</p>
     <p>📌 <small>${readinessHint}</small></p>
   `;
+
+  setTimeMirrorClearButtonState(true);
 
   futureTask.value = "";
 }
 
 // Quotes
-const quotes=["🌱 'The journey of a thousand miles begins with one step.' – Lao Tzu","💪 'Your body can stand almost anything. It’s your mind that you have to convince.'","☀️ 'Every morning we are born again. What we do today matters most.' – Buddha","🌟 'Success is the sum of small efforts repeated day in and day out.' – Robert Collier","🧘 'Happiness is not something ready-made. It comes from your own actions.' – Dalai Lama","🔥 'Don’t watch the clock; do what it does. Keep going.' – Sam Levenson"];
+const quotes=[
+  "Start where you are. Use what you have. Do what you can.",
+  "Small progress is still progress.",
+  "Your future is built by what you repeat today.",
+  "Discipline is self-respect in action.",
+  "You are one focused hour away from momentum.",
+  "Do not wait for motivation; create motion.",
+  "Done is powerful. Perfect can wait.",
+  "A calm mind makes better decisions.",
+  "Consistency turns effort into identity.",
+  "You can restart your day at any minute.",
+  "Hard days build strong character.",
+  "One task completed can change your whole mood.",
+  "You are not behind. You are building.",
+  "Tiny habits become life-changing results.",
+  "Progress compounds when excuses shrink.",
+  "Focus is a superpower in a distracted world.",
+  "Your pace is valid. Keep moving.",
+  "Success is usually quiet daily effort.",
+  "The best time to begin is now.",
+  "You grow every time you keep your promise to yourself.",
+  "Momentum loves action.",
+  "Courage is doing it even when it feels hard.",
+  "Confidence is earned through completion.",
+  "A better day starts with one better choice.",
+  "Protect your peace and pursue your purpose.",
+  "Energy follows clarity.",
+  "You are capable of more than your doubts suggest.",
+  "Stay patient with results and relentless with effort.",
+  "The next chapter begins with one bold step.",
+  "Make your standards stronger than your moods.",
+  "Your habits are writing your story.",
+  "Keep promises to yourself, especially the small ones.",
+  "Effort never disappears; it accumulates.",
+  "Show up first, then improve.",
+  "You do not need to be extreme, just consistent.",
+  "Every completed task is evidence of your strength.",
+  "Clarity comes from action, not overthinking.",
+  "Rest is productive when it prepares you to rise again.",
+  "You are becoming someone your past self would admire.",
+  "Growth feels uncomfortable because it is real.",
+  "Do the next right thing.",
+  "Your determination is greater than temporary discomfort.",
+  "Be proud of the effort no one else sees.",
+  "Difficult does not mean impossible.",
+  "One focused decision can rescue the entire day.",
+  "There is power in finishing what you start.",
+  "You are stronger than your most difficult hour.",
+  "Keep going. Your breakthrough may be one step away.",
+  "Your mindset is a daily practice.",
+  "Shine quietly through your consistency.",
+  "Choose progress over pressure.",
+  "You can do hard things with a calm mind.",
+  "Today is an opportunity, not a verdict.",
+  "If it matters, give it focused time.",
+  "You are building proof, not just plans.",
+  "Take the first step and let momentum handle the rest.",
+  "You are allowed to grow at your own speed.",
+  "Keep your head clear and your standards high.",
+  "A disciplined day is a peaceful night.",
+  "The work you avoid is often the work that frees you.",
+  "Win this hour, then win the next.",
+  "Your focus today is your freedom tomorrow.",
+  "You are closer than you think."
+];
 function newQuote(){quoteDisplay.innerText=quotes[Math.floor(Math.random()*quotes.length)];}
 newQuote();
 
@@ -15176,7 +16987,7 @@ async function saveGratitude(){
 const EXPORT_SNAPSHOT_DOC_ID = "dataSnapshot";
 const EXPORT_SNAPSHOT_CHUNK_SIZE = 700000;
 const EXPORT_COOLDOWN_MS = 5 * 60 * 1000;
-const EXPORT_TARGET_COLLECTIONS = ["moods", "tasks", "waterIntake", "sleepLogs", "gratitudeLogs", "aiChats", "challengeHistory", "rescueEvents", "reminders"];
+const EXPORT_TARGET_COLLECTIONS = ["moods", "tasks", "waterIntake", "sleepLogs", "musicSessions", "gratitudeLogs", "aiChats", "challengeHistory", "rescueEvents", "reminders"];
 
 function getOptionalTimestampMs(value) {
   if (!value) return null;
@@ -15266,6 +17077,82 @@ function startExportCooldown(remainingMs) {
   }
 }
 
+function applyDisplayNameEditCooldownUI(remainingMs) {
+  if (!editDisplayNameBtn) return;
+  const safeRemaining = Math.max(0, Number(remainingMs) || 0);
+  const coolingDown = safeRemaining > 0;
+  editDisplayNameBtn.disabled = coolingDown;
+  editDisplayNameBtn.innerText = coolingDown
+    ? `Edit Display Name in ${formatDisplayNameCooldownClock(safeRemaining)}`
+    : "Edit Display Name";
+  editDisplayNameBtn.title = coolingDown ? "Display name edit cooldown active" : "";
+}
+
+function stopDisplayNameEditCooldownTicker() {
+  if (!displayNameEditCooldownIntervalId) return;
+  clearInterval(displayNameEditCooldownIntervalId);
+  displayNameEditCooldownIntervalId = null;
+}
+
+function updateDisplayNameEditCooldownTicker() {
+  const remaining = displayNameEditCooldownUntilMs - getServerNowDate().getTime();
+  if (remaining <= 0) {
+    displayNameEditCooldownUntilMs = 0;
+    stopDisplayNameEditCooldownTicker();
+    applyDisplayNameEditCooldownUI(0);
+    return;
+  }
+  applyDisplayNameEditCooldownUI(remaining);
+}
+
+function startDisplayNameEditCooldown(remainingMs) {
+  const safeRemaining = Math.max(0, Number(remainingMs) || 0);
+  if (safeRemaining <= 0) {
+    displayNameEditCooldownUntilMs = 0;
+    stopDisplayNameEditCooldownTicker();
+    applyDisplayNameEditCooldownUI(0);
+    return;
+  }
+
+  displayNameEditCooldownUntilMs = getServerNowDate().getTime() + safeRemaining;
+  updateDisplayNameEditCooldownTicker();
+  if (!displayNameEditCooldownIntervalId) {
+    displayNameEditCooldownIntervalId = setInterval(updateDisplayNameEditCooldownTicker, 1000);
+  }
+}
+
+async function refreshDisplayNameEditCooldownState(userId) {
+  if (!userId) {
+    startDisplayNameEditCooldown(0);
+    return;
+  }
+
+  try {
+    const profileSnap = await getDoc(doc(db, "users", userId, "settings", "profile"));
+    if (!profileSnap.exists()) {
+      startDisplayNameEditCooldown(0);
+      return;
+    }
+
+    const profileData = profileSnap.data() || {};
+    const cooldownUntilMs = Math.max(
+      0,
+      Number(profileData.displayNameDashboardCooldownUntilMs)
+      || getOptionalTimestampMs(profileData.displayNameDashboardCooldownUntil)
+      || 0
+    );
+    if (!cooldownUntilMs) {
+      startDisplayNameEditCooldown(0);
+      return;
+    }
+
+    const remaining = cooldownUntilMs - getServerNowDate().getTime();
+    startDisplayNameEditCooldown(remaining);
+  } catch (_) {
+    startDisplayNameEditCooldown(0);
+  }
+}
+
 async function refreshExportCooldownState(userId) {
   if (!userId) {
     startExportCooldown(0);
@@ -15309,6 +17196,7 @@ function splitSnapshotChunks(serialized) {
 
 async function buildExportPayloadForUser(userId, userMeta = {}, dbInstance = db) {
   const waterSettingsSnap = await getDoc(doc(dbInstance, "users", userId, "settings", "water"));
+  const sleepSettingsSnap = await getDoc(doc(dbInstance, "users", userId, "settings", "sleep"));
   const dailyChallengeSnap = await getDoc(doc(dbInstance, "users", userId, "settings", "dailyChallenge"));
   const weeklyTargetsSnap = await getDoc(doc(dbInstance, "users", userId, "settings", "weeklyTargets"));
   const habitQuestSnap = await getDoc(doc(dbInstance, "users", userId, "settings", "habitQuest"));
@@ -15320,6 +17208,7 @@ async function buildExportPayloadForUser(userId, userMeta = {}, dbInstance = db)
     tasksSnap,
     waterSnap,
     sleepSnap,
+    musicSessionsSnap,
     gratitudeSnap,
     aiSnap,
     challengeHistorySnap,
@@ -15330,6 +17219,7 @@ async function buildExportPayloadForUser(userId, userMeta = {}, dbInstance = db)
     getDocs(collection(dbInstance, "users", userId, "tasks")),
     getDocs(collection(dbInstance, "users", userId, "waterIntake")),
     getDocs(collection(dbInstance, "users", userId, "sleepLogs")),
+    getDocs(collection(dbInstance, "users", userId, "musicSessions")),
     getDocs(collection(dbInstance, "users", userId, "gratitudeLogs")),
     getDocs(collection(dbInstance, "users", userId, "aiChats")),
     getDocs(collection(dbInstance, "users", userId, "challengeHistory")),
@@ -15345,6 +17235,7 @@ async function buildExportPayloadForUser(userId, userMeta = {}, dbInstance = db)
       name: userMeta.name || null
     },
     waterSettings: waterSettingsSnap.exists() ? waterSettingsSnap.data() : null,
+    sleepSettings: sleepSettingsSnap.exists() ? sleepSettingsSnap.data() : null,
     dailyChallengeSettings: dailyChallengeSnap.exists() ? dailyChallengeSnap.data() : null,
     weeklyTargets: weeklyTargetsSnap.exists() ? weeklyTargetsSnap.data() : null,
     habitQuest: habitQuestSnap.exists() ? habitQuestSnap.data() : null,
@@ -15354,6 +17245,7 @@ async function buildExportPayloadForUser(userId, userMeta = {}, dbInstance = db)
     tasks: toSnapshotRows(tasksSnap),
     waterIntake: toSnapshotRows(waterSnap),
     sleepLogs: toSnapshotRows(sleepSnap),
+    musicSessions: toSnapshotRows(musicSessionsSnap),
     gratitudeLogs: toSnapshotRows(gratitudeSnap),
     aiChats: toSnapshotRows(aiSnap),
     challengeHistory: toSnapshotRows(challengeHistorySnap),
@@ -15475,9 +17367,58 @@ function normalizeExportTime(value) {
 }
 
 function setImportTransferError(message = "") {
+  const isBackoffMessage = String(message || "").includes("Too many failed import attempts");
+  if (!isBackoffMessage) stopImportBackoffCooldownTicker();
   if (!importTransferError) return;
   importTransferError.innerText = message || "";
   importTransferError.style.display = message ? "block" : "none";
+}
+
+function stopImportBackoffCooldownTicker() {
+  if (importBackoffCooldownIntervalId) {
+    clearInterval(importBackoffCooldownIntervalId);
+    importBackoffCooldownIntervalId = null;
+  }
+  importBackoffCooldownEmail = "";
+}
+
+function updateImportBackoffCooldownTicker() {
+  const sourceEmail = String(importBackoffCooldownEmail || "").trim();
+  if (!sourceEmail || importTransferModal?.style?.display !== "flex") {
+    stopImportBackoffCooldownTicker();
+    return;
+  }
+
+  const remainingMs = getAuthBackoffRemainingMs("import", sourceEmail);
+  if (remainingMs <= 0) {
+    stopImportBackoffCooldownTicker();
+    setImportTransferError("");
+    return;
+  }
+
+  setImportTransferError(`Too many failed import attempts. Try again in ${formatCountdownClock(remainingMs)}.`);
+}
+
+function startImportBackoffCooldownTicker(sourceEmail, remainingMs = 0) {
+  const normalizedEmail = String(sourceEmail || "").trim();
+  if (!normalizedEmail) {
+    stopImportBackoffCooldownTicker();
+    return;
+  }
+
+  const currentRemaining = getAuthBackoffRemainingMs("import", normalizedEmail);
+  const safeRemaining = Math.max(Number(remainingMs) || 0, currentRemaining);
+  if (safeRemaining <= 0) {
+    stopImportBackoffCooldownTicker();
+    setImportTransferError("");
+    return;
+  }
+
+  importBackoffCooldownEmail = normalizedEmail;
+  setImportTransferError(`Too many failed import attempts. Try again in ${formatCountdownClock(safeRemaining)}.`);
+  if (!importBackoffCooldownIntervalId) {
+    importBackoffCooldownIntervalId = setInterval(updateImportBackoffCooldownTicker, 1000);
+  }
 }
 
 function setImportTransferBusy(isBusy) {
@@ -15507,6 +17448,7 @@ function startImportData() {
     return;
   }
   if (importTransferModal) importTransferModal.style.display = "flex";
+  ensureAppBackGuardState("import-modal", true);
   setImportTransferBusy(false);
   setImportTransferError("");
   if (importSourceEmailInput) {
@@ -15538,7 +17480,7 @@ async function submitImportTransfer() {
 
   const importBackoffRemaining = getAuthBackoffRemainingMs("import", sourceEmail);
   if (importBackoffRemaining > 0) {
-    setImportTransferError(`Too many failed import attempts. Try again in ${formatCountdownClock(importBackoffRemaining)}.`);
+    startImportBackoffCooldownTicker(sourceEmail, importBackoffRemaining);
     if (importSourcePasswordInput) importSourcePasswordInput.focus();
     return;
   }
@@ -15592,7 +17534,7 @@ async function submitImportTransfer() {
       ) {
         const backoff = registerAuthBackoffFailure("import", sourceEmail);
         if (backoff.remainingMs > 0) {
-          setImportTransferError(`Too many failed import attempts. Try again in ${formatCountdownClock(backoff.remainingMs)}.`);
+          startImportBackoffCooldownTicker(sourceEmail, backoff.remainingMs);
         } else {
           setImportTransferError("Incorrect email or password.");
         }
@@ -15628,6 +17570,7 @@ async function applyImportPayloadToCurrentUser(user, payload) {
 
   await Promise.all(EXPORT_TARGET_COLLECTIONS.map((name) => clearUserCollection(user.uid, name)));
   await deleteDoc(doc(db, "users", user.uid, "settings", "water")).catch(() => {});
+  await deleteDoc(doc(db, "users", user.uid, "settings", "sleep")).catch(() => {});
   await deleteDoc(doc(db, "users", user.uid, "settings", "dailyChallenge")).catch(() => {});
   await deleteDoc(doc(db, "users", user.uid, "settings", "weeklyTargets")).catch(() => {});
   await deleteDoc(doc(db, "users", user.uid, "settings", "habitQuest")).catch(() => {});
@@ -15640,6 +17583,7 @@ async function applyImportPayloadToCurrentUser(user, payload) {
   const tasks = Array.isArray(payload.tasks) ? payload.tasks : [];
   const waterIntake = Array.isArray(payload.waterIntake) ? payload.waterIntake : [];
   const sleepLogs = Array.isArray(payload.sleepLogs) ? payload.sleepLogs : [];
+  const musicSessionsPayload = Array.isArray(payload.musicSessions) ? payload.musicSessions : [];
   const gratitudeLogs = Array.isArray(payload.gratitudeLogs) ? payload.gratitudeLogs : [];
   const aiChats = Array.isArray(payload.aiChats) ? payload.aiChats : [];
   const challengeHistory = Array.isArray(payload.challengeHistory) ? payload.challengeHistory : [];
@@ -15669,6 +17613,17 @@ async function applyImportPayloadToCurrentUser(user, payload) {
     hours: Number(entry.hours) || 0,
     time: normalizeExportTime(entry.time)
   })));
+
+  await Promise.all(musicSessionsPayload.map((entry) => {
+    const dayKey = String(entry.dayKey || entry.id || dateToKey(normalizeExportTime(entry.time)) || "").trim();
+    if (!dayKey) return Promise.resolve();
+    return setDoc(doc(db, "users", user.uid, "musicSessions", dayKey), {
+      dayKey,
+      played: entry.played !== false,
+      time: normalizeExportTime(entry.time || entry.updatedAt),
+      updatedAt: normalizeExportTime(entry.updatedAt || entry.time)
+    }, { merge: true });
+  }));
 
   await Promise.all(gratitudeLogs.map((entry) => addDoc(collection(db, "users", user.uid, "gratitudeLogs"), {
     text: entry.text || "",
@@ -15715,6 +17670,14 @@ async function applyImportPayloadToCurrentUser(user, payload) {
   if (payload.waterSettings && typeof payload.waterSettings.goal !== "undefined") {
     await setDoc(doc(db, "users", user.uid, "settings", "water"), {
       goal: Number(payload.waterSettings.goal) || 0
+    }, { merge: true });
+  }
+
+  if (payload.sleepSettings && typeof payload.sleepSettings === "object") {
+    await setDoc(doc(db, "users", user.uid, "settings", "sleep"), {
+      bedtimeEnabled: !!payload.sleepSettings.bedtimeEnabled,
+      bedtimeTime: String(payload.sleepSettings.bedtimeTime || ""),
+      bedtimeMeridiem: normalizeBedtimeMeridiem(payload.sleepSettings.bedtimeMeridiem || "")
     }, { merge: true });
   }
 
@@ -15774,6 +17737,8 @@ async function applyImportPayloadToCurrentUser(user, payload) {
     loadHabitQuest(user.uid),
     loadWaterData(user.uid),
     loadSleepData(user.uid),
+    loadMusicSessions(user.uid),
+    loadBedtimeSettings(user.uid),
     loadGratitude(user.uid)
   ]);
 
@@ -16007,6 +17972,10 @@ Object.assign(window, {
   saveWater,
   clearWaterData,
   saveSleep,
+  clearSleepData,
+  setBedtimeReminder,
+  closeBedtimeReminderModal,
+  clearTimeMirror,
   timeTraveller,
   newQuote,
   saveGratitude,
