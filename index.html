@@ -4274,15 +4274,26 @@ async function submitGoogleIdentitySetup() {
       return;
     }
 
+    let passwordLinkedNow = hasPasswordProvider;
     if (needsPasswordSetup) {
       const credential = EmailAuthProvider.credential(safeEmail, googlePasswordRaw);
       try {
         await linkWithCredential(user, credential);
+        passwordLinkedNow = true;
       } catch (linkErr) {
         const linkCode = String(linkErr?.code || "");
         if (linkCode !== "auth/provider-already-linked") {
           throw linkErr;
         }
+        passwordLinkedNow = true;
+      }
+
+      // Confirm provider linkage so setup cannot finish in a half-saved state.
+      await user.reload().catch(() => {});
+      passwordLinkedNow = hasPasswordProviderLinked(auth.currentUser || user) || passwordLinkedNow;
+      if (!passwordLinkedNow) {
+        showGoogleIdentityError("Password setup could not be confirmed. Please try again.");
+        return;
       }
     }
 
@@ -4295,7 +4306,12 @@ async function submitGoogleIdentitySetup() {
       });
     }
 
-    const hasPasswordAfterSetup = hasPasswordProviderLinked(auth.currentUser || user);
+    const hasPasswordAfterSetup = hasPasswordProviderLinked(auth.currentUser || user) || passwordLinkedNow;
+
+    if (googleIdentityRequirePassword && !hasPasswordAfterSetup) {
+      showGoogleIdentityError("Password is required. Please set it to continue.");
+      return;
+    }
 
     await setDoc(doc(db, "users", user.uid, "settings", "profile"), {
       googleIdentitySetupCompleted: true,
