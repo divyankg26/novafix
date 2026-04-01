@@ -3662,6 +3662,7 @@ let usernameLiveCheckSequence = 0;
 let googleIdentitySetupInProgress = false;
 let googleIdentitySetupUserId = "";
 let googleIdentityPasswordOnlyMode = false;
+let googleIdentityRequirePassword = false;
 let googleIdentityUsernameLiveCheckTimer = null;
 let googleIdentityUsernameLiveCheckSequence = 0;
 let authEmailProviderCheckTimer = null;
@@ -4004,6 +4005,7 @@ function closeGoogleIdentitySetupModal() {
     googleIdentityNote.innerText = "Choose your username and display name.";
   }
   googleIdentityPasswordOnlyMode = false;
+  googleIdentityRequirePassword = false;
   googleIdentitySetupInProgress = false;
   googleIdentitySetupUserId = "";
 }
@@ -4067,6 +4069,7 @@ function openGoogleIdentitySetupModal(user, defaults = {}) {
   if (!googleIdentityModal || !activeUserId) return;
   const passwordOnly = !!defaults?.passwordOnly;
   googleIdentityPasswordOnlyMode = passwordOnly;
+  googleIdentityRequirePassword = passwordOnly || !!defaults?.requirePassword;
   if (googleIdentityUsernameInput) googleIdentityUsernameInput.value = String(defaults?.username || "").trim();
   if (googleIdentityDisplayNameInput) googleIdentityDisplayNameInput.value = String(defaults?.displayName || "").trim();
   if (googleIdentityPasswordInput) googleIdentityPasswordInput.value = "";
@@ -4079,7 +4082,7 @@ function openGoogleIdentitySetupModal(user, defaults = {}) {
   if (googleIdentityNote) {
     googleIdentityNote.innerText = passwordOnly
       ? "Set a password below to continue."
-      : "Choose your username and display name.";
+      : "Choose your username and display name, then set a password to continue.";
   }
   hideGoogleIdentityError();
   googleIdentityModal.style.display = "flex";
@@ -4123,10 +4126,12 @@ async function ensureGoogleIdentitySetupIfNeeded(user) {
     || normalizeDisplayNameValue(user?.displayName)
     || "";
   const passwordOnly = legacyPasswordRequired && !hasPasswordProvider;
+  const requirePassword = passwordOnly || !setupCompleted;
   openGoogleIdentitySetupModal(user, {
     username: fallbackUsername,
     displayName: fallbackDisplayName,
-    passwordOnly
+    passwordOnly,
+    requirePassword
   });
   return false;
 }
@@ -4206,7 +4211,7 @@ async function submitGoogleIdentitySetup() {
   const displayNameRaw = String(googleIdentityDisplayNameInput?.value || "").trim();
   const googlePasswordRaw = String(googleIdentityPasswordInput?.value || "");
   const hasPasswordProvider = hasPasswordProviderLinked(user);
-  const needsPasswordSetup = googleIdentityPasswordOnlyMode && !hasPasswordProvider;
+  const needsPasswordSetup = googleIdentityRequirePassword && !hasPasswordProvider;
   if (needsPasswordSetup && googlePasswordRaw.length < 6) {
     showGoogleIdentityError("Set a password with at least 6 characters.");
     return;
@@ -5220,7 +5225,10 @@ async function handleGoogleAuth() {
   }
 
   try {
-    showAuthModalError("Hang on, signing in with Google...", "auth_progress", "#9fd0ff");
+    const googleAuthProgressText = authMode === "signup"
+      ? "Hang on, signing up with Google..."
+      : "Hang on, signing in with Google...";
+    showAuthModalError(googleAuthProgressText, "auth_progress", "#9fd0ff");
     markPendingRequestLoginAlertForNextSessionStart();
     await signInWithPopup(auth, googleProvider);
   } catch (err) {
