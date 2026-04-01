@@ -1913,10 +1913,10 @@ textarea:focus-visible{
 <div id="googleIdentityModal">
   <div class="modal-content" onclick="event.stopPropagation()">
     <h2 id="googleIdentityTitle">Set Your Profile</h2>
-    <p id="googleIdentityNote" class="identity-setup-note">For Google sign-up, choose your username/display name and set a password for Import Data verification.</p>
+    <p id="googleIdentityNote" class="identity-setup-note">Choose your username and display name.</p>
     <input id="googleIdentityUsernameInput" type="text" placeholder="Choose username">
     <input id="googleIdentityDisplayNameInput" type="text" placeholder="Choose display name">
-    <input id="googleIdentityPasswordInput" type="password" placeholder="Set password (min 6 chars)">
+    <input id="googleIdentityPasswordInput" type="password" placeholder="Set password">
     <div class="identity-setup-actions">
       <button id="googleIdentitySaveBtn" onclick="submitGoogleIdentitySetup()">Continue</button>
       <button id="googleIdentityCancelBtn" onclick="cancelGoogleIdentitySetup()">Sign Out</button>
@@ -3267,7 +3267,7 @@ try {
           return;
         }
         await user.reload();
-        if (!user.emailVerified) {
+        if (!user.emailVerified && !isGoogleProviderUser(user)) {
           const suppressUnverifiedPrompt = Date.now() < Number(suppressUnverifiedSigninPromptUntilMs || 0);
           if (suppressUnverifiedPrompt) {
             return;
@@ -3941,7 +3941,7 @@ function closeGoogleIdentitySetupModal() {
   if (googleIdentityPasswordInput) googleIdentityPasswordInput.value = "";
   if (googleIdentityTitle) googleIdentityTitle.innerText = "Set Your Profile";
   if (googleIdentityNote) {
-    googleIdentityNote.innerText = "For Google sign-up, choose your username/display name and set a password for Import Data verification.";
+    googleIdentityNote.innerText = "Choose your username and display name.";
   }
   googleIdentityPasswordOnlyMode = false;
   googleIdentitySetupInProgress = false;
@@ -4015,8 +4015,8 @@ function openGoogleIdentitySetupModal(user, defaults = {}) {
   }
   if (googleIdentityNote) {
     googleIdentityNote.innerText = passwordOnly
-      ? "Your legacy Google account needs a password for Import Data verification. Set one below to continue."
-      : "For Google sign-up, choose your username/display name and set a password for Import Data verification.";
+      ? "Set a password below to continue."
+      : "Choose your username and display name.";
   }
   hideGoogleIdentityError();
   googleIdentityModal.style.display = "flex";
@@ -4141,7 +4141,7 @@ async function submitGoogleIdentitySetup() {
   const hasPasswordProvider = hasPasswordProviderLinked(user);
   const needsPasswordSetup = !hasPasswordProvider;
   if (needsPasswordSetup && googlePasswordRaw.length < 6) {
-    showGoogleIdentityError("Set a password with at least 6 characters for import access.");
+    showGoogleIdentityError("Set a password with at least 6 characters.");
     return;
   }
 
@@ -4196,7 +4196,14 @@ async function submitGoogleIdentitySetup() {
 
     if (needsPasswordSetup) {
       const credential = EmailAuthProvider.credential(safeEmail, googlePasswordRaw);
-      await linkWithCredential(user, credential);
+      try {
+        await linkWithCredential(user, credential);
+      } catch (linkErr) {
+        const linkCode = String(linkErr?.code || "");
+        if (linkCode !== "auth/provider-already-linked") {
+          throw linkErr;
+        }
+      }
     }
 
     await claimUsernameDirectoryEntry(user.uid, usernameKey, safeEmail, normalizedDisplayName);
