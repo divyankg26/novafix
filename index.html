@@ -3060,6 +3060,7 @@ async function clearAllAccountData() {
   const warningTwo = confirm("Final warning: this cannot be undone. Your account will stay signed in, but all app data and social links (friends, sent requests, pending requests) will be erased. Proceed?");
   if (!warningTwo) return;
 
+  const pendingToastId = showPendingToast("Hang on, clearing data...");
   try {
     const previousChallengeText = String(currentChallengeText || "");
     await syncServerClock(user.uid);
@@ -3311,6 +3312,8 @@ async function clearAllAccountData() {
     alert("✅ All account data cleared. You are still signed in.");
   } catch (err) {
     notifyFirestoreError(err);
+  } finally {
+    clearPendingToast(pendingToastId);
   }
 }
 
@@ -3764,6 +3767,11 @@ function validateSignupDisplayName(displayNameValue) {
   return { ok: true, message: "", normalized: raw };
 }
 
+function isValidUsernameKey(usernameKey) {
+  const value = String(usernameKey || "").trim();
+  return /^[a-z0-9_-]{1,20}$/.test(value);
+}
+
 async function getDocWithFreshFallback(ref) {
   try {
     return await getDocFromServer(ref);
@@ -4137,6 +4145,7 @@ async function ensureGoogleIdentitySetupIfNeeded(user) {
 }
 
 async function initializeAuthenticatedSession(user) {
+  clearAuthProgressMessage();
   dashboard.style.display = "grid";
   setPageTitle("dashboard");
   accountBtn.style.display = "block";
@@ -4790,7 +4799,7 @@ function activateCardShortcut(definition) {
     closeAccountPanel();
   }
 
-  card.scrollIntoView({ behavior: "smooth", block: "center" });
+  scrollCardToViewportCenterReliably(card);
   card.classList.remove("shortcut-focus");
   void card.offsetWidth;
   card.classList.add("shortcut-focus");
@@ -4805,6 +4814,31 @@ function activateCardShortcut(definition) {
         firstFocusable.focus();
       }
     }, 160);
+  }
+}
+
+function scrollCardToViewportCenterReliably(card, options = {}) {
+  const target = card;
+  if (!target || typeof target.getBoundingClientRect !== "function") return;
+
+  const repeats = Math.max(1, Number(options.repeats) || 5);
+  const delayMs = Math.max(40, Number(options.delayMs) || 120);
+  const viewportHeight = Math.max(window.innerHeight || 0, 1);
+  const targetRect = target.getBoundingClientRect();
+  const absoluteTop = targetRect.top + window.scrollY;
+  const desiredTop = Math.max(0, absoluteTop - ((viewportHeight - targetRect.height) / 2));
+
+  const runScroll = (behavior) => {
+    try {
+      window.scrollTo({ top: desiredTop, behavior });
+    } catch (_) {
+      window.scrollTo(0, desiredTop);
+    }
+  };
+
+  runScroll("smooth");
+  for (let i = 1; i < repeats; i += 1) {
+    setTimeout(() => runScroll(i === repeats - 1 ? "auto" : "smooth"), i * delayMs);
   }
 }
 
@@ -5128,6 +5162,7 @@ async function handleAuth() {
       }
       setPageTitle("signin");
 
+      clearAuthProgressMessage();
       authModalErrorKind = "";
       error.style.display = "block";
       error.style.color = verifyResult.ok ? "#7CFFB2" : "#ff6b6b";
@@ -5210,7 +5245,6 @@ async function handleAuth() {
 
     showAuthModalError(err?.message || "Could not sign in right now.");
   } finally {
-    clearAuthProgressMessage();
     if (startedSignupAuthFlow) {
       signupFlowInProgress = false;
     }
@@ -5218,6 +5252,9 @@ async function handleAuth() {
 }
 
 async function signOutUser() {
+  const shouldSignOut = confirm("Sign out of your account now?");
+  if (!shouldSignOut) return;
+
   closeAccountPanel();
   closeAddFriendModal(null, true);
   const pendingToastId = showPendingToast("Hang on, signing out...");
@@ -5256,8 +5293,6 @@ async function handleGoogleAuth() {
     error.innerText = isUnauthorizedDomain
       ? `Unauthorized domain. Current origin: ${currentOrigin}. Add '${currentHost}' in Firebase Auth > Settings > Authorized domains, then hard refresh.`
       : (err.message || "Google authentication failed.");
-  } finally {
-    clearAuthProgressMessage();
   }
 }
 
@@ -5803,6 +5838,7 @@ function normalizeUsernameForLookup(usernameValue) {
   const withoutAt = raw.startsWith("@") ? raw.slice(1) : raw;
   // Dots are deprecated in usernames; normalize legacy dotted usernames to dotless.
   return withoutAt
+    .toLowerCase()
     .replace(/\s+/g, "")
     .replace(/\./g, "")
     .trim();
@@ -5830,7 +5866,7 @@ function buildUsernameClaimCandidateList(preferredUsername) {
   const seen = new Set();
   const pushCandidate = (value) => {
     const normalized = normalizeUsernameForLookup(value);
-    if (!normalized || seen.has(normalized)) return;
+    if (!normalized || !isValidUsernameKey(normalized) || seen.has(normalized)) return;
     seen.add(normalized);
     candidates.push(normalized);
   };
@@ -6132,11 +6168,12 @@ async function resolveUserDirectoryByUsername(usernameValue, options = {}) {
 
 async function claimUsernameDirectoryEntry(userId, usernameValue, emailValue, displayNameValue) {
   const safeUserId = String(userId || "").trim();
-  const usernameKey = normalizeUsernameForLookup(usernameValue);
+  const usernameValidation = validateSignupUsername(usernameValue);
+  const usernameKey = usernameValidation.normalized;
   const safeEmail = String(emailValue || "").trim().toLowerCase();
-  const safeUsername = normalizeUsernameForLookup(usernameValue) || usernameKey;
+  const safeUsername = usernameKey;
   const safeDisplayName = normalizeDisplayNameValue(displayNameValue) || safeUsername;
-  if (!safeUserId || !usernameKey) {
+  if (!safeUserId || !usernameKey || !usernameValidation.ok || !isValidUsernameKey(usernameKey)) {
     throw new Error("INVALID_USERNAME");
   }
 
@@ -6145,12 +6182,8 @@ async function claimUsernameDirectoryEntry(userId, usernameValue, emailValue, di
     const usernameSnap = await transaction.get(usernameRef);
     const existingData = usernameSnap.exists() ? (usernameSnap.data() || {}) : null;
     const existingUid = String(existingData?.uid || "").trim();
-    const existingEmail = String(existingData?.email || "").trim().toLowerCase();
     if (existingUid && existingUid !== safeUserId) {
-      const reclaimByEmail = !!safeEmail && !!existingEmail && existingEmail === safeEmail;
-      if (!reclaimByEmail) {
-        throw new Error("USERNAME_TAKEN");
-      }
+      throw new Error("USERNAME_TAKEN");
     }
 
     transaction.set(usernameRef, {
@@ -14531,6 +14564,47 @@ async function tryAiAction(input, user) {
     return "✅ 60-second reset: inhale 4s → hold 4s → exhale 6s for 6 rounds, drink a glass of water, then do one 10-minute micro-task.";
   }
 
+  const musicPlayIntent =
+    /\b(?:play|start|put\s+on|turn\s+on|turn\s+up|open)\b[\s\S]{0,40}\b(?:music|song|songs|spotify|playlist)\b/i.test(lower)
+    || /\b(?:music|song|songs|spotify|playlist)\b[\s\S]{0,20}\b(?:play|start|on)\b/i.test(lower)
+    || /\bturn\s+on\s+the\s+music\b/i.test(lower);
+  if (musicPlayIntent) {
+    try {
+      if (document.activeElement === aiInput && aiInput && typeof aiInput.blur === "function") {
+        try {
+          aiInput.blur();
+        } catch (_) {}
+      }
+
+      const musicCard = (wellnessMusicFrame && typeof wellnessMusicFrame.closest === "function"
+        ? wellnessMusicFrame.closest(".card")
+        : null)
+        || document.querySelector(".wellness-music-card");
+
+      if (musicCard) {
+        scrollCardToViewportCenterReliably(musicCard, { repeats: 6, delayMs: 120 });
+        if (musicCard.classList) {
+          musicCard.classList.remove("shortcut-focus");
+          void musicCard.offsetWidth;
+          musicCard.classList.add("shortcut-focus");
+          setTimeout(() => {
+            try {
+              musicCard.classList.remove("shortcut-focus");
+            } catch (_) {}
+          }, 1250);
+        }
+      }
+
+      if (wellnessMusicStatus) {
+        wellnessMusicStatus.textContent = "";
+      }
+    } catch (_) {
+      // Keep AI action resilient: never let music UI errors break chat flow.
+    }
+
+    return "🎵 Opened Wellness Music. Tap play on the music player.";
+  }
+
   if (/^(?:run|start|do|begin|trigger)\s+(?:the\s+)?(?:mood\s+)?(?:crash\s+)?rescue$/i.test(msg)) {
     const rescueResult = await runCrashRescueFlow({ showAlert: false });
     if (!rescueResult?.ok) {
@@ -14744,7 +14818,12 @@ async function tryAiAction(input, user) {
 
 async function buildSmartAiResponse(input, user) {
   const normalizedInput = normalizeTyposForAi(String(input || "")).trim();
-  const actionResult = await tryAiAction(normalizedInput, user);
+  let actionResult = null;
+  try {
+    actionResult = await tryAiAction(normalizedInput, user);
+  } catch (_) {
+    actionResult = null;
+  }
   if (actionResult) {
     return {
       response: `${actionResult} 😎`,
@@ -15629,6 +15708,7 @@ async function aiChat(){
       aiInput.value="";
     } catch (err) {
       await rollbackAiQuota(user.uid);
+      renderChatMessage("ai", "I hit a quick issue processing that. Please try once more.", false, null, null);
       notifyFirestoreError(err);
     }
   } finally {
