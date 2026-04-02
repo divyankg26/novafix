@@ -8,13 +8,13 @@
 
 <style>
 :root{
-  --waveA:#2196f3;
-  --waveB:#ff9800;
-  --waveC:#00c9a7;
-  --waveD:#ffd166;
-  --waveE:#ff7f50;
-  --primary:#2196f3;
-  --accent:#ff9800;
+  --waveA:#29b6f6;
+  --waveB:#26c6da;
+  --waveC:#4dd0e1;
+  --waveD:#64b5f6;
+  --waveE:#b2ebf2;
+  --primary:#3949ab;
+  --accent:#5c6bc0;
   --glass:rgba(255,255,255,0.18);
   --glass-strong:rgba(255,255,255,0.24);
   --surface-1:rgba(255,255,255,0.11);
@@ -22,6 +22,7 @@
   --surface-dark:rgba(9,20,38,0.28);
   --border-soft:rgba(255,255,255,0.22);
   --text:#fff;
+  --heading-dark-contrast:#1f2a7a;
 }
 
 html,body{
@@ -38,6 +39,13 @@ body{
   animation:waveMove 52s cubic-bezier(.43,.03,.57,.97) infinite;
   overflow-x:hidden;
   -webkit-tap-highlight-color: transparent;
+}
+
+body.wave-light-headings .import-transfer-card h3,
+body.wave-light-headings .welcome-guide-title,
+body.wave-light-headings .welcome-guide-body h3,
+body.wave-light-headings .modal-content h2{
+  color:var(--heading-dark-contrast) !important;
 }
 
 body::before{
@@ -1159,12 +1167,45 @@ textarea:focus-visible{
   overflow:hidden;
 }
 
+.sleep-card{
+  height:430px;
+  max-height:430px;
+  overflow-y:auto;
+  overflow-x:hidden;
+  scrollbar-width:thin;
+  scrollbar-color:var(--primary) transparent;
+}
+
+.sleep-card::-webkit-scrollbar{
+  width:6px;
+}
+
+.sleep-card::-webkit-scrollbar-track{
+  background:rgba(255,255,255,.08);
+  border-radius:999px;
+}
+
+.sleep-card::-webkit-scrollbar-thumb{
+  background:var(--primary);
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.18);
+}
+
 .card-scroll-body{
   flex:1 1 0;
   min-height:0;
   overflow-y:auto;
   margin-top:8px;
   padding-right:4px;
+}
+
+.weekly-scroll-body,
+.quest-scroll-body{
+  background:linear-gradient(180deg, rgba(7,16,30,.26), rgba(7,16,30,.16));
+  border:1px solid rgba(255,255,255,.2);
+  border-radius:14px;
+  padding:10px 12px;
+  box-shadow:none;
 }
 
 #timeMirror{white-space:pre-wrap;}
@@ -1946,7 +1987,7 @@ textarea:focus-visible{
 
 <!-- SPLASH -->
 <div id="splash">
-  <img src="https://gcdnb.pbrd.co/images/T3DLjTXN0F9N.jpg?o=1">
+  <img src="https://gcdnb.pbrd.co/images/umcJmKOTsH4t.jpg?o=1">
 </div>
 
 <!-- SIGN-IN / SIGN-UP MODAL -->
@@ -2209,7 +2250,7 @@ textarea:focus-visible{
 </div>
 
 <!-- Sleep -->
-<div class="card">
+<div class="card sleep-card">
 <h2>💤 Sleep</h2>
 <p class="micro-tip">Tip: Log sleep after waking for a consistent trend.</p>
 <input type="number" id="sleepInput" placeholder="Hours" min="0.1" step="0.1">
@@ -3031,19 +3072,23 @@ if (reminderUnit) {
 
 if (bedtimeTimeInput) {
   bedtimeTimeInput.addEventListener("input", () => {
+    bedtimeInputTouchedSinceSync = true;
     if (bedtimeInputError) {
       bedtimeInputError.innerText = "";
       bedtimeInputError.classList.remove("show");
     }
+    updateBedtimeSetButtonState();
   });
 }
 
 if (bedtimeMeridiem) {
   bedtimeMeridiem.addEventListener("change", () => {
+    bedtimeInputTouchedSinceSync = true;
     if (bedtimeInputError) {
       bedtimeInputError.innerText = "";
       bedtimeInputError.classList.remove("show");
     }
+    updateBedtimeSetButtonState();
   });
 }
 
@@ -3247,6 +3292,8 @@ async function clearAllAccountData() {
     setTimeMirrorClearButtonState(false);
     bedtimeSettings = { timeText: "", meridiem: "", enabled: false };
     bedtimeReminderLastTriggeredKey = "";
+    bedtimeInputTouchedSinceSync = false;
+    bedtimeAllowUnchangedResubmit = false;
     if (bedtimeReminderTimeoutId) {
       clearTimeout(bedtimeReminderTimeoutId);
       bedtimeReminderTimeoutId = null;
@@ -3279,6 +3326,8 @@ async function clearAllAccountData() {
     aiRecentPrompts.length = 0;
     habitQuests.length = 0;
     burnoutRecoveryPlan.length = 0;
+    wellnessActionBoost = 0;
+    crashRiskActionRelief = 0;
     dailyChallengeCompleted = false;
     currentChallengeText = "";
     currentChallengeDateKey = "";
@@ -3366,6 +3415,10 @@ try {
         closeBedtimeReminderModal(null, true);
         bedtimeSettings = { timeText: "", meridiem: "", enabled: false };
         bedtimeReminderLastTriggeredKey = "";
+        bedtimeInputTouchedSinceSync = false;
+        bedtimeAllowUnchangedResubmit = false;
+        wellnessActionBoost = 0;
+        crashRiskActionRelief = 0;
         if (pendingFriendProfileSyncTimer) {
           clearTimeout(pendingFriendProfileSyncTimer);
           pendingFriendProfileSyncTimer = null;
@@ -3513,34 +3566,13 @@ initializeUniversalBackHandling();
 
 // ---------- COLOR WAVES ----------
 const waveSchemes = [
-  ["#2196f3", "#ff9800", "#00c9a7", "#ffd166", "#ff7f50"],
-  ["#00acc1", "#ffca28", "#43a047", "#ffb74d", "#1e88e5"],
-  ["#26c6da", "#8bc34a", "#ffb300", "#ff7043", "#1565c0"],
-  ["#00897b", "#ffa726", "#4fc3f7", "#9ccc65", "#ef6c00"],
-  ["#0277bd", "#66bb6a", "#ffb300", "#ff8a65", "#455a64"],
-  ["#1e88e5", "#7e57c2", "#f06292", "#26a69a", "#ffca28"],
-  ["#00796b", "#f9a825", "#29b6f6", "#aed581", "#f4511e"],
-  ["#00bcd4", "#c0ca33", "#ffb74d", "#42a5f5", "#6d4c41"],
-  ["#2e7d32", "#ffb300", "#4dd0e1", "#ff7043", "#5c6bc0"],
-  ["#039be5", "#9ccc65", "#ffa000", "#26a69a", "#8d6e63"],
-  ["#1565c0", "#66bb6a", "#ffca28", "#26c6da", "#e65100"],
-  ["#3949ab", "#ab47bc", "#ec407a", "#26a69a", "#ffb300"],
-  ["#00838f", "#fbc02d", "#4caf50", "#ff8a65", "#42a5f5"],
-  ["#0d47a1", "#8bc34a", "#ffb74d", "#00acc1", "#bf360c"],
-  ["#26a69a", "#ffa000", "#64b5f6", "#9ccc65", "#ef5350"],
-  ["#1976d2", "#7cb342", "#ffca28", "#00bfa5", "#ff7043"],
-  ["#00695c", "#ffb74d", "#4dd0e1", "#c0ca33", "#1e88e5"],
-  ["#5e35b1", "#f06292", "#26c6da", "#ffca28", "#43a047"],
-  ["#0277bd", "#f57c00", "#80cbc4", "#aed581", "#ff8a65"],
-  ["#004d40", "#ffb300", "#29b6f6", "#9ccc65", "#ef6c00"],
-  ["#1b5e20", "#ff8a65", "#4fc3f7", "#fdd835", "#455a64"],
-  ["#0097a7", "#d4e157", "#ffb74d", "#1e88e5", "#6d4c41"],
-  ["#1565c0", "#ffb300", "#26a69a", "#ffd54f", "#ff7043"],
-  ["#303f9f", "#ce93d8", "#ff80ab", "#26a69a", "#ffca28"]
+  ["#29b6f6", "#26c6da", "#4dd0e1", "#64b5f6", "#b2ebf2"],
+  ["#29b6f6", "#26c6da", "#4dd0e1", "#64b5f6", "#b2ebf2"]
 ];
-let w = 1;
+let w = 0;
 let [currentWaveA, currentWaveB, currentWaveC, currentWaveD, currentWaveE] = waveSchemes[0];
 let waveAnimationId = null;
+let waveLightHeadingMode = false;
 const WAVE_HOLD_MS = 14000;
 const WAVE_TRANSITION_MS = 18000;
 
@@ -3566,14 +3598,50 @@ function lerp(start, end, progress) {
   return start + (end - start) * progress;
 }
 
+function toSrgbLinear(channel) {
+  const value = Math.max(0, Math.min(255, Number(channel) || 0)) / 255;
+  return value <= 0.04045
+    ? (value / 12.92)
+    : Math.pow((value + 0.055) / 1.055, 2.4);
+}
+
+function getRelativeLuminanceFromHex(hex) {
+  const { r, g, b } = hexToRgb(hex);
+  const red = toSrgbLinear(r);
+  const green = toSrgbLinear(g);
+  const blue = toSrgbLinear(b);
+  return (0.2126 * red) + (0.7152 * green) + (0.0722 * blue);
+}
+
+function updateAdaptiveTextContrast(colorA, colorB, colorC, colorD, colorE) {
+  const colors = [colorA, colorB, colorC, colorD, colorE].filter(Boolean);
+  if (!colors.length) return;
+
+  const luminances = colors.map((color) => getRelativeLuminanceFromHex(color));
+  const avgLuminance = luminances.reduce((sum, value) => sum + value, 0) / luminances.length;
+  const maxLuminance = Math.max(...luminances);
+
+  const shouldEnterLightMode = avgLuminance >= 0.6 || (avgLuminance >= 0.56 && maxLuminance >= 0.72);
+  const shouldExitLightMode = avgLuminance <= 0.5 && maxLuminance <= 0.66;
+
+  if (!waveLightHeadingMode && shouldEnterLightMode) {
+    waveLightHeadingMode = true;
+  } else if (waveLightHeadingMode && shouldExitLightMode) {
+    waveLightHeadingMode = false;
+  }
+
+  if (document.body) {
+    document.body.classList.toggle("wave-light-headings", waveLightHeadingMode);
+  }
+}
+
 function setWaveColors(colorA, colorB, colorC, colorD, colorE) {
   document.documentElement.style.setProperty("--waveA", colorA);
   document.documentElement.style.setProperty("--waveB", colorB);
   document.documentElement.style.setProperty("--waveC", colorC);
   document.documentElement.style.setProperty("--waveD", colorD);
   document.documentElement.style.setProperty("--waveE", colorE);
-  document.documentElement.style.setProperty("--primary", colorA);
-  document.documentElement.style.setProperty("--accent", colorB);
+  updateAdaptiveTextContrast(colorA, colorB, colorC, colorD, colorE);
 }
 
 function animateWaveTo(targetScheme, durationMs) {
@@ -3647,13 +3715,16 @@ function animateWaveTo(targetScheme, durationMs) {
 }
 
 function rotateWave() {
+  if (waveSchemes.length <= 1) return;
   const targetScheme = waveSchemes[w];
   w = (w + 1) % waveSchemes.length;
   animateWaveTo(targetScheme, WAVE_TRANSITION_MS);
 }
 
 setWaveColors(currentWaveA, currentWaveB, currentWaveC, currentWaveD, currentWaveE);
-setTimeout(rotateWave, WAVE_HOLD_MS);
+if (waveSchemes.length > 1) {
+  setTimeout(rotateWave, WAVE_HOLD_MS);
+}
 
 // ---------- SIGN-IN / SIGN-UP ----------
 let authMode="signin";
@@ -4774,6 +4845,8 @@ function isEditableElementActive() {
 
 const activeShortcutKeys = new Set();
 let activeShortcutLastKeyAt = 0;
+let wellnessActionBoost = 0;
+let crashRiskActionRelief = 0;
 
 function resetActiveShortcutSequence() {
   activeShortcutKeys.clear();
@@ -4799,11 +4872,7 @@ function activateCardShortcut(definition) {
     closeAccountPanel();
   }
 
-  scrollCardToViewportCenterReliably(card);
-  card.classList.remove("shortcut-focus");
-  void card.offsetWidth;
-  card.classList.add("shortcut-focus");
-  setTimeout(() => card.classList.remove("shortcut-focus"), 1250);
+  scrollToCardWithShortcutAnimation(card);
 
   const firstFocusable = card.querySelector("input, textarea, select, button");
   if (firstFocusable && typeof firstFocusable.focus === "function") {
@@ -4815,6 +4884,29 @@ function activateCardShortcut(definition) {
       }
     }, 160);
   }
+}
+
+function scrollToCardWithShortcutAnimation(card, options = {}) {
+  if (!card) return;
+  scrollCardToViewportCenterReliably(card, options);
+  if (card.classList) {
+    card.classList.remove("shortcut-focus");
+    void card.offsetWidth;
+    card.classList.add("shortcut-focus");
+    setTimeout(() => {
+      try {
+        card.classList.remove("shortcut-focus");
+      } catch (_) {}
+    }, 1250);
+  }
+}
+
+function scrollToRemindersCardWithShortcutAnimation() {
+  const remindersCard = reminderText && typeof reminderText.closest === "function"
+    ? reminderText.closest(".card")
+    : null;
+  if (!remindersCard) return;
+  scrollToCardWithShortcutAnimation(remindersCard, { repeats: 5, delayMs: 120 });
 }
 
 function scrollCardToViewportCenterReliably(card, options = {}) {
@@ -9033,8 +9125,8 @@ const AI_MODE_PRESETS = {
   ultra: { depth: 4, style: "ultra" }
 };
 let aiReasoningMode = "ultra";
-const AI_CASUAL_MODE = true;
-const AI_CLARIFY_INTENT_THRESHOLD = 0.74;
+const AI_CASUAL_MODE = false;
+const AI_CLARIFY_INTENT_THRESHOLD = 0.68;
 const AI_COMMAND_HELP_LINE = "I can help with logging tasks, water, mood, sleep, reminders, and quick account actions.";
 const challengeDates=[];
 let dailyChallengeCompleted=false;
@@ -9130,6 +9222,8 @@ let bedtimeSettings = {
   meridiem: "",
   enabled: false
 };
+let bedtimeInputTouchedSinceSync = false;
+let bedtimeAllowUnchangedResubmit = false;
 let aiChatSubmitting = false;
 let aiAbuseStrikeCount = 0;
 let aiAbuseCooldownUntilMs = 0;
@@ -9628,11 +9722,11 @@ function getWeeklyResetCountdownText() {
 }
 
 function buildDailyLimitCountdownMessage(baseText) {
-  return `${baseText}. Resets in ${getDailyResetCountdownText()} (server time).`;
+  return `${baseText}. Resets in ${getDailyResetCountdownText()}.`;
 }
 
 function buildWeeklyLimitCountdownMessage(baseText) {
-  return `${baseText}. Resets in ${getWeeklyResetCountdownText()} (server time).`;
+  return `${baseText}. Resets in ${getWeeklyResetCountdownText()}.`;
 }
 
 function getAiAbuseCooldownRemainingMs() {
@@ -11108,6 +11202,13 @@ async function applyRecoverySchedule() {
       });
       renderReminder({ id: ref.id, text, minutes, targetAtMs }, { insertAtTop: true });
     }
+
+    wellnessActionBoost = Math.min(20, (Number(wellnessActionBoost) || 0) + 3);
+    crashRiskActionRelief = Math.min(30, (Number(crashRiskActionRelief) || 0) + 6);
+    updateWellnessScore();
+    updateCrashPreventionUI();
+    scrollToRemindersCardWithShortcutAnimation();
+
     alert("✅ Recovery schedule applied with reminders.");
   } catch (err) {
     notifyFirestoreError(err);
@@ -12020,45 +12121,45 @@ function formatWeeklyResetCountdown(milliseconds) {
 function updateWeeklyGraphResetCountdownNote() {
   if (!insightWeeklyResetCountdown) return;
   const remaining = getMillisecondsUntilNextSundayMidnight();
-  insightWeeklyResetCountdown.innerText = `Weekly bar graph reset in ${formatWeeklyResetCountdown(remaining)} (server time)`;
+  insightWeeklyResetCountdown.innerText = `Weekly bar graph reset in ${formatWeeklyResetCountdown(remaining)}`;
 }
 
 function updateStartupResetCountdownNotes() {
   if (waterGoalResetCountdown) {
     const dailyRemaining = getMillisecondsUntilNextMidnight();
-    waterGoalResetCountdown.innerText = `Water goal reset in ${formatCountdownClock(dailyRemaining)} (server time)`;
+    waterGoalResetCountdown.innerText = `Water goal reset in ${formatCountdownClock(dailyRemaining)}`;
   }
 
   if (sleepResetCountdown) {
     const dailyRemaining = getMillisecondsUntilNextMidnight();
-    sleepResetCountdown.innerText = `Sleep reset in ${formatCountdownClock(dailyRemaining)} (server time)`;
+    sleepResetCountdown.innerText = `Sleep reset in ${formatCountdownClock(dailyRemaining)}`;
   }
 
   if (moodResetCountdown) {
     const dailyRemaining = getMillisecondsUntilNextMidnight();
-    moodResetCountdown.innerText = `Mood reset in ${formatCountdownClock(dailyRemaining)} (server time)`;
+    moodResetCountdown.innerText = `Mood reset in ${formatCountdownClock(dailyRemaining)}`;
   }
 
   if (gratitudeResetCountdown) {
     const dailyRemaining = getMillisecondsUntilNextMidnight();
-    gratitudeResetCountdown.innerText = `Gratitude reset in ${formatCountdownClock(dailyRemaining)} (server time)`;
+    gratitudeResetCountdown.innerText = `Gratitude reset in ${formatCountdownClock(dailyRemaining)}`;
   }
 
   if (dailyChallengeResetCountdown) {
     const dailyRemaining = getMillisecondsUntilNextMidnight();
-    dailyChallengeResetCountdown.innerText = `Daily challenge reset in ${formatCountdownClock(dailyRemaining)} (server time)`;
+    dailyChallengeResetCountdown.innerText = `Daily challenge reset in ${formatCountdownClock(dailyRemaining)}`;
   }
 
   if (wellnessScoreResetCountdown) {
     const dailyRemaining = getMillisecondsUntilNextMidnight();
-    wellnessScoreResetCountdown.innerText = `Daily wellness score reset in ${formatCountdownClock(dailyRemaining)} (server time)`;
+    wellnessScoreResetCountdown.innerText = `Daily wellness score reset in ${formatCountdownClock(dailyRemaining)}`;
   }
 
   if (startupPlanResetCountdown) {
     const planLimited = (Number(startupUsageState?.planCount) || 0) >= STARTUP_PLAN_DAILY_LIMIT;
     if (planLimited) {
       const dailyRemaining = getMillisecondsUntilNextMidnight();
-      startupPlanResetCountdown.innerText = `Daily planner reset in ${formatCountdownClock(dailyRemaining)} (server time)`;
+      startupPlanResetCountdown.innerText = `Daily planner reset in ${formatCountdownClock(dailyRemaining)}`;
     } else {
       startupPlanResetCountdown.innerText = "";
     }
@@ -12067,7 +12168,7 @@ function updateStartupResetCountdownNotes() {
     const reportLimited = (Number(startupUsageState?.reportCount) || 0) >= STARTUP_REPORT_WEEKLY_LIMIT;
     if (reportLimited) {
       const weeklyRemaining = getMillisecondsUntilNextSundayMidnight();
-      startupReportResetCountdown.innerText = `Weekly report reset in ${formatWeeklyResetCountdown(weeklyRemaining)} (server time)`;
+      startupReportResetCountdown.innerText = `Weekly report reset in ${formatWeeklyResetCountdown(weeklyRemaining)}`;
     } else {
       startupReportResetCountdown.innerText = "";
     }
@@ -12293,7 +12394,8 @@ function updateWellnessScore() {
   const gratitudePoints = hasGratitudeToday ? 10 : 0;
   const challengePoints = dailyChallengeCompleted ? 10 : 0;
 
-  const totalScore = Math.max(0, Math.min(100, waterPoints + sleepPoints + moodPoints + taskPoints + gratitudePoints + challengePoints));
+  const actionBoost = Math.max(0, Number(wellnessActionBoost) || 0);
+  const totalScore = Math.max(0, Math.min(100, waterPoints + sleepPoints + moodPoints + taskPoints + gratitudePoints + challengePoints + actionBoost));
 
   wellnessScoreEl.innerText = `${totalScore}/100`;
 
@@ -12394,7 +12496,8 @@ function getCrashRiskSnapshot() {
     reasons.push("Wellness score currently low");
   }
 
-  risk = Math.max(0, Math.min(100, risk));
+  const relief = Math.max(0, Number(crashRiskActionRelief) || 0);
+  risk = Math.max(0, Math.min(100, risk - relief));
   const level = risk >= 70 ? "High Risk" : risk >= 45 ? "Medium Risk" : "Low Risk";
 
   return {
@@ -12497,6 +12600,8 @@ async function runCrashRescueFlow(options = {}) {
     });
     rescueEvents.push({ id: rescueRef.id, time: getServerNowDate(), level: snapshot.level });
 
+    wellnessActionBoost = Math.min(20, (Number(wellnessActionBoost) || 0) + 2);
+    updateWellnessScore();
     updateCrashPreventionUI();
     updateWeeklyReview();
     if (showAlert) {
@@ -13004,11 +13109,17 @@ function normalizeTyposForAi(text) {
     analize: "analyze",
     analyz: "analyze",
     anlyze: "analyze",
+    sumarize: "summarize",
+    summrize: "summarize",
     delet: "delete",
     delte: "delete",
     delee: "delete",
+    deltet: "delete",
     rember: "remember",
     remembr: "remember",
+    remeber: "remember",
+    remidner: "reminder",
+    remnder: "reminder",
     happi: "happy",
     happyness: "happiness",
     sadnes: "sadness",
@@ -13016,12 +13127,27 @@ function normalizeTyposForAi(text) {
     strees: "stress",
     angy: "angry",
     anxios: "anxious",
-    gratitute: "gratitude"
+    gratitute: "gratitude",
+    gratefull: "grateful",
+    procastination: "procrastination",
+    prodctivity: "productivity",
+    produtivity: "productivity",
+    watre: "water",
+    hyration: "hydration",
+    dehydratd: "dehydrated",
+    slep: "sleep",
+    sllep: "sleep",
+    sleeep: "sleep",
+    becuase: "because",
+    dont: "don't",
+    cant: "can't",
+    wont: "won't"
   };
 
   return String(text || "").replace(/\b[a-z]{3,}\b/gi, (token) => {
     const lower = token.toLowerCase();
-    return map[lower] || token;
+    const deStretched = lower.replace(/([a-z])\1{2,}/g, "$1$1");
+    return map[lower] || map[deStretched] || token;
   });
 }
 
@@ -13727,7 +13853,7 @@ function buildUltraFallback(snapshot, name) {
 }
 
 function buildKnowledgeAnswer(input) {
-  const text = String(input || "");
+  const text = normalizeLocalIntentText(String(input || ""));
   const knowledge = [
     {
       topic: "sleep",
@@ -13753,20 +13879,45 @@ function buildKnowledgeAnswer(input) {
       topic: "habits",
       triggers: ["habit", "consistency", "discipline", "routine"],
       answer: "Build habits with tiny minimums: define a trigger, make the action small, and track daily completion. Consistency compounds faster than intensity."
+    },
+    {
+      topic: "decision",
+      triggers: ["decide", "decision", "choose", "which is better", "priority"],
+      answer: "Use this decision filter: choose the option you can start in under 10 minutes, has visible progress in 25 minutes, and aligns with your top goal."
+    },
+    {
+      topic: "planning",
+      triggers: ["plan", "schedule", "roadmap", "organize", "what should i do"],
+      answer: "Strong plans are sequence-first: one priority task, one health action (water or movement), one closure action (reflection or gratitude). Keep each block time-bound."
+    },
+    {
+      topic: "burnout",
+      triggers: ["burnout", "drained", "exhausted", "no energy", "crash"],
+      answer: "For burnout signals, lower pressure first: stabilize with breathing and hydration, then complete one tiny, clear task to restore control before taking on complex work."
     }
   ];
 
   const scored = knowledge
     .map((entry) => {
-      const triggerScore = entry.triggers.reduce((score, trigger) => score + (text.toLowerCase().includes(trigger) ? 1 : 0), 0);
+      const triggerScore = entry.triggers.reduce((score, trigger) => {
+        const escaped = trigger.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const regex = new RegExp(`\\b${escaped}\\b`, "i");
+        return score + (regex.test(text) ? 1.15 : 0);
+      }, 0);
       const similarity = jaccardSimilarity(text, `${entry.topic} ${entry.triggers.join(" ")}`);
-      return { ...entry, score: triggerScore + similarity };
+      const conversationalBoost = /\b(explain|help|advice|tips|guide|best way|how to)\b/.test(text) ? 0.2 : 0;
+      return { ...entry, score: triggerScore + similarity + conversationalBoost };
     })
     .sort((a, b) => b.score - a.score);
 
-  if (!scored[0] || scored[0].score < 0.5) return null;
-  pushTopicHistory(scored[0].topic);
-  return scored[0].answer;
+  if (!scored[0] || scored[0].score < 0.6) return null;
+
+  const topMatches = scored.filter((entry) => entry.score >= 0.9).slice(0, 2);
+  const selected = topMatches.length ? topMatches : [scored[0]];
+  selected.forEach((entry) => pushTopicHistory(entry.topic));
+
+  if (selected.length === 1) return selected[0].answer;
+  return `${selected[0].answer} Also, ${selected[1].answer.charAt(0).toLowerCase()}${selected[1].answer.slice(1)}`;
 }
 
 function buildActionCoaching(snapshot) {
@@ -16597,6 +16748,59 @@ function setBedtimeInputError(message = "") {
   const text = String(message || "").trim();
   bedtimeInputError.innerText = text;
   bedtimeInputError.classList.toggle("show", !!text);
+  if (text) bedtimeInputError.dataset.bedtimeAlreadySet = "0";
+  else delete bedtimeInputError.dataset.bedtimeAlreadySet;
+}
+
+function setBedtimeAlreadySetMessage(label) {
+  if (!bedtimeInputError) return;
+  bedtimeInputError.innerText = `Bed time is already set for ${label}.`;
+  bedtimeInputError.classList.add("show");
+  bedtimeInputError.dataset.bedtimeAlreadySet = "1";
+}
+
+function clearBedtimeAlreadySetMessage() {
+  if (!bedtimeInputError) return;
+  if (bedtimeInputError.dataset.bedtimeAlreadySet !== "1") return;
+  bedtimeInputError.innerText = "";
+  bedtimeInputError.classList.remove("show");
+  delete bedtimeInputError.dataset.bedtimeAlreadySet;
+}
+
+function updateBedtimeSetButtonState() {
+  if (!bedtimeSetBtn) return;
+
+  const timeText = String(bedtimeTimeInput?.value || "").trim();
+  const meridiem = normalizeBedtimeMeridiem(bedtimeMeridiem?.value || "");
+  const currentParsed = parseBedtimeInput(timeText, meridiem);
+
+  if (!currentParsed.ok) {
+    bedtimeSetBtn.disabled = true;
+    bedtimeSetBtn.title = "Enter a valid bedtime and AM/PM to set.";
+    clearBedtimeAlreadySetMessage();
+    return;
+  }
+
+  const storedParsed = parseBedtimeInput(bedtimeSettings?.timeText || "", bedtimeSettings?.meridiem || "");
+  const hasStoredBedtime = !!bedtimeSettings?.enabled && storedParsed.ok;
+  const unchanged = hasStoredBedtime
+    && currentParsed.formattedTime === storedParsed.formattedTime
+    && currentParsed.meridiem === storedParsed.meridiem;
+
+  if (unchanged) {
+    if (bedtimeInputTouchedSinceSync) {
+      setBedtimeAlreadySetMessage(storedParsed.label);
+    }
+    bedtimeSetBtn.disabled = !bedtimeAllowUnchangedResubmit;
+    bedtimeSetBtn.title = bedtimeAllowUnchangedResubmit
+      ? ""
+      : "Already done for this bedtime. Change value or wait for bedtime popup.";
+    return;
+  }
+
+  clearBedtimeAlreadySetMessage();
+  bedtimeSetBtn.disabled = false;
+  bedtimeSetBtn.title = "";
 }
 
 function closeBedtimeReminderModal(event, force = false) {
@@ -16617,6 +16821,8 @@ function openBedtimeReminderModal() {
       <small>It is time for bed. Start your wind-down routine now.</small>
     </div>
   `;
+  bedtimeAllowUnchangedResubmit = true;
+  updateBedtimeSetButtonState();
   bedtimeReminderModal.style.display = "flex";
   ensureAppBackGuardState("bedtime-reminder", true);
 }
@@ -16658,9 +16864,12 @@ function scheduleBedtimeReminder() {
 async function loadBedtimeSettings(userId) {
   bedtimeSettings = { timeText: "", meridiem: "", enabled: false };
   bedtimeReminderLastTriggeredKey = "";
+  bedtimeInputTouchedSinceSync = false;
+  bedtimeAllowUnchangedResubmit = false;
   if (bedtimeTimeInput) bedtimeTimeInput.value = "";
   if (bedtimeMeridiem) bedtimeMeridiem.value = "";
   setBedtimeInputError("");
+  updateBedtimeSetButtonState();
   closeBedtimeReminderModal(null, true);
   clearBedtimeReminderSchedule();
 
@@ -16682,9 +16891,13 @@ async function loadBedtimeSettings(userId) {
 
     if (bedtimeTimeInput) bedtimeTimeInput.value = parsed.formattedTime;
     if (bedtimeMeridiem) bedtimeMeridiem.value = parsed.meridiem;
+    bedtimeInputTouchedSinceSync = false;
+    bedtimeAllowUnchangedResubmit = false;
     scheduleBedtimeReminder();
+    updateBedtimeSetButtonState();
   } catch (err) {
     notifyFirestoreError(err);
+    updateBedtimeSetButtonState();
   }
 }
 
@@ -16700,6 +16913,7 @@ async function setBedtimeReminder(timeOverride = "", meridiemOverride = "") {
   const parsed = parseBedtimeInput(timeText, meridiem);
   if (!parsed.ok) {
     setBedtimeInputError(parsed.message);
+    updateBedtimeSetButtonState();
     return { ok: false, message: parsed.message };
   }
 
@@ -16723,12 +16937,16 @@ async function setBedtimeReminder(timeOverride = "", meridiemOverride = "") {
     if (bedtimeTimeInput) bedtimeTimeInput.value = parsed.formattedTime;
     if (bedtimeMeridiem) bedtimeMeridiem.value = parsed.meridiem;
     bedtimeReminderLastTriggeredKey = "";
+    bedtimeInputTouchedSinceSync = false;
+    bedtimeAllowUnchangedResubmit = false;
     scheduleBedtimeReminder();
+    updateBedtimeSetButtonState();
 
-    showToast(`Bed time set for ${parsed.label}.`);
+    alert(`✅ Bed time set for ${parsed.label}.`);
     return { ok: true, label: parsed.label };
   } catch (err) {
     notifyFirestoreError(err);
+    updateBedtimeSetButtonState();
     return { ok: false, message: "Could not save bed time right now." };
   }
 }
@@ -16849,6 +17067,8 @@ async function clearSleepData() {
 
   bedtimeSettings = { timeText: "", meridiem: "", enabled: false };
   bedtimeReminderLastTriggeredKey = "";
+  bedtimeInputTouchedSinceSync = false;
+  bedtimeAllowUnchangedResubmit = false;
   clearBedtimeReminderSchedule();
   closeBedtimeReminderModal(null, true);
   if (bedtimeTimeInput) bedtimeTimeInput.value = "";
@@ -16857,6 +17077,7 @@ async function clearSleepData() {
     bedtimeMeridiem.selectedIndex = 0;
   }
   setBedtimeInputError("");
+  updateBedtimeSetButtonState();
   updateSleepLimitUI();
   updateInsights();
 
@@ -16982,71 +17203,51 @@ function timeTraveller() {
 
 // Quotes
 const quotes=[
-  "Start where you are. Use what you have. Do what you can.",
-  "Small progress is still progress.",
-  "Your future is built by what you repeat today.",
-  "Discipline is self-respect in action.",
-  "You are one focused hour away from momentum.",
-  "Do not wait for motivation; create motion.",
-  "Done is powerful. Perfect can wait.",
-  "A calm mind makes better decisions.",
-  "Consistency turns effort into identity.",
-  "You can restart your day at any minute.",
-  "Hard days build strong character.",
-  "One task completed can change your whole mood.",
-  "You are not behind. You are building.",
-  "Tiny habits become life-changing results.",
-  "Progress compounds when excuses shrink.",
-  "Focus is a superpower in a distracted world.",
-  "Your pace is valid. Keep moving.",
-  "Success is usually quiet daily effort.",
-  "The best time to begin is now.",
-  "You grow every time you keep your promise to yourself.",
-  "Momentum loves action.",
-  "Courage is doing it even when it feels hard.",
-  "Confidence is earned through completion.",
-  "A better day starts with one better choice.",
-  "Protect your peace and pursue your purpose.",
-  "Energy follows clarity.",
-  "You are capable of more than your doubts suggest.",
-  "Stay patient with results and relentless with effort.",
-  "The next chapter begins with one bold step.",
-  "Make your standards stronger than your moods.",
-  "Your habits are writing your story.",
-  "Keep promises to yourself, especially the small ones.",
-  "Effort never disappears; it accumulates.",
-  "Show up first, then improve.",
-  "You do not need to be extreme, just consistent.",
-  "Every completed task is evidence of your strength.",
-  "Clarity comes from action, not overthinking.",
-  "Rest is productive when it prepares you to rise again.",
-  "You are becoming someone your past self would admire.",
-  "Growth feels uncomfortable because it is real.",
-  "Do the next right thing.",
-  "Your determination is greater than temporary discomfort.",
-  "Be proud of the effort no one else sees.",
-  "Difficult does not mean impossible.",
-  "One focused decision can rescue the entire day.",
-  "There is power in finishing what you start.",
-  "You are stronger than your most difficult hour.",
-  "Keep going. Your breakthrough may be one step away.",
-  "Your mindset is a daily practice.",
-  "Shine quietly through your consistency.",
-  "Choose progress over pressure.",
-  "You can do hard things with a calm mind.",
-  "Today is an opportunity, not a verdict.",
-  "If it matters, give it focused time.",
-  "You are building proof, not just plans.",
-  "Take the first step and let momentum handle the rest.",
-  "You are allowed to grow at your own speed.",
-  "Keep your head clear and your standards high.",
-  "A disciplined day is a peaceful night.",
-  "The work you avoid is often the work that frees you.",
-  "Win this hour, then win the next.",
-  "Your focus today is your freedom tomorrow.",
-  "You are closer than you think."
+  "The future depends on what you do today. - Mahatma Gandhi",
+  "It always seems impossible until it's done. - Nelson Mandela",
+  "Well done is better than well said. - Benjamin Franklin",
+  "Action is the foundational key to all success. - Pablo Picasso",
+  "Start where you are. Use what you have. Do what you can. - Arthur Ashe",
+  "Success is the sum of small efforts, repeated day in and day out. - Robert Collier",
+  "The secret of getting ahead is getting started. - Mark Twain",
+  "What we think, we become. - Buddha",
+  "Quality is not an act, it is a habit. - Aristotle",
+  "Do what you can, with what you have, where you are. - Theodore Roosevelt",
+  "The best way out is always through. - Robert Frost",
+  "Great things are done by a series of small things brought together. - Vincent van Gogh",
+  "He who has a why to live can bear almost any how. - Friedrich Nietzsche",
+  "The only way to do great work is to love what you do. - Steve Jobs",
+  "In the middle of difficulty lies opportunity. - Albert Einstein",
+  "Courage is resistance to fear, mastery of fear, not absence of fear. - Mark Twain",
+  "Believe you can and you're halfway there. - Theodore Roosevelt",
+  "If you are going through hell, keep going. - Winston Churchill",
+  "The harder I work, the luckier I get. - Samuel Goldwyn",
+  "Energy and persistence conquer all things. - Benjamin Franklin",
+  "Success is not final, failure is not fatal: it is the courage to continue that counts. - Winston Churchill",
+  "Our greatest glory is not in never falling, but in rising every time we fall. - Confucius",
+  "Discipline is the bridge between goals and accomplishment. - Jim Rohn",
+  "Do not wait to strike till the iron is hot; but make it hot by striking. - William Butler Yeats",
+  "The journey of a thousand miles begins with one step. - Lao Tzu",
+  "You miss 100% of the shots you don't take. - Wayne Gretzky",
+  "If opportunity doesn't knock, build a door. - Milton Berle",
+  "Knowing is not enough; we must apply. Willing is not enough; we must do. - Johann Wolfgang von Goethe",
+  "Fortune favors the bold. - Virgil",
+  "Do one thing every day that scares you. - Eleanor Roosevelt"
 ];
-function newQuote(){quoteDisplay.innerText=quotes[Math.floor(Math.random()*quotes.length)];}
+function newQuote(){
+  const rawQuote = quotes[Math.floor(Math.random() * quotes.length)] || "";
+  const splitIndex = rawQuote.lastIndexOf(" - ");
+
+  if (!quoteDisplay) return;
+  if (splitIndex < 0) {
+    quoteDisplay.innerText = rawQuote;
+    return;
+  }
+
+  const quoteText = rawQuote.slice(0, splitIndex).trim();
+  const authorText = rawQuote.slice(splitIndex + 3).trim();
+  quoteDisplay.innerHTML = `${escapeHtml(quoteText)}<span style="display:block;text-align:right;margin-top:6px;opacity:.9;">- ${escapeHtml(authorText)}</span>`;
+}
 newQuote();
 
 // Gratitude
