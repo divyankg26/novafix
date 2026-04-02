@@ -898,11 +898,21 @@ textarea:focus{
 }
 
 button{
+  position:relative;
   cursor:pointer;
   font-weight:bold;
   background:linear-gradient(135deg,var(--primary),var(--accent));
   transition:transform .16s ease, filter .16s ease, box-shadow .16s ease;
   letter-spacing:.2px;
+}
+
+button::after{
+  content:"";
+  position:absolute;
+  left:-2px;
+  right:-2px;
+  top:-2px;
+  bottom:-8px;
 }
 
 button:hover:not(:disabled){
@@ -4948,10 +4958,14 @@ function handleGlobalShortcut(event) {
     resetActiveShortcutSequence();
     return;
   }
-  if (isEditableElementActive() || event.repeat) return;
 
   const letter = getShortcutLetterFromEvent(event);
   if (!letter) return;
+
+  // Alt + letter shortcuts should never type into focused inputs.
+  event.preventDefault();
+  event.stopPropagation();
+  if (event.repeat) return;
 
   const now = Date.now();
   const sequenceTimeoutMs = 1600;
