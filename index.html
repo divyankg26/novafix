@@ -5,9 +5,12 @@
 <meta charset="UTF-8">
 <title id="appPageTitle">NovaFix - Sign In</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
 
 <style>
 :root{
+  color-scheme:light only;
   --waveA:#29b6f6;
   --waveB:#26c6da;
   --waveC:#4dd0e1;
@@ -39,6 +42,12 @@ body{
   animation:waveMove 52s cubic-bezier(.43,.03,.57,.97) infinite;
   overflow-x:hidden;
   -webkit-tap-highlight-color: transparent;
+}
+
+@media (prefers-color-scheme: dark){
+  body{
+    background:linear-gradient(130deg,var(--waveA),var(--waveB),var(--waveC),var(--waveD),var(--waveE)) !important;
+  }
 }
 
 body.wave-light-headings .import-transfer-card h3,
