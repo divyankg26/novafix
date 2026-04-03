@@ -1195,7 +1195,20 @@ textarea:focus-visible{
   scrollbar-color:var(--primary) transparent;
 }
 
+.startup-scroll-card{
+  height:430px;
+  max-height:430px;
+  overflow-y:auto;
+  overflow-x:hidden;
+  scrollbar-width:thin;
+  scrollbar-color:var(--primary) transparent;
+}
+
 .sleep-card::-webkit-scrollbar{
+  width:6px;
+}
+
+.startup-scroll-card::-webkit-scrollbar{
   width:6px;
 }
 
@@ -1204,7 +1217,18 @@ textarea:focus-visible{
   border-radius:999px;
 }
 
+.startup-scroll-card::-webkit-scrollbar-track{
+  background:rgba(255,255,255,.08);
+  border-radius:999px;
+}
+
 .sleep-card::-webkit-scrollbar-thumb{
+  background:var(--primary);
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.18);
+}
+
+.startup-scroll-card::-webkit-scrollbar-thumb{
   background:var(--primary);
   border-radius:999px;
   border:1px solid rgba(255,255,255,.18);
@@ -2052,9 +2076,9 @@ textarea:focus-visible{
   <div class="modal-content" onclick="event.stopPropagation()">
     <h2 id="googleIdentityTitle">Set Your Profile</h2>
     <p id="googleIdentityNote" class="identity-setup-note">Choose your username and display name.</p>
-    <input id="googleIdentityUsernameInput" type="text" placeholder="Choose username">
-    <input id="googleIdentityDisplayNameInput" type="text" placeholder="Choose display name">
-    <input id="googleIdentityPasswordInput" type="password" placeholder="Set password">
+    <input id="googleIdentityUsernameInput" type="text" placeholder="Choose username" autocomplete="off" autocapitalize="none" spellcheck="false">
+    <input id="googleIdentityDisplayNameInput" type="text" placeholder="Choose display name" autocomplete="off" autocapitalize="words" spellcheck="false">
+    <input id="googleIdentityPasswordInput" type="password" placeholder="Set password" autocomplete="new-password" autocapitalize="none" spellcheck="false">
     <div class="identity-setup-actions">
       <button id="googleIdentitySaveBtn" onclick="submitGoogleIdentitySetup()">Continue</button>
       <button id="googleIdentityCancelBtn" onclick="cancelGoogleIdentitySetup()">Sign Out</button>
@@ -2128,7 +2152,7 @@ textarea:focus-visible{
     <div id="currentFriendsList" class="friends-list-box"></div>
   </div>
 
-  <div class="account-transfer-box">
+  <div class="account-transfer-box" id="keyboardShortcutsBox">
     <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Keyboard Shortcuts</h4>
     <p class="export-note" id="keyboardShortcutsSubtitle" style="margin-top:0;margin-bottom:8px;text-align:left;"></p>
     <div id="keyboardShortcutsList" class="friends-list-box"></div>
@@ -2221,7 +2245,7 @@ textarea:focus-visible{
 <input type="number" id="reminderMinutes" placeholder="Time" min="1" step="1">
 <select id="reminderUnit" aria-label="Reminder time unit">
   <option value="second">Second(s)</option>
-  <option value="minute">Minute(s)</option>
+  <option value="minute" selected>Minute(s)</option>
   <option value="hour">Hour(s)</option>
   <option value="day">Day(s)</option>
   <option value="week">Week(s)</option>
@@ -2484,7 +2508,7 @@ textarea:focus-visible{
 </div>
 
 <!-- Personalized Daily Plan -->
-<div class="card">
+<div class="card startup-scroll-card">
 <h2>🗂️ Personalized Daily Plan</h2>
 <p class="micro-tip">Top 3 priorities generated from your mood, sleep, hydration, and task trends.</p>
 <ul id="startupDailyPlanList" class="startup-list"></ul>
@@ -2497,7 +2521,7 @@ textarea:focus-visible{
 </div>
 
 <!-- Weekly Startup Report -->
-<div class="card">
+<div class="card startup-scroll-card">
 <h2>🧾 Weekly Startup Report</h2>
 <p class="micro-tip">One-click summary of wins, risks, and next actions for sharing.</p>
 <div class="input-group startup-actions-two">
@@ -2653,6 +2677,7 @@ const reverseFriendRequestPreview = document.getElementById("reverseFriendReques
 const friendRequestsList = document.getElementById("friendRequestsList");
 const sentRequestsList = document.getElementById("sentRequestsList");
 const currentFriendsList = document.getElementById("currentFriendsList");
+const keyboardShortcutsBox = document.getElementById("keyboardShortcutsBox");
 const keyboardShortcutsSubtitle = document.getElementById("keyboardShortcutsSubtitle");
 const keyboardShortcutsList = document.getElementById("keyboardShortcutsList");
 const keyboardShortcutsToggleBtn = document.getElementById("keyboardShortcutsToggleBtn");
@@ -3810,6 +3835,7 @@ let googleIdentitySetupInProgress = false;
 let googleIdentitySetupUserId = "";
 let googleIdentityPasswordOnlyMode = false;
 let googleIdentityRequirePassword = false;
+const GOOGLE_IDENTITY_STRICT_ENFORCED = true;
 let googleIdentityUsernameLiveCheckTimer = null;
 let googleIdentityUsernameLiveCheckSequence = 0;
 let authEmailProviderCheckTimer = null;
@@ -3894,7 +3920,7 @@ function validateSignupUsername(usernameValue) {
 }
 
 function validateSignupDisplayName(displayNameValue) {
-  const raw = String(displayNameValue || "").trim();
+  const raw = String(displayNameValue || "").trim().replace(/\s+/g, " ");
   if (!raw) {
     return { ok: false, message: "Display name is required for sign up!", normalized: "" };
   }
@@ -3906,6 +3932,16 @@ function validateSignupDisplayName(displayNameValue) {
   const allowedPattern = /^[A-Za-z0-9 _-]+$/;
   if (!allowedPattern.test(raw)) {
     return { ok: false, message: "Display name can only use letters, numbers, spaces, underscores, and dashes.", normalized: "" };
+  }
+
+  if (/[_-]{3,}/.test(raw)) {
+    return { ok: false, message: "Display name cannot contain long symbol runs.", normalized: "" };
+  }
+
+  const normalizedKey = raw.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const reservedNames = new Set(["admin", "administrator", "owner", "support", "system", "novafix", "mod", "moderator"]);
+  if (reservedNames.has(normalizedKey)) {
+    return { ok: false, message: "That display name is reserved. Choose another one.", normalized: "" };
   }
 
   return { ok: true, message: "", normalized: raw };
@@ -4219,20 +4255,23 @@ function scheduleGoogleIdentityUsernameAvailabilityCheck() {
 function openGoogleIdentitySetupModal(user, defaults = {}) {
   const activeUserId = String(user?.uid || "").trim();
   if (!googleIdentityModal || !activeUserId) return;
-  const passwordOnly = !!defaults?.passwordOnly;
+  const forceFullSetup = GOOGLE_IDENTITY_STRICT_ENFORCED || !!defaults?.forceFullSetup;
+  const passwordOnly = forceFullSetup ? false : !!defaults?.passwordOnly;
   googleIdentityPasswordOnlyMode = passwordOnly;
-  googleIdentityRequirePassword = passwordOnly || !!defaults?.requirePassword;
-  if (googleIdentityUsernameInput) googleIdentityUsernameInput.value = String(defaults?.username || "").trim();
-  if (googleIdentityDisplayNameInput) googleIdentityDisplayNameInput.value = String(defaults?.displayName || "").trim();
+  googleIdentityRequirePassword = forceFullSetup ? true : (passwordOnly || !!defaults?.requirePassword);
+  if (googleIdentityUsernameInput) googleIdentityUsernameInput.value = "";
+  if (googleIdentityDisplayNameInput) googleIdentityDisplayNameInput.value = "";
   if (googleIdentityPasswordInput) googleIdentityPasswordInput.value = "";
   if (googleIdentityUsernameInput) googleIdentityUsernameInput.style.display = passwordOnly ? "none" : "block";
   if (googleIdentityDisplayNameInput) googleIdentityDisplayNameInput.style.display = passwordOnly ? "none" : "block";
   if (googleIdentityPasswordInput) googleIdentityPasswordInput.style.display = "block";
   if (googleIdentityTitle) {
-    googleIdentityTitle.innerText = passwordOnly ? "Set Account Password" : "Set Your Profile";
+    googleIdentityTitle.innerText = forceFullSetup ? "Confirm Your Profile" : (passwordOnly ? "Set Account Password" : "Set Your Profile");
   }
   if (googleIdentityNote) {
-    googleIdentityNote.innerText = passwordOnly
+    googleIdentityNote.innerText = forceFullSetup
+      ? "For security, type username, display name, and password to continue."
+      : passwordOnly
       ? "Set a password below to continue."
       : "Choose your username and display name, then set a password to continue.";
   }
@@ -4262,6 +4301,17 @@ async function ensureGoogleIdentitySetupIfNeeded(user) {
     }
   } catch (_) {
     profileData = {};
+  }
+
+  if (GOOGLE_IDENTITY_STRICT_ENFORCED) {
+    openGoogleIdentitySetupModal(user, {
+      username: "",
+      displayName: "",
+      passwordOnly: false,
+      requirePassword: true,
+      forceFullSetup: true
+    });
+    return false;
   }
 
   const hasPasswordProvider = hasPasswordProviderLinked(user);
@@ -4364,33 +4414,35 @@ async function submitGoogleIdentitySetup() {
   const displayNameRaw = String(googleIdentityDisplayNameInput?.value || "").trim();
   const googlePasswordRaw = String(googleIdentityPasswordInput?.value || "");
   const hasPasswordProvider = hasPasswordProviderLinked(user);
+  const requireFullProfileFields = GOOGLE_IDENTITY_STRICT_ENFORCED || !googleIdentityPasswordOnlyMode;
+  const requiresTypedPassword = GOOGLE_IDENTITY_STRICT_ENFORCED || googleIdentityRequirePassword;
   const needsPasswordSetup = googleIdentityRequirePassword && !hasPasswordProvider;
-  if (needsPasswordSetup && googlePasswordRaw.length < 6) {
+  if (requiresTypedPassword && googlePasswordRaw.length < 6) {
     showGoogleIdentityError("Set a password with at least 6 characters.");
     return;
   }
 
-  const usernameValidation = googleIdentityPasswordOnlyMode
-    ? { ok: true, normalized: "" }
-    : validateSignupUsername(usernameRaw);
+  const usernameValidation = requireFullProfileFields
+    ? validateSignupUsername(usernameRaw)
+    : { ok: true, normalized: "" };
   if (!usernameValidation.ok) {
     showGoogleIdentityError(usernameValidation.message);
     return;
   }
 
-  const displayValidation = googleIdentityPasswordOnlyMode
-    ? { ok: true, normalized: "" }
-    : validateSignupDisplayName(displayNameRaw);
+  const displayValidation = requireFullProfileFields
+    ? validateSignupDisplayName(displayNameRaw)
+    : { ok: true, normalized: "" };
   if (!displayValidation.ok) {
     showGoogleIdentityError(displayValidation.message);
     return;
   }
 
   const usernameKey = usernameValidation.normalized;
-  const normalizedDisplayName = googleIdentityPasswordOnlyMode
-    ? normalizeDisplayNameValue(user.displayName || "")
-    : normalizeDisplayNameValue(displayValidation.normalized);
-  if (!googleIdentityPasswordOnlyMode && (!usernameKey || !normalizedDisplayName)) {
+  const normalizedDisplayName = requireFullProfileFields
+    ? normalizeDisplayNameValue(displayValidation.normalized)
+    : normalizeDisplayNameValue(user.displayName || "");
+  if (requireFullProfileFields && (!usernameKey || !normalizedDisplayName)) {
     showGoogleIdentityError("Please enter valid profile details.");
     return;
   }
@@ -4399,7 +4451,7 @@ async function submitGoogleIdentitySetup() {
   hideGoogleIdentityError();
 
   try {
-    if (!googleIdentityPasswordOnlyMode) {
+    if (requireFullProfileFields) {
       try {
         const usernameExists = await usernameExistsLiveInFirestore(usernameKey);
         if (usernameExists) {
@@ -4450,7 +4502,8 @@ async function submitGoogleIdentitySetup() {
       }
     }
 
-    if (!googleIdentityPasswordOnlyMode) {
+    const displayNameChangeAppliedAtMs = getServerNowDate().getTime();
+    if (requireFullProfileFields) {
       await claimUsernameDirectoryEntry(user.uid, usernameKey, safeEmail, normalizedDisplayName);
       await updateProfile(user, { displayName: normalizedDisplayName });
       await upsertUserDirectoryProfile(user, {
@@ -4472,6 +4525,11 @@ async function submitGoogleIdentitySetup() {
       googleLegacyPasswordRequired: false,
       googleImportPasswordEnabled: hasPasswordAfterSetup,
       googleImportPasswordEnabledAt: hasPasswordAfterSetup ? serverTimestamp() : null,
+      ...(requireFullProfileFields ? {
+        displayNameDashboardChangedAt: serverTimestamp(),
+        displayNameDashboardChangedAtMs: displayNameChangeAppliedAtMs,
+        displayNameDashboardCooldownUntilMs: displayNameChangeAppliedAtMs + DISPLAY_NAME_EDIT_COOLDOWN_MS
+      } : {}),
       updatedAt: serverTimestamp()
     }, { merge: true });
 
@@ -4521,7 +4579,21 @@ const AUTH_BACKOFF_FAIL_THRESHOLD = 3;
 const AUTH_BACKOFF_BASE_MS = 15 * 1000;
 const AUTH_BACKOFF_MAX_MS = 10 * 60 * 1000;
 const AUTH_BACKOFF_STORAGE_PREFIX = "novafix_auth_backoff_";
-const IS_MAC_OS = /mac|iphone|ipad|ipod/i.test(String(navigator.platform || navigator.userAgentData?.platform || navigator.userAgent || "").toLowerCase());
+const DEVICE_INFO_SOURCE = String(
+  navigator.userAgentData?.platform
+  || navigator.platform
+  || navigator.userAgent
+  || ""
+).toLowerCase();
+const IS_MAC_OS = /mac/i.test(DEVICE_INFO_SOURCE);
+const IS_MOBILE_DEVICE = (() => {
+  const mobileUa = /(android|iphone|ipad|ipod|mobile|phone|windows\s+phone)/i.test(String(navigator.userAgent || ""));
+  const hasTouch = Number(navigator.maxTouchPoints || 0) > 1;
+  const narrowScreen = typeof window !== "undefined"
+    ? (window.matchMedia?.("(max-width: 900px)")?.matches || window.innerWidth <= 900)
+    : false;
+  return mobileUa || (hasTouch && narrowScreen);
+})();
 const SHORTCUT_MOD_LABEL = IS_MAC_OS ? "Option" : "Alt";
 const CARD_SHORTCUTS = [
   { cardIndex: 0, keys: ["a", "i"], label: "AI Companion" },
@@ -4554,7 +4626,7 @@ const WELCOME_GUIDE_STEPS = [
   {
     title: "Dashboard Overview",
     text: "Use the cards to log mood, water, sleep, reminders, tasks, gratitude, and more in one flow.",
-    tip: "Tip: Start with Mood, Water, and Sleep every day for the fastest progress gains."
+    tip: "Tip: Start with Mood, Water, and Sleep every day for the fastest progress gains. Use Shift+Enter to add a new line in text boxes."
   },
   {
     title: "Daily Limits",
@@ -4588,6 +4660,11 @@ const WELCOME_GUIDE_STEPS = [
     showShortcutList: true
   }
 ];
+
+function getWelcomeGuideSteps() {
+  if (!IS_MOBILE_DEVICE) return WELCOME_GUIDE_STEPS;
+  return WELCOME_GUIDE_STEPS.filter((step) => !step.showShortcutList);
+}
 
 function formatShortcutAwareText(text = "") {
   return String(text || "")
@@ -4637,6 +4714,11 @@ if (keyboardShortcutsToggleBtn) {
 }
 
 function renderKeyboardShortcutsBox() {
+  if (keyboardShortcutsBox) {
+    keyboardShortcutsBox.style.display = IS_MOBILE_DEVICE ? "none" : "block";
+  }
+  if (IS_MOBILE_DEVICE) return;
+
   if (keyboardShortcutsSubtitle) {
     keyboardShortcutsSubtitle.innerText = `Showing ${IS_MAC_OS ? "macOS" : "Windows/Linux"} shortcuts for this device. Hold ${SHORTCUT_MOD_LABEL}, then press the two letters. Includes Personalized Daily Plan, Weekly Startup Report, and Behavior Memory Graph shortcuts.`;
   }
@@ -4869,13 +4951,15 @@ async function showPendingImportSecurityWarnings(userId) {
 
 function renderWelcomeGuideStep() {
   if (!welcomeGuideModal || !guideStepCounter || !guideStepTitle || !guideStepText || !guideStepTip || !guideDots || !guideNextBtn) return;
-  const total = WELCOME_GUIDE_STEPS.length;
+  const steps = getWelcomeGuideSteps();
+  const total = steps.length;
+  if (!total) return;
   const safeIndex = Math.max(0, Math.min(total - 1, welcomeGuideStepIndex));
-  const current = WELCOME_GUIDE_STEPS[safeIndex];
+  const current = steps[safeIndex];
   guideStepCounter.innerText = `Step ${safeIndex + 1}/${total}`;
   guideStepTitle.innerText = current.title;
   guideStepText.innerText = formatShortcutAwareText(current.text);
-  if (current.showShortcutList) {
+  if (current.showShortcutList && !IS_MOBILE_DEVICE) {
     guideStepTip.style.whiteSpace = "normal";
     guideStepTip.classList.add("shortcut-mode");
     guideStepTip.innerHTML = `<div class="guide-shortcut-list">${getShortcutOverviewText()}</div>`;
@@ -5080,7 +5164,7 @@ async function completeWelcomeGuide() {
 }
 
 async function nextWelcomeGuideStep() {
-  const total = WELCOME_GUIDE_STEPS.length;
+  const total = getWelcomeGuideSteps().length;
   if (welcomeGuideStepIndex >= total - 1) {
     await completeWelcomeGuide();
     return;
@@ -5308,6 +5392,13 @@ async function handleAuth() {
       }
 
       await updateProfile(userCredential.user, { displayName: signupDisplayName });
+      const displayNameChangeAppliedAtMs = getServerNowDate().getTime();
+      await setDoc(doc(db, "users", userCredential.user.uid, "settings", "profile"), {
+        displayNameDashboardChangedAt: serverTimestamp(),
+        displayNameDashboardChangedAtMs: displayNameChangeAppliedAtMs,
+        displayNameDashboardCooldownUntilMs: displayNameChangeAppliedAtMs + DISPLAY_NAME_EDIT_COOLDOWN_MS,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
       await upsertUserDirectoryProfile(userCredential.user, {
         username,
         displayName: signupDisplayName
@@ -5571,6 +5662,13 @@ async function editAccountDisplayName() {
     return;
   }
 
+  const refreshedCooldownRemaining = await getDisplayNameEditCooldownRemainingFromProfile(user.uid, true);
+  if (refreshedCooldownRemaining > 0) {
+    startDisplayNameEditCooldown(refreshedCooldownRemaining);
+    setAccountDisplayNameError(`Display name can be changed again in ${formatDisplayNameCooldownClock(refreshedCooldownRemaining)}.`);
+    return;
+  }
+
   const currentDisplayName = normalizeDisplayNameValue(accountDisplayName?.innerText || user.displayName || "")
     || "";
   let nextDisplayName = "";
@@ -5625,6 +5723,7 @@ async function editAccountDisplayName() {
     await setDoc(doc(db, "users", user.uid, "settings", "profile"), {
       displayName: nextDisplayName,
       displayNameDashboardChangedAt: serverTimestamp(),
+      displayNameDashboardChangedAtMs: getServerNowDate().getTime(),
       displayNameDashboardCooldownUntilMs: cooldownUntilMs,
       updatedAt: serverTimestamp()
     }, { merge: true });
@@ -5964,11 +6063,12 @@ function normalizeUsernameCandidate(nameValue, relatedEmail = "") {
 }
 
 function normalizeDisplayNameValue(displayNameValue) {
-  const text = String(displayNameValue || "").trim();
+  const text = String(displayNameValue || "").trim().replace(/\s+/g, " ");
   if (!text) return "";
   const sliced = text.slice(0, 20);
   const allowedPattern = /^[A-Za-z0-9 _-]+$/;
   if (!allowedPattern.test(sliced)) return "";
+  if (/[_-]{3,}/.test(sliced)) return "";
   return sliced;
 }
 
@@ -9329,6 +9429,8 @@ let lastFriendQueueProfileSyncAt = 0;
 let pendingFriendProfileSyncTimer = null;
 let pendingFriendProfileSnapshot = null;
 let sentRequestExpiryTicker = null;
+let reminderAudioDuckRestoreTimer = null;
+let reminderDuckedMediaEntries = [];
 let reverseFriendRequestPromptResolver = null;
 let reverseFriendRequestPromptBusy = false;
 const userDirectoryNameCache = new Map();
@@ -9404,6 +9506,10 @@ async function persistSeenFriendRequestKeysForUser(userId) {
 }
 
 const DISPLAY_NAME_EDIT_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+const REMINDER_AUDIO_DUCK_FACTOR = 0.2;
+const REMINDER_AUDIO_DUCK_DEFAULT_MS = 2600;
+const REMINDER_ALERT_REPEAT_COUNT = 1;
+const REMINDER_ALERT_REPEAT_GAP_MS = 700;
 
 const AI_ABUSE_COOLDOWN_MS = 2 * 60 * 1000;
 const AI_ABUSE_TERMS = ["fuck", "fuk", "fucc", "shit", "bitch", "asshole", "bastard", "motherfucker", "niga", "fucker"];
@@ -13189,6 +13295,81 @@ function isClearChatCommand(inputText) {
   return clearChatIntent;
 }
 
+const AI_TYPO_FUZZY_KEYWORDS = [
+  "hello", "hey", "hi", "play", "music", "song", "songs", "spotify", "playlist",
+  "task", "tasks", "todo", "todos", "add", "create", "new", "log", "save", "track",
+  "reminder", "remind", "water", "hydrate", "hydration", "sleep", "bedtime", "downtime",
+  "mood", "happy", "neutral", "low", "gratitude", "grateful", "thankful", "analyze",
+  "summary", "summarize", "delete", "remove", "clear", "reset", "memory", "remember",
+  "name", "plan", "focus", "productivity", "study", "work", "complete", "reopen",
+  "finish", "help", "commands", "date", "time", "today", "stress", "anxious", "angry"
+];
+
+function applyTokenCasePattern(sourceToken, replacementToken) {
+  if (!sourceToken) return replacementToken;
+  if (sourceToken === sourceToken.toUpperCase()) return replacementToken.toUpperCase();
+  if (sourceToken[0] === sourceToken[0].toUpperCase()) {
+    return replacementToken.charAt(0).toUpperCase() + replacementToken.slice(1);
+  }
+  return replacementToken;
+}
+
+function boundedLevenshteinDistance(a, b, maxDistance) {
+  if (a === b) return 0;
+  const aLen = a.length;
+  const bLen = b.length;
+  if (!aLen) return bLen;
+  if (!bLen) return aLen;
+  if (Math.abs(aLen - bLen) > maxDistance) return maxDistance + 1;
+
+  const prev = new Array(bLen + 1);
+  const curr = new Array(bLen + 1);
+
+  for (let j = 0; j <= bLen; j += 1) prev[j] = j;
+
+  for (let i = 1; i <= aLen; i += 1) {
+    curr[0] = i;
+    let rowMin = curr[0];
+    for (let j = 1; j <= bLen; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(
+        prev[j] + 1,
+        curr[j - 1] + 1,
+        prev[j - 1] + cost
+      );
+      if (curr[j] < rowMin) rowMin = curr[j];
+    }
+    if (rowMin > maxDistance) return maxDistance + 1;
+    for (let j = 0; j <= bLen; j += 1) prev[j] = curr[j];
+  }
+
+  return prev[bLen];
+}
+
+function fuzzyCorrectAiToken(token) {
+  const lower = String(token || "").toLowerCase();
+  if (!lower || lower.length < 3 || lower.length > 24) return "";
+  if (/\d/.test(lower)) return "";
+
+  const maxDistance = lower.length <= 4 ? 1 : 2;
+  let bestMatch = "";
+  let bestDistance = maxDistance + 1;
+
+  for (let index = 0; index < AI_TYPO_FUZZY_KEYWORDS.length; index += 1) {
+    const keyword = AI_TYPO_FUZZY_KEYWORDS[index];
+    if (Math.abs(keyword.length - lower.length) > maxDistance) continue;
+    const distance = boundedLevenshteinDistance(lower, keyword, maxDistance);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestMatch = keyword;
+      if (distance === 1) break;
+    }
+  }
+
+  if (!bestMatch || bestDistance > maxDistance) return "";
+  return bestMatch;
+}
+
 function normalizeTyposForAi(text) {
   const map = {
     analize: "analyze",
@@ -13227,6 +13408,7 @@ function normalizeTyposForAi(text) {
     msuic: "music",
     blay: "play",
     helo: "hello",
+    hellow: "hello",
     becuase: "because",
     dont: "don't",
     cant: "can't",
@@ -13236,7 +13418,13 @@ function normalizeTyposForAi(text) {
   return String(text || "").replace(/\b[a-z]{3,}\b/gi, (token) => {
     const lower = token.toLowerCase();
     const deStretched = lower.replace(/([a-z])\1{2,}/g, "$1$1");
-    return map[lower] || map[deStretched] || token;
+    const direct = map[lower] || map[deStretched];
+    if (direct) return applyTokenCasePattern(token, direct);
+
+    const fuzzy = fuzzyCorrectAiToken(deStretched);
+    if (fuzzy && fuzzy !== lower) return applyTokenCasePattern(token, fuzzy);
+
+    return token;
   });
 }
 
@@ -13716,7 +13904,7 @@ function buildCasualAiResponse(context) {
     return {
       lastIntent: "math",
       advice: coachingMoves.slice(0, 1),
-      response: `${mathResult.expression} = ${mathResult.result} 😎`,
+      response: `${mathResult.expression} = ${mathResult.result} 🧮`,
       isHtml: false
     };
   }
@@ -14534,6 +14722,169 @@ function parseDurationToMinutes(amountRaw, unitRaw) {
   return amount;
 }
 
+function restoreReminderAudioDucking() {
+  if (reminderAudioDuckRestoreTimer) {
+    clearTimeout(reminderAudioDuckRestoreTimer);
+    reminderAudioDuckRestoreTimer = null;
+  }
+
+  if (!Array.isArray(reminderDuckedMediaEntries) || !reminderDuckedMediaEntries.length) {
+    reminderDuckedMediaEntries = [];
+    return;
+  }
+
+  reminderDuckedMediaEntries.forEach((entry) => {
+    const media = entry?.media;
+    if (!media) return;
+    try {
+      media.volume = Math.max(0, Math.min(1, Number(entry.originalVolume) || 1));
+      media.muted = !!entry.originalMuted;
+    } catch (_) {}
+  });
+  reminderDuckedMediaEntries = [];
+}
+
+function startReminderAudioDucking(durationMs = REMINDER_AUDIO_DUCK_DEFAULT_MS) {
+  restoreReminderAudioDucking();
+
+  const reminderAudio = document.getElementById("reminderSound");
+  const mediaNodes = Array.from(document.querySelectorAll("audio, video"));
+  const duckedEntries = [];
+
+  mediaNodes.forEach((media) => {
+    if (!media || media === reminderAudio) return;
+    if (media.paused) return;
+    const originalVolume = Number(media.volume);
+    if (!Number.isFinite(originalVolume) || originalVolume <= 0) return;
+
+    duckedEntries.push({
+      media,
+      originalVolume,
+      originalMuted: !!media.muted
+    });
+
+    try {
+      media.muted = false;
+      media.volume = Math.max(0.04, Math.min(originalVolume * REMINDER_AUDIO_DUCK_FACTOR, originalVolume));
+    } catch (_) {}
+  });
+
+  reminderDuckedMediaEntries = duckedEntries;
+  const safeDuration = Math.max(1200, Number(durationMs) || REMINDER_AUDIO_DUCK_DEFAULT_MS);
+  reminderAudioDuckRestoreTimer = setTimeout(() => {
+    restoreReminderAudioDucking();
+  }, safeDuration);
+}
+
+function playReminderFallbackTone() {
+  try {
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextCtor) return false;
+    const ctx = new AudioContextCtor();
+    const master = ctx.createGain();
+    master.gain.value = 0.18;
+    master.connect(ctx.destination);
+
+    const beep = (startOffset, freq, duration) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + startOffset);
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime + startOffset);
+      gain.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + startOffset + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + startOffset + duration);
+      osc.connect(gain);
+      gain.connect(master);
+      osc.start(ctx.currentTime + startOffset);
+      osc.stop(ctx.currentTime + startOffset + duration + 0.02);
+    };
+
+    beep(0, 880, 0.17);
+    beep(0.2, 1046, 0.2);
+    setTimeout(() => {
+      try {
+        ctx.close();
+      } catch (_) {}
+    }, 700);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function triggerReminderAttentionSignals(reminderTextValue = "") {
+  try {
+    if (navigator?.vibrate) {
+      navigator.vibrate([180, 120, 220, 120, 260]);
+    }
+  } catch (_) {}
+
+  try {
+    const speech = window.speechSynthesis;
+    if (speech && typeof SpeechSynthesisUtterance === "function") {
+      const utterance = new SpeechSynthesisUtterance(`Reminder. ${String(reminderTextValue || "") || "Check your reminder now."}`);
+      utterance.rate = 1;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+      speech.cancel();
+      speech.speak(utterance);
+    }
+  } catch (_) {}
+
+  try {
+    if (typeof Notification === "function" && Notification.permission === "granted") {
+      const body = String(reminderTextValue || "").trim() || "Time's up.";
+      const n = new Notification("NovaFix Reminder", {
+        body,
+        tag: `novafix-reminder-${Date.now()}`,
+        renotify: true,
+        requireInteraction: false
+      });
+      setTimeout(() => {
+        try {
+          n.close();
+        } catch (_) {}
+      }, 9000);
+    } else if (typeof Notification === "function" && Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+  } catch (_) {}
+}
+
+async function playReminderChimeWithAudioDucking(reminderTextValue = "") {
+  const audio = document.getElementById("reminderSound");
+  const audioDurationMs = Number(audio?.duration) > 0 ? (Number(audio.duration) * 1000) : 0;
+  const totalAlertWindowMs = Math.max(
+    REMINDER_AUDIO_DUCK_DEFAULT_MS,
+    ((audioDurationMs > 0 ? audioDurationMs : 550) * REMINDER_ALERT_REPEAT_COUNT) + (REMINDER_ALERT_REPEAT_GAP_MS * (REMINDER_ALERT_REPEAT_COUNT - 1)) + 900
+  );
+  startReminderAudioDucking(totalAlertWindowMs);
+
+  let playedAtLeastOnce = false;
+  for (let attempt = 0; attempt < REMINDER_ALERT_REPEAT_COUNT; attempt += 1) {
+    if (audio) {
+      try {
+        audio.currentTime = 0;
+        audio.muted = false;
+        audio.volume = 1;
+        await audio.play();
+        playedAtLeastOnce = true;
+      } catch (_) {
+        playedAtLeastOnce = playReminderFallbackTone() || playedAtLeastOnce;
+      }
+    } else {
+      playedAtLeastOnce = playReminderFallbackTone() || playedAtLeastOnce;
+    }
+
+    if (attempt < REMINDER_ALERT_REPEAT_COUNT - 1) {
+      await new Promise((resolve) => setTimeout(resolve, REMINDER_ALERT_REPEAT_GAP_MS));
+    }
+  }
+
+  triggerReminderAttentionSignals(reminderTextValue);
+  return playedAtLeastOnce;
+}
+
 function parseTimelineFromInput(text) {
   const raw = String(text || "").toLowerCase();
   if (!raw) return null;
@@ -14798,12 +15149,74 @@ function splitAiTaskItems(taskText) {
     .slice(0, 8);
 }
 
-async function tryAiAction(input, user) {
+function splitAiActionClauses(inputText) {
+  const raw = String(inputText || "").trim();
+  if (!raw) return [];
+
+  const coarseParts = raw
+    .split(/\s*(?:\n+|;|&&|\band\s+then\b|\bthen\b)\s*/i)
+    .map((part) => String(part || "").trim())
+    .filter(Boolean);
+
+  const actionStarter = /^(?:add|create|new|log|save|track|set|update|play|start|open|remind|complete|done|finish|mark|reopen|undo|uncheck|delete|remove|clear|list|show|view)\b/i;
+  const finerParts = [];
+
+  for (let index = 0; index < coarseParts.length; index += 1) {
+    const segment = coarseParts[index];
+    const splitByAnd = segment.split(/\s+\band\b\s+/i).map((part) => part.trim()).filter(Boolean);
+    if (splitByAnd.length <= 1) {
+      finerParts.push(segment);
+      continue;
+    }
+
+    const actionableCount = splitByAnd.reduce((total, part) => total + (actionStarter.test(part) ? 1 : 0), 0);
+    if (actionableCount >= 2) {
+      finerParts.push(...splitByAnd);
+    } else {
+      finerParts.push(segment);
+    }
+  }
+
+  return finerParts
+    .map((part) => part.replace(/^[-*•\d.)\s]+/, "").trim())
+    .filter(Boolean)
+    .slice(0, 5);
+}
+
+async function tryAiAction(input, user, options = {}) {
+  const skipMultiSplit = !!options.skipMultiSplit;
+  const skipGreeting = !!options.skipGreeting;
   const msg = normalizeTyposForAi(String(input || "").trim()).replace(/[!?]+$/g, "");
   const greetingInfo = parseGreetingAndActionText(msg);
   const effectiveMsg = greetingInfo.actionText || msg;
   const lower = effectiveMsg.toLowerCase();
-  const withGreeting = (text) => greetingInfo.hasGreeting ? `${greetingInfo.greeting}! ${text}` : text;
+  const withGreeting = (text) => {
+    if (skipGreeting) return text;
+    return greetingInfo.hasGreeting ? `${greetingInfo.greeting}! ${text}` : text;
+  };
+
+  if (!skipMultiSplit) {
+    const clauses = splitAiActionClauses(effectiveMsg);
+    if (clauses.length > 1) {
+      const outputs = [];
+      for (let index = 0; index < clauses.length; index += 1) {
+        const clause = clauses[index];
+        const result = await tryAiAction(clause, user, { skipMultiSplit: true, skipGreeting: true });
+        if (typeof result === "string" && result.trim()) {
+          outputs.push(result.trim());
+        }
+      }
+
+      if (outputs.length) {
+        const deduped = [];
+        for (let index = 0; index < outputs.length; index += 1) {
+          const entry = outputs[index];
+          if (!deduped.includes(entry)) deduped.push(entry);
+        }
+        return withGreeting(deduped.join(" | "));
+      }
+    }
+  }
 
   if (greetingInfo.hasGreeting && !greetingInfo.actionText) {
     return `${greetingInfo.greeting}! 👋 Tell me what you want to do, for example: play music, add task, or set reminder.`;
@@ -15043,7 +15456,13 @@ async function tryAiAction(input, user) {
     || msg.match(/^(?:set|add|create)\s+(?:a\s+)?reminder\s*(?:to)?\s*[:\-]?\s*(.+?)\s+(?:in|after)\s+(\d+(?:\.\d+)?)\s*(s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks|mo|mon|mons|month|months)$/i)
     || msg.match(/^reminder\s*[:\-]?\s*(.+?)\s+(?:in|after)\s+(\d+(?:\.\d+)?)\s*(s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks|mo|mon|mons|month|months)$/i);
   if (reminderMatch) {
-    const reminderLabel = reminderMatch[1].trim();
+    const reminderLabel = reminderMatch[1]
+      .trim()
+      .replace(/^["'`“”‘’]+|["'`“”‘’]+$/g, "")
+      .trim();
+    if (!reminderLabel) {
+      return "ℹ️ Reminder text is empty. Try: set reminder drink water in 20 min.";
+    }
     const amount = Number(reminderMatch[2]);
     const unitValue = normalizeReminderUnitValue(reminderMatch[3]);
     const minutes = parseDurationToMinutes(amount, unitValue);
@@ -15118,8 +15537,32 @@ async function buildSmartAiResponse(input, user) {
     actionResult = null;
   }
   if (actionResult) {
+    const greetingInfo = parseGreetingAndActionText(normalizedInput);
+    if (
+      greetingInfo.hasGreeting
+      && greetingInfo.actionText
+      && typeof actionResult === "string"
+      && !new RegExp(`^${greetingInfo.greeting}\\!\\s`, "i").test(actionResult)
+    ) {
+      actionResult = `${greetingInfo.greeting}! ${actionResult}`;
+    }
+    const pickActionReplyEmoji = (actionText, inputText) => {
+      const source = `${String(actionText || "")} ${String(inputText || "")}`.toLowerCase();
+      if (/\b(?:water|hydrate|hydration|glass|glasses|cup|cups)\b/.test(source)) return "💧";
+      if (/\b(?:sleep|bed\s*time|bedtime|downtime)\b/.test(source)) return "😴";
+      if (/\b(?:reminder|remind|alarm)\b/.test(source)) return "⏰";
+      if (/\b(?:task|todo|productivity|study|work)\b/.test(source)) return "✅";
+      if (/\b(?:music|song|playlist|spotify)\b/.test(source)) return "🎵";
+      if (/\b(?:mood|feeling|emotion)\b/.test(source)) return "🙂";
+      if (/\b(?:gratitude|thankful|grateful)\b/.test(source)) return "🙏";
+      if (/\b(?:memory|remember|name)\b/.test(source)) return "🧠";
+      if (/\b(?:clear\s+chat|reset)\b/.test(source)) return "🧹";
+      if (/\b(?:could\s+not|unknown|invalid|try\s+again|tell\s+me|include)\b/.test(source)) return "📝";
+      return "✨";
+    };
+    const actionEmoji = pickActionReplyEmoji(actionResult, normalizedInput);
     return {
-      response: `${actionResult} 😎`,
+      response: `${actionResult} ${actionEmoji}`,
       isHtml: false
     };
   }
@@ -15552,18 +15995,60 @@ async function buildSmartAiResponse(input, user) {
   };
 }
 
-function buildWhySuggestionLine(isHtml = true) {
+function hasActionableSuggestionText(responseText, isHtml = false) {
+  const text = String(responseText || "");
+  if (!text.trim()) return false;
+  const normalized = (isHtml ? text.replace(/<[^>]+>/g, " ") : text).toLowerCase().replace(/\s+/g, " ").trim();
+  if (!normalized) return false;
+
+  if (/\b(?:what can you do|quick status|today is|local time|i am doing good|i'm doing good|you are at)\b/.test(normalized)) {
+    return false;
+  }
+
+  if (/\b(?:next easy win|best move|most leverage move|execution order|top 3|step\s*\d|do this now|start with|try this|action plan|focus now)\b/.test(normalized)) {
+    return true;
+  }
+
+  if (/(?:^|\s)(?:1\)|2\)|3\)|1\.|2\.|3\.)/.test(normalized)) {
+    return true;
+  }
+
+  return /\b(?:do|start|focus|drink|log|set|complete|apply|track|review|schedule|plan|action)\b/.test(normalized);
+}
+
+function buildWhySuggestionLine(isHtml = true, suggestionText = "") {
   const snapshot = aiSessionState.lastSnapshot || getWellnessSnapshot();
   const trend = buildTrendSignals();
   const reasons = [];
+  const contextText = String(suggestionText || "").replace(/<[^>]+>/g, " ").toLowerCase();
 
-  const waterGap = Math.max(0, (Number(snapshot.todayGoal) || 0) - (Number(snapshot.waterToday) || 0));
-  if (waterGap > 0) reasons.push(`${waterGap} glass hydration gap`);
-  if ((Number(snapshot.sleepToday) || 0) > 0 && (Number(snapshot.sleepToday) || 0) < 7) reasons.push("sleep below 7h");
-  if (Number(snapshot.pendingTasks) > 0) reasons.push(`${Number(snapshot.pendingTasks)} pending task${Number(snapshot.pendingTasks) === 1 ? "" : "s"}`);
-  if (!snapshot.gratitudeToday) reasons.push("gratitude not logged today");
-  if (trend.moodDelta < 0) reasons.push("mood trend dipped");
-  if (trend.taskDelta < 0) reasons.push("task trend softened");
+  const mentionsHydration = /\b(?:water|hydrate|hydration|glass|glasses|cup|cups)\b/.test(contextText);
+  const mentionsSleep = /\b(?:sleep|bedtime|rest|downtime)\b/.test(contextText);
+  const mentionsTasks = /\b(?:task|tasks|todo|focus|productivity|work|study)\b/.test(contextText);
+  const mentionsMood = /\b(?:mood|emotion|stress|anxious|calm)\b/.test(contextText);
+  const mentionsGratitude = /\b(?:gratitude|grateful|thankful)\b/.test(contextText);
+
+  const targetGoal = snapshot.hasWaterGoal ? Math.max(1, Number(snapshot.todayGoal) || 8) : 8;
+  const waterGap = Math.max(0, targetGoal - (Number(snapshot.waterToday) || 0));
+  if (mentionsHydration ? waterGap > 0 : waterGap >= 2) reasons.push(`${waterGap} glass hydration gap`);
+
+  const sleepLow = (Number(snapshot.sleepToday) || 0) > 0 && (Number(snapshot.sleepToday) || 0) < 7;
+  if (mentionsSleep ? sleepLow : sleepLow && (Number(snapshot.sleepToday) || 0) <= 6.5) reasons.push("sleep below 7h");
+
+  const pendingTasks = Number(snapshot.pendingTasks) || 0;
+  if (mentionsTasks ? pendingTasks > 0 : pendingTasks >= 2) {
+    reasons.push(`${pendingTasks} pending task${pendingTasks === 1 ? "" : "s"}`);
+  }
+
+  if (mentionsGratitude && !snapshot.gratitudeToday) reasons.push("gratitude not logged today");
+  if (mentionsMood && trend.moodDelta < 0) reasons.push("mood trend dipped");
+  if (mentionsTasks && trend.taskDelta < 0) reasons.push("task trend softened");
+
+  if (!reasons.length) {
+    if (waterGap > 0) reasons.push(`${waterGap} glass hydration gap`);
+    else if (pendingTasks > 0) reasons.push(`${pendingTasks} pending task${pendingTasks === 1 ? "" : "s"}`);
+    else if (!snapshot.gratitudeToday) reasons.push("gratitude not logged today");
+  }
 
   const shortReasons = reasons.slice(0, 3);
   if (!shortReasons.length) shortReasons.push("you’re in momentum mode — this keeps consistency high");
@@ -15974,9 +16459,10 @@ async function aiChat(){
         &&
         !!aiSessionState.lastSnapshot
         && aiSessionState.lastIntent !== "why"
+        && hasActionableSuggestionText(response, responseIsHtml)
         && !/I can also run:|I can also do:/i.test(String(response || ""));
       if (shouldAttachWhy) {
-        response = `${response}${buildWhySuggestionLine(responseIsHtml)}`;
+        response = `${response}${buildWhySuggestionLine(responseIsHtml, response)}`;
       }
 
       const safeOutput = applyAiOutputSafetyFilter(response, responseIsHtml);
@@ -16159,13 +16645,12 @@ function renderReminder(entry, options = {}) {
   setLabelText(secondsRemaining);
 
   if (secondsRemaining > 0) {
-    const audio = document.getElementById("reminderSound");
     const timer = setInterval(() => {
       secondsRemaining -= 1;
       if (secondsRemaining <= 0) {
         clearReminderTimer(entry.id);
         setLabelText(0);
-        if (audio) audio.play();
+        void playReminderChimeWithAudioDucking(reminderTextValue);
         return;
       }
       setLabelText(secondsRemaining);
@@ -17673,6 +18158,45 @@ function startDisplayNameEditCooldown(remainingMs) {
   }
 }
 
+function getDisplayNameCooldownUntilFromProfileData(profileData = {}) {
+  const explicitCooldownUntil = Math.max(
+    0,
+    Number(profileData.displayNameDashboardCooldownUntilMs)
+    || getOptionalTimestampMs(profileData.displayNameDashboardCooldownUntil)
+    || 0
+  );
+
+  const changedAtMs = Math.max(
+    0,
+    Number(profileData.displayNameDashboardChangedAtMs)
+    || getOptionalTimestampMs(profileData.displayNameDashboardChangedAt)
+    || 0
+  );
+
+  const derivedCooldownUntil = changedAtMs > 0
+    ? (changedAtMs + DISPLAY_NAME_EDIT_COOLDOWN_MS)
+    : 0;
+
+  return Math.max(explicitCooldownUntil, derivedCooldownUntil);
+}
+
+async function getDisplayNameEditCooldownRemainingFromProfile(userId, forceFresh = false) {
+  const safeUid = String(userId || "").trim();
+  if (!safeUid) return 0;
+
+  try {
+    const profileRef = doc(db, "users", safeUid, "settings", "profile");
+    const profileSnap = forceFresh ? await getDocWithFreshFallback(profileRef) : await getDoc(profileRef);
+    if (!profileSnap.exists()) return 0;
+    const profileData = profileSnap.data() || {};
+    const cooldownUntilMs = getDisplayNameCooldownUntilFromProfileData(profileData);
+    if (!cooldownUntilMs) return 0;
+    return Math.max(0, cooldownUntilMs - getServerNowDate().getTime());
+  } catch (_) {
+    return 0;
+  }
+}
+
 async function refreshDisplayNameEditCooldownState(userId) {
   if (!userId) {
     startDisplayNameEditCooldown(0);
@@ -17680,25 +18204,7 @@ async function refreshDisplayNameEditCooldownState(userId) {
   }
 
   try {
-    const profileSnap = await getDoc(doc(db, "users", userId, "settings", "profile"));
-    if (!profileSnap.exists()) {
-      startDisplayNameEditCooldown(0);
-      return;
-    }
-
-    const profileData = profileSnap.data() || {};
-    const cooldownUntilMs = Math.max(
-      0,
-      Number(profileData.displayNameDashboardCooldownUntilMs)
-      || getOptionalTimestampMs(profileData.displayNameDashboardCooldownUntil)
-      || 0
-    );
-    if (!cooldownUntilMs) {
-      startDisplayNameEditCooldown(0);
-      return;
-    }
-
-    const remaining = cooldownUntilMs - getServerNowDate().getTime();
+    const remaining = await getDisplayNameEditCooldownRemainingFromProfile(userId, false);
     startDisplayNameEditCooldown(remaining);
   } catch (_) {
     startDisplayNameEditCooldown(0);
