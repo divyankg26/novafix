@@ -2014,6 +2014,30 @@ textarea:focus-visible{
   .card h2{
     font-size:21px;
   }
+
+  .dashboard .card:not(.scroll-card):not(.sleep-card):not(.startup-scroll-card){
+    height:430px;
+    max-height:430px;
+    overflow-y:auto;
+    overflow-x:hidden;
+    scrollbar-width:thin;
+    scrollbar-color:var(--primary) transparent;
+  }
+
+  .dashboard .card:not(.scroll-card):not(.sleep-card):not(.startup-scroll-card)::-webkit-scrollbar{
+    width:6px;
+  }
+
+  .dashboard .card:not(.scroll-card):not(.sleep-card):not(.startup-scroll-card)::-webkit-scrollbar-track{
+    background:rgba(255,255,255,.08);
+    border-radius:999px;
+  }
+
+  .dashboard .card:not(.scroll-card):not(.sleep-card):not(.startup-scroll-card)::-webkit-scrollbar-thumb{
+    background:var(--primary);
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.18);
+  }
 }
 
 @media (max-width: 420px){
@@ -3106,6 +3130,22 @@ if (gratitudeInput) {
   });
 }
 
+if (waterGoalInput) {
+  waterGoalInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+    event.preventDefault();
+    void setWaterGoal();
+  });
+}
+
+if (waterInput) {
+  waterInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+    event.preventDefault();
+    void saveWater();
+  });
+}
+
 function getReminderAmountInputValue() {
   if (!reminderMinutes) return 0;
   const rawValue = String(reminderMinutes.value || "").trim();
@@ -3835,7 +3875,7 @@ let googleIdentitySetupInProgress = false;
 let googleIdentitySetupUserId = "";
 let googleIdentityPasswordOnlyMode = false;
 let googleIdentityRequirePassword = false;
-const GOOGLE_IDENTITY_STRICT_ENFORCED = true;
+const GOOGLE_IDENTITY_STRICT_ENFORCED = false;
 let googleIdentityUsernameLiveCheckTimer = null;
 let googleIdentityUsernameLiveCheckSequence = 0;
 let authEmailProviderCheckTimer = null;
@@ -4303,6 +4343,17 @@ async function ensureGoogleIdentitySetupIfNeeded(user) {
     profileData = {};
   }
 
+  const hasPasswordProvider = hasPasswordProviderLinked(user);
+  const setupCompleted = profileData.googleIdentitySetupCompleted === true;
+  const profileUsername = normalizeUsernameForLookup(profileData.username || profileData.name || "");
+  const profileDisplayName = normalizeDisplayNameValue(profileData.displayName || "");
+  const hasProfileIdentity = !!profileUsername && !!profileDisplayName;
+  const isIdentityFullyConfigured = setupCompleted && hasPasswordProvider && hasProfileIdentity;
+
+  if (isIdentityFullyConfigured) {
+    return true;
+  }
+
   if (GOOGLE_IDENTITY_STRICT_ENFORCED) {
     openGoogleIdentitySetupModal(user, {
       username: "",
@@ -4314,26 +4365,12 @@ async function ensureGoogleIdentitySetupIfNeeded(user) {
     return false;
   }
 
-  const hasPasswordProvider = hasPasswordProviderLinked(user);
-  const setupCompleted = profileData.googleIdentitySetupCompleted === true;
-  const legacyPasswordRequired = profileData.googleLegacyPasswordRequired === true
-    || (setupCompleted && profileData.googleLegacyPasswordRequired !== false && !hasPasswordProvider);
-
-  if (setupCompleted && (!legacyPasswordRequired || hasPasswordProvider)) {
-    return true;
-  }
-
-  const fallbackUsername = normalizeUsernameForLookup(profileData.username || profileData.name || "");
-  const fallbackDisplayName = normalizeDisplayNameValue(profileData.displayName)
-    || normalizeDisplayNameValue(user?.displayName)
-    || "";
-  const passwordOnly = legacyPasswordRequired && !hasPasswordProvider;
-  const requirePassword = passwordOnly || !setupCompleted;
   openGoogleIdentitySetupModal(user, {
-    username: fallbackUsername,
-    displayName: fallbackDisplayName,
-    passwordOnly,
-    requirePassword
+    username: "",
+    displayName: "",
+    passwordOnly: false,
+    requirePassword: true,
+    forceFullSetup: true
   });
   return false;
 }
@@ -12318,7 +12355,7 @@ function updateWeeklyGraphResetCountdownNote() {
 function updateStartupResetCountdownNotes() {
   if (waterGoalResetCountdown) {
     const dailyRemaining = getMillisecondsUntilNextMidnight();
-    waterGoalResetCountdown.innerText = `Water goal reset in ${formatCountdownClock(dailyRemaining)}`;
+    waterGoalResetCountdown.innerText = `Water + goal reset in ${formatCountdownClock(dailyRemaining)}`;
   }
 
   if (sleepResetCountdown) {
@@ -12494,6 +12531,7 @@ function scheduleWaterGoalReset(userId) {
       return;
     }
 
+    await ensureServerClockCurrent(userId);
     await resetWaterDayData(userId, getTodayKey());
 
     scheduleWaterGoalReset(userId);
@@ -13296,6 +13334,7 @@ function isClearChatCommand(inputText) {
 }
 
 const AI_TYPO_FUZZY_KEYWORDS = [
+  "thank", "thanks", "appreciate",
   "hello", "hey", "hi", "play", "music", "song", "songs", "spotify", "playlist",
   "task", "tasks", "todo", "todos", "add", "create", "new", "log", "save", "track",
   "reminder", "remind", "water", "hydrate", "hydration", "sleep", "bedtime", "downtime",
@@ -13409,6 +13448,11 @@ function normalizeTyposForAi(text) {
     blay: "play",
     helo: "hello",
     hellow: "hello",
+    thank: "thanks",
+    thanks: "thanks",
+    thankss: "thanks",
+    thanx: "thanks",
+    thnks: "thanks",
     becuase: "because",
     dont: "don't",
     cant: "can't",
@@ -13418,6 +13462,12 @@ function normalizeTyposForAi(text) {
   return String(text || "").replace(/\b[a-z]{3,}\b/gi, (token) => {
     const lower = token.toLowerCase();
     const deStretched = lower.replace(/([a-z])\1{2,}/g, "$1$1");
+
+    // Preserve gratitude intent tokens; never fuzzy-map these to task/productivity words.
+    if (/^(?:thank|thanks+|thankyou|thx|ty|tysm|appreciate)$/.test(lower)) {
+      return applyTokenCasePattern(token, "thanks");
+    }
+
     const direct = map[lower] || map[deStretched];
     if (direct) return applyTokenCasePattern(token, direct);
 
@@ -13665,7 +13715,15 @@ function classifyIntent(input) {
     { key: "capabilities", score: /help|what can you do|features|assist|commands/.test(msg) ? 0.86 : 0 },
     { key: "followup", score: /\b(and then|then what|what next|next step|continue|go deeper|do it|that one|same one|next one|step\s*\d+|option\s*\d+|yes|sure|okay|ok)\b/.test(msg) ? 0.9 : 0 },
     { key: "joke", score: /\b(joke|make me laugh|funny)\b/.test(msg) ? 0.84 : 0 },
-    { key: "thanks", score: /\b(thanks|thank you|thx|ty|tysm|appreciate it|appreciate you)\b/.test(msg) ? 0.83 : 0 },
+    {
+      key: "thanks",
+      score: (() => {
+        const hasThanks = /\b(thanks+|thank\s+you|thx|ty|tysm|appreciate(?:\s+it|\s+you)?)\b/.test(msg);
+        if (!hasThanks) return 0;
+        const tokenCount = tokenizeText(msg).length;
+        return tokenCount <= 10 ? 0.99 : 0.9;
+      })()
+    },
     { key: "bye", score: /\b(bye|goodbye|see you|cya|gn|good night)\b/.test(msg) ? 0.82 : 0 }
   ].map((entry) => {
     const templateScore = getTemplateIntentScore(msg, entry.key);
@@ -13961,7 +14019,18 @@ function buildCasualAiResponse(context) {
       }
       return { lastIntent: key, response: `yep 😎 what vibe are we on - chill check-in or quick action plan?`, isHtml: false };
     case "thanks":
-      return { lastIntent: key, advice: coachingMoves.slice(0, 1), response: `anytime 🤝 next easy win: ${coachingMoves[0]}`, isHtml: false };
+      {
+        const move = coachingMoves[0] || "take one tiny next step now";
+        const variants = [
+          `anytime 🤝 next easy win: ${move}`,
+          `you got it 🙌 keep momentum with this: ${move}`,
+          `always happy to help ✨ quick next move: ${move}`,
+          `for sure 💪 lock this in now: ${move}`,
+          `anytime, let’s stack one more win 🚀 do this: ${move}`
+        ];
+        const pick = variants[Math.floor(Math.random() * variants.length)] || variants[0];
+        return { lastIntent: key, advice: coachingMoves.slice(0, 1), response: pick, isHtml: false };
+      }
     case "bye":
       return { lastIntent: key, response: `cool, see ya ${name} 👋`, isHtml: false };
     case "joke":
@@ -14620,9 +14689,11 @@ function buildWhySummary(snapshot, trends) {
   const hydration = buildHydrationPaceInsight(snapshot);
   if (snapshot.pendingTasks > 2) drivers.push("task load is currently high");
   if (snapshot.sleepToday < 7) drivers.push("sleep is below recovery zone");
-  if (snapshot.waterToday < snapshot.todayGoal) {
+  if (snapshot.hasWaterGoal && snapshot.waterToday < snapshot.todayGoal) {
     if (hydration.onTrack) drivers.push("hydration is below target but pace is acceptable for this time");
     else drivers.push(`hydration pace suggests you may miss goal by ~${hydration.missBy.toFixed(1)} cups`);
+  } else if (!snapshot.hasWaterGoal) {
+    drivers.push("water goal is not set yet");
   }
   if (!snapshot.moodToday) drivers.push("mood signal is missing for today");
   if (trends.taskDelta < 0) drivers.push("recent task completion trend is softening");
@@ -14946,6 +15017,7 @@ function extractPrepTopicFromInput(text) {
 
 function buildHydrationPaceInsight(snapshot) {
   const source = snapshot && typeof snapshot === "object" ? snapshot : getWellnessSnapshot();
+  const hasWaterGoal = !!source.hasWaterGoal;
   const goal = Math.max(1, Number(source.todayGoal) || 8);
   const logged = Math.max(0, Number(source.waterToday) || 0);
   const remaining = Math.max(0, goal - logged);
@@ -14962,7 +15034,9 @@ function buildHydrationPaceInsight(snapshot) {
   const cupWord = logged === 1 ? "cup" : "cups";
   const missCupWord = missBy === 1 ? "cup" : "cups";
 
-  const summary = onTrack
+  const summary = !hasWaterGoal
+    ? `You logged ${logged} ${cupWord} today. Set a water goal to get pace tracking.`
+    : onTrack
     ? `You logged ${logged} ${cupWord} today and your pace looks on track.`
     : `You logged only ${logged} ${cupWord} today. At this pace, you may miss your goal by about ${missBy.toFixed(1)} ${missCupWord}.`;
 
@@ -15587,6 +15661,20 @@ async function buildSmartAiResponse(input, user) {
   const sleepMoodInsight = buildSleepMoodPatternInsight(30);
   const behaviorPatterns = getBehaviorPatternMemory(35);
 
+  if (/\b(?:thanks+|thank\s+you|thx|ty|tysm|appreciate(?:\s+it|\s+you)?)\b/i.test(msg)) {
+    const move = buildActionCoaching(snapshot)[0] || "take one small next step now";
+    const thanksReplies = [
+      `Anytime, ${name} 🤝 Keep going with this next move: ${move}`,
+      `You’re welcome, ${name} 🙌 Nice momentum. Next: ${move}`,
+      `Glad to help, ${name} ✨ Quick win now: ${move}`,
+      `Always, ${name} 💪 Keep it moving with: ${move}`
+    ];
+    return {
+      response: thanksReplies[Math.floor(Math.random() * thanksReplies.length)] || thanksReplies[0],
+      isHtml: false
+    };
+  }
+
   aiSessionState.turnCount += 1;
   aiSessionState.lastUserMessage = normalizedInput;
   aiSessionState.userEmotion = emotion;
@@ -15749,8 +15837,17 @@ async function buildSmartAiResponse(input, user) {
 
   if (intent.key === "thanks") {
     aiSessionState.lastIntent = "thanks";
+    const move = coachingMoves[0] || "take one tiny next step now";
+    const variants = [
+      `Always, ${name}. You’re building momentum. Next best move: ${move}`,
+      `Anytime, ${name}. Keep the streak alive with this next move: ${move}`,
+      `Glad to help, ${name}. One high-impact step now: ${move}`,
+      `You’re welcome, ${name}. Convert this into progress with: ${move}`,
+      `Happy to help, ${name}. Keep rolling: ${move}`
+    ];
+    const pick = variants[Math.floor(Math.random() * variants.length)] || variants[0];
     return {
-      response: `Always, ${name}. You’re building momentum. Next best move: ${coachingMoves[0]}`,
+      response: pick,
       isHtml: false
     };
   }
@@ -16028,9 +16125,13 @@ function buildWhySuggestionLine(isHtml = true, suggestionText = "") {
   const mentionsMood = /\b(?:mood|emotion|stress|anxious|calm)\b/.test(contextText);
   const mentionsGratitude = /\b(?:gratitude|grateful|thankful)\b/.test(contextText);
 
-  const targetGoal = snapshot.hasWaterGoal ? Math.max(1, Number(snapshot.todayGoal) || 8) : 8;
+  const targetGoal = snapshot.hasWaterGoal ? Math.max(1, Number(snapshot.todayGoal) || 8) : 0;
   const waterGap = Math.max(0, targetGoal - (Number(snapshot.waterToday) || 0));
-  if (mentionsHydration ? waterGap > 0 : waterGap >= 2) reasons.push(`${waterGap} glass hydration gap`);
+  if (snapshot.hasWaterGoal) {
+    if (mentionsHydration ? waterGap > 0 : waterGap >= 2) reasons.push(`${waterGap} glass hydration gap`);
+  } else if (mentionsHydration) {
+    reasons.push("water goal not set");
+  }
 
   const sleepLow = (Number(snapshot.sleepToday) || 0) > 0 && (Number(snapshot.sleepToday) || 0) < 7;
   if (mentionsSleep ? sleepLow : sleepLow && (Number(snapshot.sleepToday) || 0) <= 6.5) reasons.push("sleep below 7h");
@@ -16045,7 +16146,7 @@ function buildWhySuggestionLine(isHtml = true, suggestionText = "") {
   if (mentionsTasks && trend.taskDelta < 0) reasons.push("task trend softened");
 
   if (!reasons.length) {
-    if (waterGap > 0) reasons.push(`${waterGap} glass hydration gap`);
+    if (snapshot.hasWaterGoal && waterGap > 0) reasons.push(`${waterGap} glass hydration gap`);
     else if (pendingTasks > 0) reasons.push(`${pendingTasks} pending task${pendingTasks === 1 ? "" : "s"}`);
     else if (!snapshot.gratitudeToday) reasons.push("gratitude not logged today");
   }
@@ -17209,6 +17310,17 @@ async function saveWater() {
   waterSubmitting = true;
   if (waterTrackBtn) waterTrackBtn.disabled = true;
 
+  const previousTodayWater = (() => {
+    const todayKey = getTodayKey();
+    for (let index = waterHistory.length - 1; index >= 0; index -= 1) {
+      const dateKey = dateToKey(waterDates[index]);
+      if (dateKey === todayKey) {
+        return Number(waterHistory[index]) || 0;
+      }
+    }
+    return 0;
+  })();
+
   try {
     await ensureDailyUsageCurrent(user.uid, { skipReminderRefresh: true });
 
@@ -17228,6 +17340,12 @@ async function saveWater() {
       });
       waterDates.push(getServerNowDate());
       updateWaterProgress();
+
+      const target = Number(waterGoal) || 0;
+      if (target > 0 && previousTodayWater < target && v >= target) {
+        alert("🎉 Water goal complete!");
+      }
+
       waterInput.value = "";
       showToast(`Water logged. ${getRandomCheer()}`);
       await trimCollectionToMaxEntries(user.uid, "waterIntake", MAX_WATER_ENTRIES, (entry) => toDateSafe(entry.time)?.getTime?.() || 0);
