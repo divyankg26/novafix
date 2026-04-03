@@ -1256,6 +1256,28 @@ textarea:focus-visible{
   margin-top:0 !important;
 }
 
+#gratitudeLogs .item-actions{
+  align-items:center;
+  gap:8px;
+  flex-wrap:nowrap;
+}
+
+#gratitudeLogs .item-actions button{
+  margin-left:0;
+  display:grid;
+  place-items:center;
+  width:34px;
+  height:34px;
+  min-height:34px;
+  padding:0;
+  flex:0 0 34px;
+  line-height:1;
+}
+
+#gratitudeLogs .item-actions button + button{
+  margin-top:0 !important;
+}
+
 .item-row{
   display:flex;
   align-items:center;
@@ -2006,7 +2028,7 @@ textarea:focus-visible{
 
 <!-- SPLASH -->
 <div id="splash">
-  <img src="https://gcdnb.pbrd.co/images/FAPt9Ec4i80u.png?o=1">
+  <img src="https://gcdnb.pbrd.co/images/xJrED7A8KAPz.png?o=1">
 </div>
 
 <!-- SIGN-IN / SIGN-UP MODAL -->
@@ -2184,7 +2206,7 @@ textarea:focus-visible{
 <p class="micro-tip">Tip: Ask short, clear prompts for better advice.</p>
 <div class="chat" id="chat"></div>
 <div class="input-group">
-<input id="aiInput" placeholder="Talk to AI">
+<textarea id="aiInput" rows="2" placeholder="Talk to AI"></textarea>
 <button id="aiTalkBtn" onclick="aiChat()">Talk</button>
 </div>
 <p id="aiLimitError" class="limit-note"></p>
@@ -3051,6 +3073,14 @@ if (aiInput) {
   });
 }
 
+if (gratitudeInput) {
+  gratitudeInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+    event.preventDefault();
+    void saveGratitude();
+  });
+}
+
 function getReminderAmountInputValue() {
   if (!reminderMinutes) return 0;
   const rawValue = String(reminderMinutes.value || "").trim();
@@ -3585,10 +3615,32 @@ initializeUniversalBackHandling();
 
 // ---------- COLOR WAVES ----------
 const waveSchemes = [
-  ["#29b6f6", "#26c6da", "#4dd0e1", "#64b5f6", "#b2ebf2"],
-  ["#29b6f6", "#26c6da", "#4dd0e1", "#64b5f6", "#b2ebf2"]
+  ["#2196f3", "#ff9800", "#00c9a7", "#ffd166", "#ff7f50"],
+  ["#00acc1", "#ffca28", "#43a047", "#ffb74d", "#1e88e5"],
+  ["#26c6da", "#8bc34a", "#ffb300", "#ff7043", "#1565c0"],
+  ["#00897b", "#ffa726", "#4fc3f7", "#9ccc65", "#ef6c00"],
+  ["#0277bd", "#66bb6a", "#ffb300", "#ff8a65", "#455a64"],
+  ["#1e88e5", "#7e57c2", "#f06292", "#26a69a", "#ffca28"],
+  ["#00796b", "#f9a825", "#29b6f6", "#aed581", "#f4511e"],
+  ["#00bcd4", "#c0ca33", "#ffb74d", "#42a5f5", "#6d4c41"],
+  ["#2e7d32", "#ffb300", "#4dd0e1", "#ff7043", "#5c6bc0"],
+  ["#039be5", "#9ccc65", "#ffa000", "#26a69a", "#8d6e63"],
+  ["#1565c0", "#66bb6a", "#ffca28", "#26c6da", "#e65100"],
+  ["#3949ab", "#ab47bc", "#ec407a", "#26a69a", "#ffb300"],
+  ["#00838f", "#fbc02d", "#4caf50", "#ff8a65", "#42a5f5"],
+  ["#0d47a1", "#8bc34a", "#ffb74d", "#00acc1", "#bf360c"],
+  ["#26a69a", "#ffa000", "#64b5f6", "#9ccc65", "#ef5350"],
+  ["#1976d2", "#7cb342", "#ffca28", "#00bfa5", "#ff7043"],
+  ["#00695c", "#ffb74d", "#4dd0e1", "#c0ca33", "#1e88e5"],
+  ["#5e35b1", "#f06292", "#26c6da", "#ffca28", "#43a047"],
+  ["#0277bd", "#f57c00", "#80cbc4", "#aed581", "#ff8a65"],
+  ["#004d40", "#ffb300", "#29b6f6", "#9ccc65", "#ef6c00"],
+  ["#1b5e20", "#ff8a65", "#4fc3f7", "#fdd835", "#455a64"],
+  ["#0097a7", "#d4e157", "#ffb74d", "#1e88e5", "#6d4c41"],
+  ["#1565c0", "#ffb300", "#26a69a", "#ffd54f", "#ff7043"],
+  ["#303f9f", "#ce93d8", "#ff80ab", "#26a69a", "#ffca28"]
 ];
-let w = 0;
+let w = 1;
 let [currentWaveA, currentWaveB, currentWaveC, currentWaveD, currentWaveE] = waveSchemes[0];
 let waveAnimationId = null;
 let waveLightHeadingMode = false;
@@ -3660,6 +3712,8 @@ function setWaveColors(colorA, colorB, colorC, colorD, colorE) {
   document.documentElement.style.setProperty("--waveC", colorC);
   document.documentElement.style.setProperty("--waveD", colorD);
   document.documentElement.style.setProperty("--waveE", colorE);
+  document.documentElement.style.setProperty("--primary", colorA);
+  document.documentElement.style.setProperty("--accent", colorB);
   updateAdaptiveTextContrast(colorA, colorB, colorC, colorD, colorE);
 }
 
@@ -5400,7 +5454,13 @@ async function handleGoogleAuth() {
     markPendingRequestLoginAlertForNextSessionStart();
     await signInWithPopup(auth, googleProvider);
   } catch (err) {
+    clearAuthProgressMessage();
     clearPendingRequestLoginAlertFlag();
+    const errCode = String(err?.code || "").toLowerCase();
+    if (errCode === "auth/popup-closed-by-user" || errCode === "auth/cancelled-popup-request") {
+      hideAuthModalError();
+      return;
+    }
     const currentOrigin = window.location.origin || "unknown-origin";
     const currentHost = window.location.hostname || "unknown-host";
     const isUnauthorizedDomain = (err?.code || "").includes("unauthorized-domain");
@@ -5408,6 +5468,8 @@ async function handleGoogleAuth() {
     error.innerText = isUnauthorizedDomain
       ? `Unauthorized domain. Current origin: ${currentOrigin}. Add '${currentHost}' in Firebase Auth > Settings > Authorized domains, then hard refresh.`
       : (err.message || "Google authentication failed.");
+  } finally {
+    clearAuthProgressMessage();
   }
 }
 
@@ -13161,6 +13223,10 @@ function normalizeTyposForAi(text) {
     slep: "sleep",
     sllep: "sleep",
     sleeep: "sleep",
+    musc: "music",
+    msuic: "music",
+    blay: "play",
+    helo: "hello",
     becuase: "because",
     dont: "don't",
     cant: "can't",
@@ -14699,43 +14765,83 @@ async function setTaskCompletionFromAi(user, query, completed) {
   }
 }
 
+function parseGreetingAndActionText(inputText) {
+  const text = String(inputText || "").trim();
+  const match = text.match(/^\s*(hey|hello|hi)\b[\s,.!:-]*(?:and\s+|btw\s+|then\s+|please\s+)?([\s\S]*)$/i);
+  if (!match) {
+    return {
+      hasGreeting: false,
+      greeting: "",
+      actionText: text
+    };
+  }
+
+  const greetingRaw = String(match[1] || "").toLowerCase();
+  const greeting = greetingRaw === "hi"
+    ? "Hi"
+    : greetingRaw === "hello"
+      ? "Hello"
+      : "Hey";
+
+  return {
+    hasGreeting: true,
+    greeting,
+    actionText: String(match[2] || "").trim()
+  };
+}
+
+function splitAiTaskItems(taskText) {
+  return String(taskText || "")
+    .split(/\s*(?:,|;|\band\b|\bthen\b|&)\s*/i)
+    .map((part) => String(part || "").replace(/^[-*•\d.)\s]+/, "").trim())
+    .filter(Boolean)
+    .slice(0, 8);
+}
+
 async function tryAiAction(input, user) {
   const msg = normalizeTyposForAi(String(input || "").trim()).replace(/[!?]+$/g, "");
-  const lower = msg.toLowerCase();
+  const greetingInfo = parseGreetingAndActionText(msg);
+  const effectiveMsg = greetingInfo.actionText || msg;
+  const lower = effectiveMsg.toLowerCase();
+  const withGreeting = (text) => greetingInfo.hasGreeting ? `${greetingInfo.greeting}! ${text}` : text;
 
-  if (/^(?:what(?:'s|\s+is)\s+my\s+name|who\s+am\s+i)(?:\?)?$/i.test(msg)) {
+  if (greetingInfo.hasGreeting && !greetingInfo.actionText) {
+    return `${greetingInfo.greeting}! 👋 Tell me what you want to do, for example: play music, add task, or set reminder.`;
+  }
+
+  if (/^(?:what(?:'s|\s+is)\s+my\s+name|who\s+am\s+i)(?:\?)?$/i.test(effectiveMsg)) {
     const displayName = getPreferredAiDisplayName(user);
     if (displayName) {
-      return `Your name is ${displayName}.`;
+      return withGreeting(`Your name is ${displayName}.`);
     }
-    return "I could not find your name yet. Set or update it from Account.";
+    return withGreeting("I could not find your name yet. Set or update it from Account.");
   }
 
-  if (isClearChatCommand(msg)) {
-    return "Clearing chat now.";
+  if (isClearChatCommand(effectiveMsg)) {
+    return withGreeting("Clearing chat now.");
   }
 
-  const requestedMode = parseModeFromInput(msg);
+  const requestedMode = parseModeFromInput(effectiveMsg);
   if (requestedMode) {
     const changed = setAiMode(requestedMode);
     if (changed) {
-      return `✅ Response style updated.`;
+      return withGreeting("✅ Response style updated.");
     }
-    return "ℹ️ Unknown mode. Use: balanced, coach, strict, creative, ultra.";
+    return withGreeting("ℹ️ Unknown mode. Use: balanced, coach, strict, creative, ultra.");
   }
 
-  const rememberMatch = msg.match(/^remember\s+(?:that\s+)?(.+)/i);
+  const rememberMatch = effectiveMsg.match(/^remember\s+(?:that\s+)?(.+)/i);
   if (rememberMatch?.[1]) {
     learnFromUserInput(rememberMatch[1]);
-    return `✅ Saved memory: ${escapeHtml(rememberMatch[1].trim())}`;
+    return withGreeting(`✅ Saved memory: ${escapeHtml(rememberMatch[1].trim())}`);
   }
 
-  if (/^(?:what do you remember|recall memory|memory|show memory)$/i.test(msg)) {
-    return `🧠 Memory: ${escapeHtml(getMemorySummary())}`;
+  if (/^(?:what do you remember|recall memory|memory|show memory)$/i.test(effectiveMsg)) {
+    return withGreeting(`🧠 Memory: ${escapeHtml(getMemorySummary())}`);
   }
 
-  if (/^(start\s+reset|reset\s+me|calm\s+me)$/i.test(msg)) {
-    return "✅ 60-second reset: inhale 4s → hold 4s → exhale 6s for 6 rounds, drink a glass of water, then do one 10-minute micro-task.";
+  if (/^(start\s+reset|reset\s+me|calm\s+me)$/i.test(effectiveMsg)) {
+    return withGreeting("✅ 60-second reset: inhale 4s → hold 4s → exhale 6s for 6 rounds, drink a glass of water, then do one 10-minute micro-task.");
   }
 
   const musicPlayIntent =
@@ -14776,31 +14882,44 @@ async function tryAiAction(input, user) {
       // Keep AI action resilient: never let music UI errors break chat flow.
     }
 
-    return "🎵 Opened Wellness Music. Tap play on the music player.";
+    return withGreeting("🎵 Opened Wellness Music. Tap play on the music player.");
   }
 
-  if (/^(?:run|start|do|begin|trigger)\s+(?:the\s+)?(?:mood\s+)?(?:crash\s+)?rescue$/i.test(msg)) {
+  if (/^(?:run|start|do|begin|trigger)\s+(?:the\s+)?(?:mood\s+)?(?:crash\s+)?rescue$/i.test(effectiveMsg)) {
     const rescueResult = await runCrashRescueFlow({ showAlert: false });
     if (!rescueResult?.ok) {
-      return `ℹ️ ${rescueResult?.message || "Could not start rescue right now."}`;
+      return withGreeting(`ℹ️ ${rescueResult?.message || "Could not start rescue right now."}`);
     }
-    return `🛟 Mood crash rescue started (${rescueResult.level}). A 20-minute recovery reminder is now set. Focus now: ${rescueResult.reason}.`;
+    return withGreeting(`🛟 Mood crash rescue started (${rescueResult.level}). A 20-minute recovery reminder is now set. Focus now: ${rescueResult.reason}.`);
   }
 
   let taskText = "";
-  const taskMatch = msg.match(/^(?:add|create|new|log)\s+(?:a\s+)?(?:(?:productivity|work|study)\s+)?(?:task|todo)\s*[:\-]?\s*(.+)$/i);
+  const taskMatch = effectiveMsg.match(/^(?:add|create|new|log)\s+(?:a\s+)?(?:(?:productivity|work|study)\s+)?(?:task|todo)\s*[:\-]?\s*(.+)$/i);
   if (taskMatch?.[1]) taskText = taskMatch[1].trim();
-  if (!taskText && /^(?:add|create|new|log)\s+(?:a\s+)?(?:(?:productivity|work|study)\s+)?(?:task|todo)\s*[:\-]?\s*$/i.test(msg)) {
-    return "ℹ️ Tell me the task text too, like: add task finish assignment.";
+  if (!taskText && /^(?:add|create|new|log)\s+(?:a\s+)?(?:(?:productivity|work|study)\s+)?(?:task|todo)\s*[:\-]?\s*$/i.test(effectiveMsg)) {
+    return withGreeting("ℹ️ Tell me the task text too, like: add task finish assignment.");
   }
   if (!taskText) {
-    const quickTaskMatch = msg.match(/^(?:task|todo)\s*[:\-]\s*(.+)$/i);
+    const quickTaskMatch = effectiveMsg.match(/^(?:task|todo)\s*[:\-]\s*(.+)$/i);
     if (quickTaskMatch?.[1]) taskText = quickTaskMatch[1].trim();
   }
   if (taskText) {
-    task.value = taskText;
-    await addTask();
-    return `✅ Added task: ${taskText}`;
+    const taskItems = splitAiTaskItems(taskText);
+    const addedTasks = [];
+    for (let index = 0; index < taskItems.length; index += 1) {
+      const item = taskItems[index];
+      const beforeCount = taskEntries.length;
+      task.value = item;
+      await addTask();
+      if (taskEntries.length > beforeCount) addedTasks.push(item);
+    }
+    if (!addedTasks.length) {
+      return withGreeting("ℹ️ Could not add tasks right now. Please try again.");
+    }
+    if (addedTasks.length === 1) {
+      return withGreeting(`✅ Added task: ${addedTasks[0]}`);
+    }
+    return withGreeting(`✅ Added ${addedTasks.length} tasks: ${addedTasks.join(" | ")}`);
   }
 
   if (/^(?:list|show|view)\s+(?:my\s+)?(?:tasks|todos|productivity\s+tasks)$/i.test(msg)) {
