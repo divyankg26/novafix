@@ -26,6 +26,10 @@
   --border-soft:rgba(255,255,255,0.22);
   --text:#fff;
   --heading-dark-contrast:#1f2a7a;
+  --motion-fast:.22s;
+  --motion-medium:.34s;
+  --ease-smooth:cubic-bezier(.22,.61,.36,1);
+  --ease-soft:cubic-bezier(.25,.46,.45,.94);
 }
 
 html,body{
@@ -34,6 +38,7 @@ html,body{
   font-family:'Segoe UI',sans-serif;
   color:var(--text);
   line-height:1.35;
+  scroll-behavior:smooth;
 }
 
 body{
@@ -85,7 +90,7 @@ body::before{
   justify-content:center;
   align-items:center;
   z-index:9999;
-  transition:opacity 1s ease, transform 1s ease;
+  transition:opacity .85s var(--ease-soft), transform .85s var(--ease-soft);
 }
 #splash.hide{
   opacity:0;
@@ -510,8 +515,8 @@ body::before{
 
 .welcome-guide-actions{
   margin-top:14px;
-  display:flex;
-  justify-content:space-between;
+  display:grid;
+  grid-template-columns:auto 1fr auto;
   align-items:center;
   gap:10px;
 }
@@ -524,9 +529,25 @@ body::before{
   cursor:pointer;
 }
 
+#guidePrevBtn,
+#guideNextBtn,
 #guideSkipBtn{
   background:rgba(255,255,255,.2);
   color:#fff;
+}
+
+#guidePrevBtn,
+#guideNextBtn{
+  min-width:104px;
+}
+
+#guideSkipBtn{
+  width:100%;
+}
+
+#guidePrevBtn:disabled{
+  opacity:.55;
+  cursor:not-allowed;
 }
 
 #guideNextBtn{
@@ -617,8 +638,8 @@ header p{margin:8px 0 0;opacity:.94}
   transform:translate(-50%,-50%);
   width:min(420px, calc(100vw - 32px));
   max-width:calc(100vw - 40px);
-  max-height:80vh;
-  overflow-y:scroll;
+  height:min(80vh, 640px);
+  overflow-y:auto;
   background:linear-gradient(180deg, rgba(9,20,38,.55), rgba(9,20,38,.42));
   border:1px solid rgba(255,255,255,.25);
   border-radius:14px;
@@ -665,6 +686,61 @@ header p{margin:8px 0 0;opacity:.94}
   margin:0 0 12px;
   font-size:13px;
   opacity:.92;
+}
+
+.account-tabs{
+  display:flex;
+  gap:0;
+  margin:0 0 12px;
+  align-items:center;
+  width:100%;
+}
+
+.account-tab-btn{
+  flex:1 1 0;
+  margin:0;
+  padding:0;
+  border:none;
+  background:transparent !important;
+  box-shadow:none;
+  color:rgba(255,255,255,.78);
+  font-size:13px;
+  font-weight:600;
+  letter-spacing:.2px;
+  line-height:1.2;
+  text-align:center;
+  white-space:nowrap;
+}
+
+.account-tab-btn[data-account-tab="shortcuts"]{
+  font-size:12px;
+}
+
+.account-tab-btn.active{
+  color:#fff;
+  text-decoration:underline;
+  text-underline-offset:3px;
+}
+
+.account-tab-btn::after{
+  display:none;
+}
+
+.account-tab-btn:hover,
+.account-tab-btn:focus-visible,
+.account-tab-btn:active{
+  transform:none !important;
+  filter:none !important;
+  box-shadow:none !important;
+  color:#fff;
+}
+
+.account-tab-panel{
+  display:none;
+}
+
+.account-tab-panel.active{
+  display:block;
 }
 
 .account-row{
@@ -747,11 +823,21 @@ header p{margin:8px 0 0;opacity:.94}
   padding:8px 10px;
 }
 
+.support-email-highlight{
+  color:#7ec8ff;
+  font-weight:600;
+}
+
 @media (max-width: 640px){
   #accountPanel{
     width:min(420px, calc(100vw - 20px));
     max-width:calc(100vw - 20px);
     padding:14px;
+  }
+
+  .account-tab-btn[data-account-tab="shortcuts"],
+  .account-tab-panel[data-account-panel="shortcuts"]{
+    display:none !important;
   }
 
   .account-transfer-box .export-actions{
@@ -770,6 +856,10 @@ header p{margin:8px 0 0;opacity:.94}
   z-index:1;
 }
 
+.dashboard.preload-shell .card{
+  display:none;
+}
+
 /* CARD */
 .card{
   background:linear-gradient(180deg,var(--surface-2),var(--surface-1));
@@ -781,13 +871,13 @@ header p{margin:8px 0 0;opacity:.94}
   flex-direction:column;
   border:1px solid var(--border-soft);
   transform:translateZ(0);
-  transition:transform .34s cubic-bezier(.22,.61,.36,1), box-shadow .34s cubic-bezier(.22,.61,.36,1), border-color .34s cubic-bezier(.22,.61,.36,1);
+  transition:transform var(--motion-medium) var(--ease-smooth), box-shadow var(--motion-medium) var(--ease-smooth), border-color var(--motion-medium) var(--ease-smooth);
   will-change:transform;
-  animation:cardRise .55s cubic-bezier(.2,.7,.2,1);
+  animation:cardRise .45s var(--ease-smooth);
 }
 .card:hover{
-  transform:translateY(-4px) scale(1.012);
-  box-shadow:0 22px 46px rgba(0,0,0,.34);
+  transform:translateY(-3px) scale(1.008);
+  box-shadow:0 20px 42px rgba(0,0,0,.33);
   border-color:rgba(255,255,255,.35);
 }
 
@@ -881,7 +971,7 @@ input,select,textarea,button{
 
 input,select,textarea{
   border:1px solid rgba(255,255,255,.2);
-  transition:border-color .18s ease, background .18s ease;
+  transition:border-color var(--motion-fast) var(--ease-soft), background var(--motion-fast) var(--ease-soft), box-shadow var(--motion-fast) var(--ease-soft);
 }
 
 input::placeholder,
@@ -902,7 +992,7 @@ button{
   cursor:pointer;
   font-weight:bold;
   background:linear-gradient(135deg,var(--primary),var(--accent));
-  transition:transform .16s ease, filter .16s ease, box-shadow .16s ease;
+  transition:transform var(--motion-fast) var(--ease-soft), filter var(--motion-fast) var(--ease-soft), box-shadow var(--motion-fast) var(--ease-soft);
   letter-spacing:.2px;
 }
 
@@ -916,7 +1006,7 @@ button::after{
 }
 
 button:hover:not(:disabled){
-  transform:translateY(-1px);
+  transform:translateY(-1px) scale(1.01);
   filter:brightness(1.04);
   box-shadow:0 10px 18px rgba(0,0,0,.2);
 }
@@ -1978,7 +2068,7 @@ textarea:focus-visible{
   }
 
   header h1{
-    font-size:26px;
+    font-size:32px;
   }
 
   header p{
@@ -2041,7 +2131,7 @@ textarea:focus-visible{
 }
 
 @media (max-width: 420px){
-  header h1{font-size:24px}
+  header h1{font-size:28px}
 
   header p{font-size:12px}
 
@@ -2124,6 +2214,7 @@ textarea:focus-visible{
     </div>
     <div id="guideDots" class="welcome-guide-dots"></div>
     <div class="welcome-guide-actions">
+      <button id="guidePrevBtn" onclick="prevWelcomeGuideStep()">Previous</button>
       <button id="guideSkipBtn" onclick="skipWelcomeGuide()">Skip Guide</button>
       <button id="guideNextBtn" onclick="nextWelcomeGuideStep()">Next</button>
     </div>
@@ -2140,47 +2231,78 @@ textarea:focus-visible{
 <div id="accountPanel">
   <h3 class="account-title">👤 Account</h3>
   <p class="account-subtitle">Manage your profile and data controls</p>
-  <div class="account-row"><b>Username:</b> <span id="accountName">-</span></div>
-  <div class="account-row"><b>Display Name:</b> <span id="accountDisplayName">-</span></div>
-  <button id="editDisplayNameBtn" onclick="editAccountDisplayName()">Edit Display Name</button>
-  <p id="accountDisplayNameError" class="limit-note" style="display:none;"></p>
-  <div class="account-row"><b>Email:</b> <span id="accountEmail">-</span></div>
-  <div class="account-row"><b>Verification:</b> <span id="accountVerifyStatus">-</span></div>
-  <button id="accountResetPasswordBtn" onclick="sendAccountResetPasswordEmail()">Change Password</button>
-  <button id="clearDataBtn" onclick="clearAllAccountData()">Clear All Data</button>
-  <button id="signOutBtn" onclick="signOutUser()">Sign Out</button>
-  <div class="account-transfer-box">
-    <div class="export-actions">
-      <button id="exportDataBtn" onclick="exportAllData()">Export My Data</button>
-      <button onclick="startImportData()">Import Data</button>
+  <div class="account-tabs">
+    <button type="button" class="account-tab-btn active" data-account-tab="general">General</button>
+    <button type="button" class="account-tab-btn" data-account-tab="friends">Friends</button>
+    <button type="button" class="account-tab-btn" data-account-tab="shortcuts">Shortcuts</button>
+    <button type="button" class="account-tab-btn" data-account-tab="help">Help</button>
+  </div>
+
+  <div class="account-tab-panel active" data-account-panel="general">
+    <div class="account-row"><b>Username:</b> <span id="accountName">-</span></div>
+    <div class="account-row"><b>Display Name:</b> <span id="accountDisplayName">-</span></div>
+    <button id="editDisplayNameBtn" onclick="editAccountDisplayName()">Edit Display Name</button>
+    <p id="accountDisplayNameError" class="limit-note" style="display:none;"></p>
+    <div class="account-row"><b>Email:</b> <span id="accountEmail">-</span></div>
+    <div class="account-row"><b>Verification:</b> <span id="accountVerifyStatus">-</span></div>
+    <button id="accountResetPasswordBtn" onclick="sendAccountResetPasswordEmail()">Change Password</button>
+    <button id="clearDataBtn" onclick="clearAllAccountData()">Clear All Data</button>
+    <button id="signOutBtn" onclick="signOutUser()">Sign Out</button>
+    <div class="account-transfer-box">
+      <div class="export-actions">
+        <button id="exportDataBtn" onclick="exportAllData()">Export My Data</button>
+        <button onclick="startImportData()">Import Data</button>
+      </div>
+      <p class="export-note">Store one secure Firebase snapshot and import from another account via email + password.</p>
     </div>
-    <p class="export-note">Store one secure Firebase snapshot and import from another account via email + password.</p>
   </div>
 
-  <div class="account-transfer-box">
-    <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Friend Requests</h4>
-    <div class="export-actions" style="margin-bottom:8px;">
-      <button id="addFriendsBtn" onclick="startAddFriendRequest()">Add Friends</button>
+  <div class="account-tab-panel" data-account-panel="friends">
+    <div class="account-transfer-box">
+      <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Friend Requests</h4>
+      <div class="export-actions" style="margin-bottom:8px;">
+        <button id="addFriendsBtn" onclick="startAddFriendRequest()">Add Friends</button>
+      </div>
+      <p class="export-note">Send a friend request by username, then compare progress and motivate each other.</p>
+      <div id="friendRequestsList" class="friends-list-box"></div>
     </div>
-    <p class="export-note">Send a friend request by username, then compare progress and motivate each other.</p>
-    <div id="friendRequestsList" class="friends-list-box"></div>
+
+    <div class="account-transfer-box">
+      <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Sent Requests</h4>
+      <div id="sentRequestsList" class="friends-list-box"></div>
+    </div>
+
+    <div class="account-transfer-box">
+      <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Current Friends</h4>
+      <div id="currentFriendsList" class="friends-list-box"></div>
+    </div>
   </div>
 
-  <div class="account-transfer-box">
-    <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Sent Requests</h4>
-    <div id="sentRequestsList" class="friends-list-box"></div>
+  <div class="account-tab-panel" data-account-panel="shortcuts">
+    <div class="account-transfer-box" id="keyboardShortcutsBox">
+      <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Keyboard Shortcuts</h4>
+      <p class="export-note" id="keyboardShortcutsSubtitle" style="margin-top:0;margin-bottom:8px;text-align:left;"></p>
+      <div id="keyboardShortcutsList" class="friends-list-box"></div>
+      <button id="keyboardShortcutsToggleBtn" type="button" class="keyboard-shortcuts-toggle">Show all shortcuts</button>
+    </div>
   </div>
 
-  <div class="account-transfer-box">
-    <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Current Friends</h4>
-    <div id="currentFriendsList" class="friends-list-box"></div>
-  </div>
+  <div class="account-tab-panel" data-account-panel="help">
+    <div class="account-transfer-box">
+      <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Welcome Guide</h4>
+      <div class="export-actions" style="margin-bottom:8px;">
+        <button id="helpWelcomeGuideBtn" type="button" onclick="openWelcomeGuideFromHelp()">View Welcome Guide</button>
+      </div>
+      <p class="export-note" style="margin-top:0;text-align:left;">Need a quick walkthrough? Open the Welcome Guide to see how the dashboard, limits, and key features work.</p>
+    </div>
 
-  <div class="account-transfer-box" id="keyboardShortcutsBox">
-    <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Keyboard Shortcuts</h4>
-    <p class="export-note" id="keyboardShortcutsSubtitle" style="margin-top:0;margin-bottom:8px;text-align:left;"></p>
-    <div id="keyboardShortcutsList" class="friends-list-box"></div>
-    <button id="keyboardShortcutsToggleBtn" type="button" class="keyboard-shortcuts-toggle">Show all shortcuts</button>
+    <div class="account-transfer-box">
+      <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Bug Reporting</h4>
+      <div class="export-actions" style="margin-bottom:8px;">
+        <button id="helpReportNowBtn" type="button" onclick="window.open('https://mail.google.com/mail/u/0/#inbox?compose=new', '_blank', 'noopener,noreferrer')">Report Now</button>
+      </div>
+      <p class="export-note" style="margin-top:0;text-align:left;">Found a bug or issue? Report it at <span style="color:#7ec8ff;">support.novafix@gmail.com</span> with a short description, what you expected, and what actually happened.</p>
+    </div>
   </div>
 
 </div>
@@ -2683,6 +2805,8 @@ const dashboard = document.querySelector(".dashboard");
 const accountBtn = document.getElementById("accountBtn");
 const accountOverlay = document.getElementById("accountOverlay");
 const accountPanel = document.getElementById("accountPanel");
+const accountTabButtons = Array.from(document.querySelectorAll(".account-tab-btn"));
+const accountTabPanels = Array.from(document.querySelectorAll(".account-tab-panel"));
 const importTransferModal = document.getElementById("importTransferModal");
 const importSourceEmailInput = document.getElementById("importSourceEmail");
 const importSourcePasswordInput = document.getElementById("importSourcePassword");
@@ -2712,6 +2836,7 @@ const guideStepTitle = document.getElementById("guideStepTitle");
 const guideStepText = document.getElementById("guideStepText");
 const guideStepTip = document.getElementById("guideStepTip");
 const guideDots = document.getElementById("guideDots");
+const guidePrevBtn = document.getElementById("guidePrevBtn");
 const guideNextBtn = document.getElementById("guideNextBtn");
 const crashAlertBanner = document.getElementById("crashAlertBanner");
 const crashBannerText = document.getElementById("crashBannerText");
@@ -2971,6 +3096,7 @@ function toggleAccountPanel() {
 
   accountPanel.scrollTop = 0;
   if (!isOpen) {
+    setAccountTab("general");
     const user = auth.currentUser;
     if (user?.uid) {
       loadFriendRequests(user.uid);
@@ -2985,6 +3111,26 @@ function closeAccountPanel() {
   accountPanel.scrollTop = 0;
   accountPanel.style.display = "none";
   accountOverlay.style.display = "none";
+}
+
+function setAccountTab(tabKey = "general") {
+  const safeTab = String(tabKey || "general").trim().toLowerCase();
+  accountTabButtons.forEach((buttonEl) => {
+    const buttonTab = String(buttonEl?.dataset?.accountTab || "").trim().toLowerCase();
+    buttonEl.classList.toggle("active", buttonTab === safeTab);
+  });
+  accountTabPanels.forEach((panelEl) => {
+    const panelTab = String(panelEl?.dataset?.accountPanel || "").trim().toLowerCase();
+    panelEl.classList.toggle("active", panelTab === safeTab);
+  });
+}
+
+if (accountTabButtons.length) {
+  accountTabButtons.forEach((buttonEl) => {
+    buttonEl.addEventListener("click", () => {
+      setAccountTab(buttonEl?.dataset?.accountTab || "general");
+    });
+  });
 }
 
 function setAccountDisplayNameError(message = "") {
@@ -3143,6 +3289,14 @@ if (waterInput) {
     if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
     event.preventDefault();
     void saveWater();
+  });
+}
+
+if (task) {
+  task.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+    event.preventDefault();
+    void addTask();
   });
 }
 
@@ -3480,17 +3634,24 @@ async function clearAllAccountData() {
   }
 }
 
+const SPLASH_MIN_VISIBLE_MS = 2000;
+const splashBootStartedAtMs = Date.now();
+
+function getRemainingSplashDelayMs() {
+  return Math.max(0, SPLASH_MIN_VISIBLE_MS - (Date.now() - splashBootStartedAtMs));
+}
+
 try {
   onAuthStateChanged(auth, (user) => {
-    hideSplash();
-
+    const splashDelayMs = getRemainingSplashDelayMs();
     setTimeout(async () => {
+      hideSplash();
       if (user) {
         if (signupFlowInProgress) {
           return;
         }
-        await user.reload();
         if (!user.emailVerified && !isGoogleProviderUser(user)) {
+          await user.reload().catch(() => {});
           const suppressUnverifiedPrompt = Date.now() < Number(suppressUnverifiedSigninPromptUntilMs || 0);
           if (suppressUnverifiedPrompt) {
             return;
@@ -3547,6 +3708,7 @@ try {
         signInModal.style.display = "flex";
         setPageTitle("signin");
         dashboard.style.display = "none";
+        dashboard.classList.remove("preload-shell");
         accountBtn.style.display = "none";
         moodLogs.innerHTML = "";
         chat.innerHTML = "";
@@ -3658,21 +3820,23 @@ try {
         resetAllLimitUIs();
         updateClearDataButtonState();
       }
-    }, 1000); // match your splash transition
+    }, splashDelayMs);
   });
 } catch (_) {
+  const splashDelayMs = getRemainingSplashDelayMs();
   setTimeout(() => {
     hideSplash();
     signInModal.style.display = "flex";
     setPageTitle("signin");
     dashboard.style.display = "none";
+    dashboard.classList.remove("preload-shell");
     accountBtn.style.display = "none";
     setAiClearButtonState(false);
     startExportCooldown(0);
     startDisplayNameEditCooldown(0);
     closeAccountPanel();
     updateAccountPanel(null);
-  }, 1000);
+  }, splashDelayMs);
 }
 
 setTimeout(hideSplash, 2000);
@@ -4375,26 +4539,44 @@ async function ensureGoogleIdentitySetupIfNeeded(user) {
   return false;
 }
 
+const DASHBOARD_CARD_LOAD_DELAY_MS = 1000;
+
 async function initializeAuthenticatedSession(user) {
+  const sessionUserId = String(user?.uid || "").trim();
+  if (!sessionUserId) return;
   clearAuthProgressMessage();
   dashboard.style.display = "grid";
+  dashboard.classList.add("preload-shell");
   setPageTitle("dashboard");
   accountBtn.style.display = "block";
   closeAccountPanel();
   closeGoogleIdentitySetupModal();
   updateAccountPanel(user);
   signInModal.style.display = "none";
+
+  await new Promise((resolve) => setTimeout(resolve, DASHBOARD_CARD_LOAD_DELAY_MS));
+  const activeUserAfterShell = auth.currentUser;
+  if (!activeUserAfterShell?.uid || activeUserAfterShell.uid !== sessionUserId) {
+    dashboard.classList.remove("preload-shell");
+    return;
+  }
+
+  dashboard.classList.remove("preload-shell");
   setInitialLoadingStates();
   updateClearDataButtonState();
-  await Promise.allSettled([
+  const sessionPrepPromise = Promise.allSettled([
     syncServerClock(user.uid),
     refreshExportCooldownState(user.uid),
     refreshDisplayNameEditCooldownState(user.uid),
     upsertUserDirectoryProfile(user),
     loadPersistedBarGraphs(user.uid)
   ]);
-  await ensureDateBoundResetCatchup(user.uid);
-  updateAccountPanel(user);
+  const resetCatchupPromise = ensureDateBoundResetCatchup(user.uid);
+  void Promise.allSettled([sessionPrepPromise, resetCatchupPromise]).then(() => {
+    const activeUser = auth.currentUser;
+    if (!activeUser?.uid || activeUser.uid !== user.uid) return;
+    updateAccountPanel(activeUser);
+  }).catch(() => {});
   const initialDataLoadPromises = [
     loadDailyChallenge(user.uid),
     loadDailyUsage(user.uid),
@@ -4410,7 +4592,6 @@ async function initializeAuthenticatedSession(user) {
     loadStartupFeatureState(user.uid),
     loadWaterData(user.uid),
     loadSleepData(user.uid),
-    loadMusicSessions(user.uid),
     loadMusicSessions(user.uid),
     loadBedtimeSettings(user.uid),
     loadGratitude(user.uid)
@@ -4695,6 +4876,11 @@ const WELCOME_GUIDE_STEPS = [
     text: "All dashboard cards have shortcuts. Hold {shortcut_mod}, then press two letters quickly to jump to a card, including Personalized Daily Plan, Weekly Startup Report, and Behavior Memory Graph.",
     tip: "Shortcut list is shown below.",
     showShortcutList: true
+  },
+  {
+    title: "Bug Reporting",
+    text: "Found a bug or glitch? Report it any time at <span class=\"support-email-highlight\">support.novafix@gmail.com</span>.",
+    tip: "Tip: Include what happened and what you expected so we can fix it faster."
   }
 ];
 
@@ -4987,7 +5173,7 @@ async function showPendingImportSecurityWarnings(userId) {
 }
 
 function renderWelcomeGuideStep() {
-  if (!welcomeGuideModal || !guideStepCounter || !guideStepTitle || !guideStepText || !guideStepTip || !guideDots || !guideNextBtn) return;
+  if (!welcomeGuideModal || !guideStepCounter || !guideStepTitle || !guideStepText || !guideStepTip || !guideDots || !guideNextBtn || !guidePrevBtn) return;
   const steps = getWelcomeGuideSteps();
   const total = steps.length;
   if (!total) return;
@@ -4995,7 +5181,9 @@ function renderWelcomeGuideStep() {
   const current = steps[safeIndex];
   guideStepCounter.innerText = `Step ${safeIndex + 1}/${total}`;
   guideStepTitle.innerText = current.title;
-  guideStepText.innerText = formatShortcutAwareText(current.text);
+  const guideText = formatShortcutAwareText(current.text);
+  if (/<[^>]+>/.test(guideText)) guideStepText.innerHTML = guideText;
+  else guideStepText.innerText = guideText;
   if (current.showShortcutList && !IS_MOBILE_DEVICE) {
     guideStepTip.style.whiteSpace = "normal";
     guideStepTip.classList.add("shortcut-mode");
@@ -5005,6 +5193,7 @@ function renderWelcomeGuideStep() {
     guideStepTip.classList.remove("shortcut-mode");
     guideStepTip.innerText = formatShortcutAwareText(current.tip);
   }
+  guidePrevBtn.disabled = safeIndex === 0;
   guideNextBtn.innerText = safeIndex === total - 1 ? "Finish" : "Next";
 
   guideDots.innerHTML = "";
@@ -5210,8 +5399,20 @@ async function nextWelcomeGuideStep() {
   renderWelcomeGuideStep();
 }
 
+function prevWelcomeGuideStep() {
+  if (welcomeGuideStepIndex <= 0) return;
+  welcomeGuideStepIndex -= 1;
+  renderWelcomeGuideStep();
+}
+
 async function skipWelcomeGuide() {
   await completeWelcomeGuide();
+}
+
+function openWelcomeGuideFromHelp() {
+  const activeUserId = String(auth.currentUser?.uid || "").trim();
+  closeAccountPanel();
+  openWelcomeGuide(activeUserId);
 }
 
 async function maybeShowWelcomeGuide(userId) {
@@ -15232,7 +15433,7 @@ function splitAiActionClauses(inputText) {
     .map((part) => String(part || "").trim())
     .filter(Boolean);
 
-  const actionStarter = /^(?:add|create|new|log|save|track|set|update|play|start|open|remind|complete|done|finish|mark|reopen|undo|uncheck|delete|remove|clear|list|show|view)\b/i;
+  const actionStarter = /^(?:add|create|new|log|save|track|set|update|play|start|open|remind|complete|done|finish|mark|reopen|undo|uncheck|delete|remove|clear|list|show|view|please|can\s+you|could\s+you|would\s+you|kindly)\b/i;
   const finerParts = [];
 
   for (let index = 0; index < coarseParts.length; index += 1) {
@@ -15252,7 +15453,10 @@ function splitAiActionClauses(inputText) {
   }
 
   return finerParts
-    .map((part) => part.replace(/^[-*•\d.)\s]+/, "").trim())
+    .map((part) => part
+      .replace(/^[-*•\d.)\s]+/, "")
+      .replace(/^(?:please\s+|can\s+you\s+|could\s+you\s+|would\s+you\s+|kindly\s+)/i, "")
+      .trim())
     .filter(Boolean)
     .slice(0, 5);
 }
@@ -15260,10 +15464,13 @@ function splitAiActionClauses(inputText) {
 async function tryAiAction(input, user, options = {}) {
   const skipMultiSplit = !!options.skipMultiSplit;
   const skipGreeting = !!options.skipGreeting;
+  const retryAfterPoliteStrip = !!options.retryAfterPoliteStrip;
   const msg = normalizeTyposForAi(String(input || "").trim()).replace(/[!?]+$/g, "");
   const greetingInfo = parseGreetingAndActionText(msg);
   const effectiveMsg = greetingInfo.actionText || msg;
-  const lower = effectiveMsg.toLowerCase();
+  const politeStrippedMsg = effectiveMsg.replace(/^\s*(?:please\s+|can\s+you\s+|could\s+you\s+|would\s+you\s+|kindly\s+)/i, "").trim();
+  const commandMsg = politeStrippedMsg || effectiveMsg;
+  const lower = commandMsg.toLowerCase();
   const withGreeting = (text) => {
     if (skipGreeting) return text;
     return greetingInfo.hasGreeting ? `${greetingInfo.greeting}! ${text}` : text;
@@ -15293,7 +15500,8 @@ async function tryAiAction(input, user, options = {}) {
   }
 
   if (greetingInfo.hasGreeting && !greetingInfo.actionText) {
-    return `${greetingInfo.greeting}! 👋 Tell me what you want to do, for example: play music, add task, or set reminder.`;
+    const displayName = getPreferredAiDisplayName(user) || getUserName(user) || "there";
+    return `${greetingInfo.greeting} ${displayName}! Tell me what you want to do, for example: play music, add task, or set reminder.`;
   }
 
   if (/^(?:what(?:'s|\s+is)\s+my\s+name|who\s+am\s+i)(?:\?)?$/i.test(effectiveMsg)) {
@@ -15304,11 +15512,11 @@ async function tryAiAction(input, user, options = {}) {
     return withGreeting("I could not find your name yet. Set or update it from Account.");
   }
 
-  if (isClearChatCommand(effectiveMsg)) {
+  if (isClearChatCommand(commandMsg)) {
     return withGreeting("Clearing chat now.");
   }
 
-  const requestedMode = parseModeFromInput(effectiveMsg);
+  const requestedMode = parseModeFromInput(commandMsg);
   if (requestedMode) {
     const changed = setAiMode(requestedMode);
     if (changed) {
@@ -15317,17 +15525,17 @@ async function tryAiAction(input, user, options = {}) {
     return withGreeting("ℹ️ Unknown mode. Use: balanced, coach, strict, creative, ultra.");
   }
 
-  const rememberMatch = effectiveMsg.match(/^remember\s+(?:that\s+)?(.+)/i);
+  const rememberMatch = commandMsg.match(/^remember\s+(?:that\s+)?(.+)/i);
   if (rememberMatch?.[1]) {
     learnFromUserInput(rememberMatch[1]);
     return withGreeting(`✅ Saved memory: ${escapeHtml(rememberMatch[1].trim())}`);
   }
 
-  if (/^(?:what do you remember|recall memory|memory|show memory)$/i.test(effectiveMsg)) {
+  if (/^(?:what do you remember|recall memory|memory|show memory)$/i.test(commandMsg)) {
     return withGreeting(`🧠 Memory: ${escapeHtml(getMemorySummary())}`);
   }
 
-  if (/^(start\s+reset|reset\s+me|calm\s+me)$/i.test(effectiveMsg)) {
+  if (/^(start\s+reset|reset\s+me|calm\s+me)$/i.test(commandMsg)) {
     return withGreeting("✅ 60-second reset: inhale 4s → hold 4s → exhale 6s for 6 rounds, drink a glass of water, then do one 10-minute micro-task.");
   }
 
@@ -15372,7 +15580,7 @@ async function tryAiAction(input, user, options = {}) {
     return withGreeting("🎵 Opened Wellness Music. Tap play on the music player.");
   }
 
-  if (/^(?:run|start|do|begin|trigger)\s+(?:the\s+)?(?:mood\s+)?(?:crash\s+)?rescue$/i.test(effectiveMsg)) {
+  if (/^(?:run|start|do|begin|trigger)\s+(?:the\s+)?(?:mood\s+)?(?:crash\s+)?rescue$/i.test(commandMsg)) {
     const rescueResult = await runCrashRescueFlow({ showAlert: false });
     if (!rescueResult?.ok) {
       return withGreeting(`ℹ️ ${rescueResult?.message || "Could not start rescue right now."}`);
@@ -15381,14 +15589,18 @@ async function tryAiAction(input, user, options = {}) {
   }
 
   let taskText = "";
-  const taskMatch = effectiveMsg.match(/^(?:add|create|new|log)\s+(?:a\s+)?(?:(?:productivity|work|study)\s+)?(?:task|todo)\s*[:\-]?\s*(.+)$/i);
+  const taskMatch = commandMsg.match(/^(?:add|create|new|log)\s+(?:a\s+)?(?:(?:productivity|work|study)\s+)?(?:task|todo)\s*[:\-]?\s*(.+)$/i);
   if (taskMatch?.[1]) taskText = taskMatch[1].trim();
-  if (!taskText && /^(?:add|create|new|log)\s+(?:a\s+)?(?:(?:productivity|work|study)\s+)?(?:task|todo)\s*[:\-]?\s*$/i.test(effectiveMsg)) {
+  if (!taskText && /^(?:add|create|new|log)\s+(?:a\s+)?(?:(?:productivity|work|study)\s+)?(?:task|todo)\s*[:\-]?\s*$/i.test(commandMsg)) {
     return withGreeting("ℹ️ Tell me the task text too, like: add task finish assignment.");
   }
   if (!taskText) {
-    const quickTaskMatch = effectiveMsg.match(/^(?:task|todo)\s*[:\-]\s*(.+)$/i);
+    const quickTaskMatch = commandMsg.match(/^(?:task|todo)\s*[:\-]\s*(.+)$/i);
     if (quickTaskMatch?.[1]) taskText = quickTaskMatch[1].trim();
+  }
+  if (!taskText) {
+    const naturalTaskMatch = commandMsg.match(/^(?:i\s+(?:need|have|want|plan)\s+to|need\s+to|todo\s*[:\-]?|to\s*do\s*[:\-]?)\s+(.+)$/i);
+    if (naturalTaskMatch?.[1]) taskText = naturalTaskMatch[1].trim();
   }
   if (taskText) {
     const taskItems = splitAiTaskItems(taskText);
@@ -15526,6 +15738,29 @@ async function tryAiAction(input, user, options = {}) {
     return `✅ Auto prep plan created for ${autoPrepPlan.topic} (${autoPrepPlan.timelineLabel}). Added ${autoPrepPlan.addedTasks} tasks + ${autoPrepPlan.addedReminders} reminders (focus, breaks, sleep, final review).`;
   }
 
+  const reminderNaturalMatch = msg.match(/^(?:remind\s+me|set\s+(?:a\s+)?reminder)\s+(?:in|after)\s+(\d+(?:\.\d+)?)\s*(s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks|mo|mon|mons|month|months)\s+(?:to\s+)?(.+)$/i)
+    || msg.match(/^in\s+(\d+(?:\.\d+)?)\s*(s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks|mo|mon|mons|month|months)\s+(?:remind\s+me(?:\s+to)?|set\s+(?:a\s+)?reminder(?:\s+to)?)\s+(.+)$/i);
+  if (reminderNaturalMatch) {
+    const amount = Number(reminderNaturalMatch[1]);
+    const unitValue = normalizeReminderUnitValue(reminderNaturalMatch[2]);
+    const reminderLabel = String(reminderNaturalMatch[3] || "")
+      .trim()
+      .replace(/^["'`“”‘’]+|["'`“”‘’]+$/g, "")
+      .trim();
+    if (!reminderLabel) {
+      return "ℹ️ Reminder text is empty. Try: remind me in 20 min to drink water.";
+    }
+    const minutes = parseDurationToMinutes(amount, unitValue);
+    if (!minutes) return "ℹ️ Reminder time should be at least 1 unit.";
+    const previousUnit = String(reminderUnit?.value || "minute");
+    reminderText.value = reminderLabel;
+    reminderMinutes.value = String(amount);
+    if (reminderUnit) reminderUnit.value = unitValue;
+    await addReminder();
+    if (reminderUnit) reminderUnit.value = previousUnit;
+    return `✅ Reminder set: ${reminderLabel} in ${formatReminderDurationFromMinutes(minutes)}.`;
+  }
+
   const reminderMatch = msg.match(/^remind\s+me\s+to\s+(.+?)\s+(?:in|after)\s+(\d+(?:\.\d+)?)\s*(s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks|mo|mon|mons|month|months)$/i)
     || msg.match(/^(?:set|add|create)\s+(?:a\s+)?reminder\s*(?:to)?\s*[:\-]?\s*(.+?)\s+(?:in|after)\s+(\d+(?:\.\d+)?)\s*(s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks|mo|mon|mons|month|months)$/i)
     || msg.match(/^reminder\s*[:\-]?\s*(.+?)\s+(?:in|after)\s+(\d+(?:\.\d+)?)\s*(s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks|mo|mon|mons|month|months)$/i);
@@ -15597,6 +15832,16 @@ async function tryAiAction(input, user, options = {}) {
       notifyFirestoreError(err);
       return "ℹ️ Could not clear reminders right now.";
     }
+  }
+
+  if (!retryAfterPoliteStrip && politeStrippedMsg && politeStrippedMsg !== effectiveMsg) {
+    const retried = await tryAiAction(politeStrippedMsg, user, {
+      ...options,
+      skipMultiSplit: true,
+      skipGreeting: true,
+      retryAfterPoliteStrip: true
+    });
+    if (retried) return withGreeting(retried);
   }
 
   return null;
@@ -15675,6 +15920,14 @@ async function buildSmartAiResponse(input, user) {
     };
   }
 
+  if (/\b(?:report|found|have|there(?:'s|\s+is)|noticed|seeing|raise)\b[\s\S]{0,28}\b(?:bug|issue|problem|glitch|error)\b|\b(?:bug|issue|problem|glitch|error)\b[\s\S]{0,20}\b(?:report|reported|reporting)\b/i.test(msg)) {
+    aiSessionState.lastIntent = "bug-report";
+    return {
+      response: `Found a bug? Report it at <span class="support-email-highlight">support.novafix@gmail.com</span> and we’ll check it quickly.`,
+      isHtml: true
+    };
+  }
+
   aiSessionState.turnCount += 1;
   aiSessionState.lastUserMessage = normalizedInput;
   aiSessionState.userEmotion = emotion;
@@ -15742,7 +15995,7 @@ async function buildSmartAiResponse(input, user) {
     const pending = snapshot.pendingTasks;
     aiSessionState.lastIntent = "greeting";
     return {
-      response: `${greeting}, ${name}! 🌟 Quick status: score ${snapshot.score}/100, ${pending} pending task${pending === 1 ? "" : "s"}, ${getAiWaterStatusText(snapshot)}. Want a high-performance 60-minute plan?`,
+      response: `Hey ${name}! Quick check: you’re at ${snapshot.score}/100, ${pending} pending task${pending === 1 ? "" : "s"}, and ${getAiWaterStatusText(snapshot)}. Want me to line up a quick 3-step game plan?`,
       isHtml: false
     };
   }
@@ -15830,7 +16083,7 @@ async function buildSmartAiResponse(input, user) {
   if (intent.key === "identity") {
     aiSessionState.lastIntent = "identity";
     return {
-      response: "I’m NovaFix Prime — your strategic assistant. I reason over your live dashboard data, retain relevant memory, compare options, and execute supported actions directly.",
+      response: "I am NovaFix AI — your strategic assistant. I reason over your live dashboard data, retain relevant memory, compare options, and execute supported actions directly.",
       isHtml: false
     };
   }
@@ -19165,8 +19418,10 @@ Object.assign(window, {
   closeReverseFriendRequestModal,
   submitAddFriendRequest,
   importDataFileChange,
+  prevWelcomeGuideStep,
   nextWelcomeGuideStep,
   skipWelcomeGuide,
+  openWelcomeGuideFromHelp,
   handleGoogleAuth,
   submitGoogleIdentitySetup,
   cancelGoogleIdentitySetup,
