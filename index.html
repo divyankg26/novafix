@@ -2618,7 +2618,7 @@ textarea:focus-visible{
 <button id="timeMirrorClearBtn" class="ai-clear-btn" onclick="clearTimeMirror()">Clear</button>
 </div>
 <input id="futureTask" placeholder="Enter goal">
-<button onclick="timeTraveller()">Check</button>
+<button id="timeMirrorCheckBtn" onclick="timeTraveller()">Check</button>
 <div id="timeMirror"></div>
 </div>
 
@@ -3049,6 +3049,7 @@ const wellnessMusicStatus = document.getElementById("wellnessMusicStatus");
 const futureTask = document.getElementById("futureTask");
 const timeMirror = document.getElementById("timeMirror");
 const timeMirrorClearBtn = document.getElementById("timeMirrorClearBtn");
+const timeMirrorCheckBtn = document.getElementById("timeMirrorCheckBtn");
 const quoteDisplay = document.getElementById("quoteDisplay");
 const gratitudeInput = document.getElementById("gratitudeInput");
 const gratitudeSaveBtn = document.getElementById("gratitudeSaveBtn");
@@ -3731,6 +3732,7 @@ async function clearAllAccountData() {
     gratitudeEntries.length = 0;
     challengeDates.length = 0;
     aiRecentPrompts.length = 0;
+    aiRecentResponseSignatures.length = 0;
     habitQuests.length = 0;
     burnoutRecoveryPlan.length = 0;
     wellnessActionBoost = 0;
@@ -9604,6 +9606,7 @@ const rescueEvents=[];
 const habitQuests=[];
 const burnoutRecoveryPlan=[];
 const aiRecentPrompts=[];
+const aiRecentResponseSignatures=[];
 const aiSessionState = {
   lastIntent: "",
   lastAdvice: [],
@@ -15551,6 +15554,7 @@ async function tryAiAction(input, user, options = {}) {
   const politeStrippedMsg = effectiveMsg.replace(/^\s*(?:please\s+|can\s+you\s+|could\s+you\s+|would\s+you\s+|kindly\s+)/i, "").trim();
   const commandMsg = politeStrippedMsg || effectiveMsg;
   const lower = commandMsg.toLowerCase();
+  const isReminderIntent = /\b(remind|reminder)\b/.test(lower);
   const withGreeting = (text) => {
     if (skipGreeting) return text;
     return greetingInfo.hasGreeting ? `${greetingInfo.greeting}! ${text}` : text;
@@ -15623,7 +15627,7 @@ async function tryAiAction(input, user, options = {}) {
     /\b(?:play|start|put\s+on|turn\s+on|turn\s+up|open)\b[\s\S]{0,40}\b(?:music|song|songs|spotify|playlist)\b/i.test(lower)
     || /\b(?:music|song|songs|spotify|playlist)\b[\s\S]{0,20}\b(?:play|start|on)\b/i.test(lower)
     || /\bturn\s+on\s+the\s+music\b/i.test(lower);
-  if (musicPlayIntent) {
+  if (musicPlayIntent && !isReminderIntent) {
     try {
       if (document.activeElement === aiInput && aiInput && typeof aiInput.blur === "function") {
         try {
@@ -15660,7 +15664,7 @@ async function tryAiAction(input, user, options = {}) {
     return withGreeting("🎵 Opened Wellness Music. Tap play on the music player.");
   }
 
-  if (/^(?:run|start|do|begin|trigger)\s+(?:the\s+)?(?:mood\s+)?(?:crash\s+)?rescue$/i.test(commandMsg)) {
+  if (/^(?:run|start|do|begin|trigger)\s+(?:the\s+)?(?:mood\s+)?(?:crash\s+)?rescue$/i.test(commandMsg) && !isReminderIntent) {
     const rescueResult = await runCrashRescueFlow({ showAlert: false });
     if (!rescueResult?.ok) {
       return withGreeting(`ℹ️ ${rescueResult?.message || "Could not start rescue right now."}`);
@@ -15730,7 +15734,7 @@ async function tryAiAction(input, user, options = {}) {
 
   const waterGoalMatch = lower.match(/(?:set|update)\s+(?:my\s+)?water\s+goal\s+(?:to\s+)?(\d+(?:\.\d+)?)/i)
     || lower.match(/water\s+goal\s*[:\-]?\s*(\d+(?:\.\d+)?)/i);
-  if (waterGoalMatch) {
+  if (waterGoalMatch && !isReminderIntent) {
     const nextGoal = Number(waterGoalMatch[1]) || 0;
     waterGoalInput.value = String(nextGoal);
     await setWaterGoal();
@@ -15740,7 +15744,7 @@ async function tryAiAction(input, user, options = {}) {
   const waterLogMatch = lower.match(/(?:log|add|track|drink|drank|had|have\s+had)\s+(\d+(?:\.\d+)?)\s*(?:glass|glasses|cup|cups)?\s*(?:of\s+)?(?:water)?(?:\s+just\s+now)?/i)
     || lower.match(/\bi\s+(?:just\s+)?(?:drank|drink|had)\s+(\d+(?:\.\d+)?)\s*(?:glass|glasses|cup|cups)(?:\s+of\s+water)?/i);
   const waterSignal = /\b(water|hydrate|hydration|glass|glasses|cup|cups|drink|drank)\b/.test(lower);
-  if (waterLogMatch && waterSignal) {
+  if (waterLogMatch && waterSignal && !isReminderIntent) {
     const loggedAmount = Math.max(0, Number(waterLogMatch[1]) || 0);
     const isIncrementCommand = /\b(more|additional|another)\b/.test(lower);
     const latestTodayValue = (() => {
@@ -15762,19 +15766,19 @@ async function tryAiAction(input, user, options = {}) {
     }
     return `✅ Logged ${nextWaterValue} cups of water.`;
   }
-  if (waterSignal && /\b(log|add|track|drink|drank|had)\b/.test(lower) && !waterLogMatch) {
+  if (waterSignal && /\b(log|add|track|drink|drank|had)\b/.test(lower) && !waterLogMatch && !isReminderIntent) {
     return "ℹ️ Tell me how much water, like: I drank 2 glasses just now.";
   }
 
   const bedtimeCommandMatch = msg.match(/(?:set|save|update|add)\s+(?:my\s+)?(?:bed\s*time|bedtime|sleep\s*time|down\s*time|downtime)\s*(?:to|at)?\s*(\d{1,2}:\d{2})(?:\s*(am|pm))?/i)
     || msg.match(/^(?:bed\s*time|bedtime|sleep\s*time|down\s*time|downtime)\s*[:\-]?\s*(\d{1,2}:\d{2})(?:\s*(am|pm))?/i);
-  if (bedtimeCommandMatch?.[1]) {
+  if (bedtimeCommandMatch?.[1] && !isReminderIntent) {
     const aiTime = bedtimeCommandMatch[1];
     const bedtimeResult = await setBedtimeReminder(aiTime, bedtimeCommandMatch[2] || "");
     if (!bedtimeResult.ok) return `ℹ️ ${bedtimeResult.message}`;
     return `✅ Bed time set to ${bedtimeResult.label}. I will remind you in-app at that time.`;
   }
-  if (/(?:set|save|update|add)\b.*\b(?:bed\s*time|bedtime|sleep\s*time|down\s*time|downtime)\b/i.test(msg) && !bedtimeCommandMatch) {
+  if (/(?:set|save|update|add)\b.*\b(?:bed\s*time|bedtime|sleep\s*time|down\s*time|downtime)\b/i.test(msg) && !bedtimeCommandMatch && !isReminderIntent) {
     return "ℹ️ Use 24-hour format HH:MM, like: set sleep time 22:30.";
   }
 
@@ -15782,28 +15786,28 @@ async function tryAiAction(input, user, options = {}) {
     || lower.match(/(?:log|save|track|set)\s+(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)\s*(?:of\s+)?sleep(?:\s+right\s+now)?/i)
     || lower.match(/(?:slept|sleep)\s*(?:for\s+)?(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)\b/i)
     || lower.match(/(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)\s*(?:sleep|slept)\b/i);
-  if (sleepMatch?.[1]) {
+  if (sleepMatch?.[1] && !isReminderIntent) {
     sleepInput.value = sleepMatch[1];
     await saveSleep();
     return `✅ Sleep logged: ${sleepMatch[1]} hours.`;
   }
-  if (/\b(log|save|track|set)\b.*\bsleep\b/.test(lower) && !sleepMatch) {
+  if (/\b(log|save|track|set)\b.*\bsleep\b/.test(lower) && !sleepMatch && !isReminderIntent) {
     return "ℹ️ Tell me sleep hours too, like: log sleep 7.5h.";
   }
 
   const moodActionRequested = /(?:log|set|save|track|update)\s+(?:my\s+)?(?:mood|feeling)|^mood\s*[:\-]/i.test(msg);
   const mappedMood = mapMoodFromInput(msg);
-  if (moodActionRequested && mappedMood) {
+  if (moodActionRequested && mappedMood && !isReminderIntent) {
     mood.value = mappedMood;
     await saveMood();
     return `✅ Mood logged: ${mood.value}`;
   }
-  if (moodActionRequested && !mappedMood) {
+  if (moodActionRequested && !mappedMood && !isReminderIntent) {
     return "ℹ️ Mood options: happy, neutral, or low.";
   }
 
   const gratitudeMatch = msg.match(/^(?:add|log|save)\s+gratitude\s*[:\-]?\s*(.+)$/i);
-  if (gratitudeMatch && gratitudeMatch[1]) {
+  if (gratitudeMatch && gratitudeMatch[1] && !isReminderIntent) {
     gratitudeInput.value = gratitudeMatch[1].trim();
     await saveGratitude();
     return `✅ Gratitude saved.`;
@@ -16442,6 +16446,166 @@ function hasActionableSuggestionText(responseText, isHtml = false) {
   return /\b(?:do|start|focus|drink|log|set|complete|apply|track|review|schedule|plan|action)\b/.test(normalized);
 }
 
+function normalizeAiResponseSignature(text, isHtml = false) {
+  const plain = String(text || "");
+  const normalized = (isHtml ? plain.replace(/<[^>]+>/g, " ") : plain)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\b\d+\b/g, "#")
+    .replace(/\s+/g, " ")
+    .trim();
+  return normalized.slice(0, 220);
+}
+
+function rememberAiResponseSignature(text, isHtml = false) {
+  const signature = normalizeAiResponseSignature(text, isHtml);
+  if (!signature) return;
+  aiRecentResponseSignatures.push(signature);
+  if (aiRecentResponseSignatures.length > 12) aiRecentResponseSignatures.shift();
+}
+
+function isWeakGenericAiResponse(text, isHtml = false) {
+  const plain = (isHtml ? String(text || "").replace(/<[^>]+>/g, " ") : String(text || ""))
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!plain) return true;
+  if (plain.length < 60) return true;
+
+  const weakPatterns = [
+    /^(?:got you|i got you|noted|cool|sure|okay|ok)[.!\s]*$/,
+    /\b(?:you are doing great|keep going|you got this)\b/,
+    /\b(?:let me know if you need anything|anything else\?)\b/,
+    /\b(?:quick answer|direct answer)\b.*\b(?:ask me anything)\b/
+  ];
+  if (weakPatterns.some((pattern) => pattern.test(plain))) return true;
+
+  return false;
+}
+
+function hasRecentResponseRepetition(text, isHtml = false) {
+  const signature = normalizeAiResponseSignature(text, isHtml);
+  if (!signature) return false;
+  const recent = aiRecentResponseSignatures.slice(-4);
+  return recent.some((item) => item === signature);
+}
+
+function buildImmediateBenefitOutcome(snapshot, topAction) {
+  const pendingTasks = Number(snapshot?.pendingTasks) || 0;
+  const waterToday = Number(snapshot?.waterToday) || 0;
+  const waterGoalNow = Number(snapshot?.todayGoal) || 8;
+  const waterGap = Math.max(0, waterGoalNow - waterToday);
+  const sleepNow = Number(snapshot?.sleepToday) || 0;
+
+  if (pendingTasks > 0) {
+    return `You should feel more in control tonight after reducing pending tasks by 1 and finishing one focused sprint.`;
+  }
+  if (waterGap > 0) {
+    return `You should feel calmer tonight by closing at least ${Math.max(1, Math.ceil(waterGap / 2))} cup${Math.max(1, Math.ceil(waterGap / 2)) === 1 ? "" : "s"} of your hydration gap.`;
+  }
+  if (sleepNow < 7) {
+    return "You should feel steadier tomorrow morning by protecting a 7-8 hour sleep window tonight.";
+  }
+  return `You should feel more organized tonight by completing this first: ${topAction}`;
+}
+
+function buildTomorrowCheckpoint(snapshot) {
+  const pendingTasks = Number(snapshot?.pendingTasks) || 0;
+  const waterToday = Number(snapshot?.waterToday) || 0;
+  const waterGoalNow = Number(snapshot?.todayGoal) || 8;
+  const sleepNow = Number(snapshot?.sleepToday) || 0;
+
+  if (pendingTasks >= 2) {
+    return "Tomorrow check: start with one 25-minute task sprint before opening distractions.";
+  }
+  if (waterToday < waterGoalNow) {
+    return "Tomorrow check: drink one glass in the first hour after waking and keep a visible water target.";
+  }
+  if (sleepNow < 7) {
+    return "Tomorrow check: wake at a fixed time and avoid snooze loops to stabilize energy.";
+  }
+  return "Tomorrow check: repeat the same first win within your first hour for consistency.";
+}
+
+function getHealthFirstTopAction(snapshot, trends, priorityBoard = []) {
+  const currentIntent = String(aiSessionState?.lastIntent || "").toLowerCase();
+  const lowEmotion = String(aiSessionState?.userEmotion || "").toLowerCase() === "low";
+  const stressIntent = currentIntent === "stress" || currentIntent === "emotional-personal";
+  const moodRisk = Number(trends?.moodDelta) < 0;
+  const sleepLow = (Number(snapshot?.sleepToday) || 0) > 0 && (Number(snapshot?.sleepToday) || 0) < 7;
+  const hydrationGap = Math.max(0, (Number(snapshot?.todayGoal) || 8) - (Number(snapshot?.waterToday) || 0));
+
+  const shouldForceHealthFirst = lowEmotion || stressIntent || moodRisk;
+  if (!shouldForceHealthFirst) {
+    return priorityBoard?.[0]?.action || "Complete one 10-minute focused task now.";
+  }
+
+  if (sleepLow) {
+    return "Do a 2-minute calm-down reset now and protect a 7-8 hour sleep window tonight.";
+  }
+
+  if (hydrationGap > 0) {
+    return `Drink ${Math.max(1, Math.ceil(Math.min(2, hydrationGap)))} cup${Math.max(1, Math.ceil(Math.min(2, hydrationGap))) === 1 ? "" : "s"} of water now, then do one 10-minute low-pressure task.`;
+  }
+
+  if (!snapshot?.moodToday) {
+    return "Log your mood now, do 6 slow breaths, then complete one 10-minute calming task.";
+  }
+
+  return "Take a 2-minute breathing reset, then complete one small task to regain control.";
+}
+
+function buildMustDoBenefitBlock(baseText, baseIsHtml, inputText) {
+  const snapshot = aiSessionState.lastSnapshot || getWellnessSnapshot();
+  const trends = buildTrendSignals();
+  const priorityBoard = buildPriorityBoard(snapshot, trends);
+  const topAction = getHealthFirstTopAction(snapshot, trends, priorityBoard);
+  const outcomeTonight = buildImmediateBenefitOutcome(snapshot, topAction);
+  const lowEmotion = String(aiSessionState?.userEmotion || "").toLowerCase() === "low";
+  const tomorrowCheckpoint = lowEmotion
+    ? "Tomorrow check: repeat a calm first hour (water + no-rush first task) before high-pressure work."
+    : buildTomorrowCheckpoint(snapshot);
+
+  const toneVariant = aiSessionState.turnCount % 3;
+  const opener = toneVariant === 0
+    ? "Direct lifestyle plan based on your current data:"
+    : toneVariant === 1
+      ? "This is your must-do plan for real benefit in 2-3 days:"
+      : "No fluff - this is what will improve mood, control, and consistency fast:";
+
+  if (baseIsHtml) {
+    const safeBase = String(baseText || "").trim();
+    return `${safeBase}<br><br><b>${escapeHtml(opener)}</b><br><b>Do now (under 10 min)</b>: ${escapeHtml(topAction)}<br><b>Expected by tonight</b>: ${escapeHtml(outcomeTonight)}<br><b>Tomorrow checkpoint</b>: ${escapeHtml(tomorrowCheckpoint)}`;
+  }
+
+  const safeBase = String(baseText || "").trim();
+  return `${safeBase}\n\n${opener}\nDo now (under 10 min): ${topAction}\nExpected by tonight: ${outcomeTonight}\nTomorrow checkpoint: ${tomorrowCheckpoint}`;
+}
+
+function enforceAiResponseQuality(inputText, responseText, isHtml = false) {
+  const currentIntent = String(aiSessionState?.lastIntent || "").toLowerCase();
+  const exemptIntents = new Set(["thanks", "bye", "joke", "date-local"]);
+  const shouldEnforceBenefitBlock = !exemptIntents.has(currentIntent);
+
+  let nextText = String(responseText || "");
+  let nextIsHtml = !!isHtml;
+
+  const weakGeneric = isWeakGenericAiResponse(nextText, nextIsHtml);
+  const nonActionable = !hasActionableSuggestionText(nextText, nextIsHtml);
+  const repeated = hasRecentResponseRepetition(nextText, nextIsHtml);
+
+  if (shouldEnforceBenefitBlock && (weakGeneric || nonActionable || repeated)) {
+    nextText = buildMustDoBenefitBlock(nextText, nextIsHtml, inputText);
+    nextIsHtml = nextIsHtml || /<[^>]+>/.test(nextText);
+  } else if (shouldEnforceBenefitBlock && !/Expected by tonight|Tomorrow checkpoint|Do now \(under 10 min\)/i.test(String(nextText))) {
+    nextText = buildMustDoBenefitBlock(nextText, nextIsHtml, inputText);
+    nextIsHtml = nextIsHtml || /<[^>]+>/.test(nextText);
+  }
+
+  rememberAiResponseSignature(nextText, nextIsHtml);
+  return { text: nextText, isHtml: nextIsHtml };
+}
+
 function buildWhySuggestionLine(isHtml = true, suggestionText = "") {
   const snapshot = aiSessionState.lastSnapshot || getWellnessSnapshot();
   const trend = buildTrendSignals();
@@ -16617,6 +16781,8 @@ function setTimeMirrorClearButtonState(hasContent) {
   const canClear = !!hasContent;
   timeMirrorClearBtn.disabled = !canClear;
   timeMirrorClearBtn.title = canClear ? "" : "No time mirror content to clear";
+  if (futureTask) futureTask.style.display = canClear ? "none" : "block";
+  if (timeMirrorCheckBtn) timeMirrorCheckBtn.style.display = canClear ? "none" : "inline-block";
 }
 
 function clearTimeMirror() {
@@ -16719,6 +16885,7 @@ function applyAiOutputSafetyFilter(outputText, isHtml) {
 async function loadAiChats(userId) {
   chat.innerHTML = "";
   aiRecentPrompts.length = 0;
+  aiRecentResponseSignatures.length = 0;
   aiSessionState.lastIntent = "";
   aiSessionState.lastAdvice = [];
   aiSessionState.lastUserMessage = "";
@@ -16801,6 +16968,7 @@ async function clearAiChats(options = {}) {
 
     chat.innerHTML = "";
     aiRecentPrompts.length = 0;
+    aiRecentResponseSignatures.length = 0;
     aiSessionState.lastIntent = "";
     aiSessionState.lastAdvice = [];
     aiSessionState.lastUserMessage = "";
@@ -16884,6 +17052,9 @@ async function aiChat(){
       const smart = await buildSmartAiResponse(input, user);
       let response = smart.response;
       let responseIsHtml = smart.isHtml;
+      const qualityResult = enforceAiResponseQuality(input, response, responseIsHtml);
+      response = qualityResult.text;
+      responseIsHtml = qualityResult.isHtml;
       const shouldAttachWhy =
         !AI_CASUAL_MODE
         &&
@@ -18248,6 +18419,10 @@ function timeTraveller() {
   const lower = goalText.toLowerCase();
   const timeline = parseTimelineFromInput(goalText);
   const moodMeta = getMoodStateMeta(snapshot.moodToday);
+  const trends = buildTrendSignals();
+  const behaviorPatterns = getBehaviorPatternMemory(35);
+  const hydrationInsight = buildHydrationPaceInsight(snapshot);
+  const priorityBoard = buildPriorityBoard(snapshot, trends);
 
   const goalType =
     /study|exam|learn|course|revision|assignment/.test(lower) ? "learning" :
@@ -18330,6 +18505,30 @@ function timeTraveller() {
     goalType === "hydration" ? "Pair each meal with water and complete the remaining glasses before evening." :
     "Choose one measurable output and finish it before day-end.";
 
+  const patternNote = Array.isArray(behaviorPatterns?.summaryLines) && behaviorPatterns.summaryLines.length
+    ? behaviorPatterns.summaryLines[0]
+    : "Pattern confidence is still building from recent logs.";
+  const confidenceScore = (() => {
+    let score = 50;
+    if (snapshot.sleepToday >= 7) score += 12;
+    if (snapshot.pendingTasks <= 2) score += 10;
+    if (hydrationInsight.onTrack) score += 10;
+    if (moodMeta.logged && moodMeta.score >= 2) score += 10;
+    if (trends.taskDelta >= 0) score += 4;
+    if (trends.sleepDelta >= 0) score += 4;
+    return Math.max(35, Math.min(96, score));
+  })();
+  const confidenceBand = confidenceScore >= 78 ? "high" : confidenceScore >= 62 ? "medium" : "guarded";
+  const likelyWin72h = priorityBoard?.[0]?.action || firstStep;
+  const riskTrigger = blockerTag === "anxiety"
+    ? "If anxiety spikes, drop intensity and run 3 breathing cycles before restarting."
+    : blockerTag === "fatigue"
+      ? "If energy crashes, switch to a 5-minute micro-step instead of stopping."
+      : blockerTag === "clarity"
+        ? "If you feel stuck, rewrite the next step in one sentence and start a 10-minute timer."
+        : "If momentum drops, restart with a 10-minute sprint immediately.";
+  const trendDirection = `task ${trends.taskDelta >= 0 ? "up" : "down"} (${trends.taskDelta.toFixed(1)}), sleep ${trends.sleepDelta >= 0 ? "up" : "down"} (${trends.sleepDelta.toFixed(1)}h), mood ${trends.moodDelta >= 0 ? "up" : "down"} (${trends.moodDelta.toFixed(2)}).`;
+
   timeMirror.innerHTML = `
     <p>✨ <b>Likely future if you execute: "${escapeHtml(goalText)}"</b><br>
     By ${escapeHtml(horizonLabel)}: ${typeBoost[goalType]}. ${moodRiskLine}</p>
@@ -18337,6 +18536,9 @@ function timeTraveller() {
     By ${escapeHtml(horizonLabel)}: ${skipCost[goalType]}.</p>
     <p>🧭 <b>Best next move (context-aware)</b><br>${firstStep}<br>${urgencyStep}</p>
     <p>📈 <b>Execution plan</b><br>${followUpPlan}</p>
+    <p>🗺️ <b>72-hour win path</b><br>Do now: ${escapeHtml(likelyWin72h)}<br>By tonight: protect recovery + finish one visible output.<br>By day 3: your control and consistency should noticeably improve if you repeat the same first-hour anchor.</p>
+    <p>🧠 <b>Forecast confidence</b>: ${confidenceBand} (${confidenceScore}/100)<br><small>Trend signal: ${escapeHtml(trendDirection)}</small><br><small>Pattern note: ${escapeHtml(patternNote)}</small></p>
+    <p>🛡️ <b>Fallback rule</b><br>${escapeHtml(riskTrigger)}</p>
     <p>📌 <small>${readinessHint}</small></p>
   `;
 
