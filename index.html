@@ -594,6 +594,67 @@ header p{margin:8px 0 0;opacity:.94}
   display:none;
 }
 
+#tosModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.58);
+  justify-content:center;
+  align-items:center;
+  z-index:10041;
+  padding:14px;
+}
+
+.tos-card{
+  width:min(520px, calc(100vw - 24px));
+  max-width:calc(100vw - 24px);
+  max-height:min(64vh, 520px);
+  padding:12px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.26);
+  background:linear-gradient(180deg, rgba(9,20,38,.7), rgba(9,20,38,.52));
+  box-shadow:0 18px 44px rgba(0,0,0,.4);
+  backdrop-filter:blur(12px);
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.tos-card h3{
+  margin:0;
+  color:#fff;
+  letter-spacing:.2px;
+}
+
+.tos-scroll{
+  flex:1 1 auto;
+  overflow:auto;
+  border:1px solid rgba(255,255,255,.22);
+  border-radius:10px;
+  background:rgba(255,255,255,.08);
+  padding:8px;
+  font-size:13px;
+  line-height:1.45;
+  white-space:pre-wrap;
+  color:#fff;
+}
+
+.tos-actions{
+  display:flex;
+  justify-content:flex-end;
+}
+
+#tosAgreeBtn{
+  min-width:140px;
+}
+
+#tosError{
+  margin:0;
+  min-height:18px;
+  font-size:12px;
+  color:#ff7b8f;
+}
+
 #accountBtn.account-btn-scrolled{
   top:14px;
   background:rgba(255,255,255,.18);
@@ -2223,6 +2284,58 @@ textarea:focus-visible{
   </div>
 </div>
 
+<div id="tosModal">
+  <div class="tos-card" role="dialog" aria-modal="true" aria-labelledby="tosTitle">
+    <h3 id="tosTitle">Terms of Service</h3>
+    <div class="tos-scroll">TERMS OF SERVICE
+
+  Last Updated: 2026
+
+  This Terms of Service ("Terms") governs access to and use of the software, source code, documentation, design elements, algorithms, structure, and any associated materials (collectively, the "Software") provided by Divyank Goyal ("Licensor," "we," "us," or "our").
+  By accessing, using, copying, or interacting with the Software in any way, you agree to be bound by these Terms. If you do not agree, you must not use the Software.
+
+  1. Ownership
+  The Software is and shall remain the exclusive intellectual property of the Licensor. No ownership rights, title, or interest in the Software are transferred to you under these Terms.
+
+  2. Limited Rights
+  No license or usage rights are granted except where explicitly provided in a separate written agreement signed by the Licensor.
+  All rights not expressly granted are strictly reserved.
+
+  3. Restrictions on Use
+  You are strictly prohibited from engaging in any of the following activities without prior written permission from the Licensor:
+  Copying, reproducing, or distributing the Software in whole or in part
+  Modifying, adapting, translating, reverse engineering, decompiling, or disassembling the Software
+  Creating derivative works based on the Software
+  Using the Software for any commercial, personal, academic, or governmental purpose
+  Selling, sublicensing, leasing, renting, publishing, or transferring the Software
+  Removing, altering, or obscuring any proprietary notices or markings
+  Using the Software in any product, system, or service that competes with the Licensor
+
+  4. Enforcement and Remedies
+  Any unauthorized use of the Software constitutes a violation of these Terms and may result in immediate legal action.
+  The Licensor reserves the right to pursue all available remedies under applicable law, including but not limited to injunctive relief, damages, and recovery of legal fees.
+
+  5. Termination
+  Any unauthorized use automatically and immediately terminates any permission that may have been granted under these Terms, without notice.
+  Upon termination, you must cease all use of the Software and destroy any copies in your possession.
+
+  6. Disclaimer of Warranty
+  The Software is provided "AS IS" and "AS AVAILABLE," without warranties of any kind, whether express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, or non-infringement.
+
+  7. Governing Law
+  These Terms shall be governed by and interpreted in accordance with the laws applicable in the jurisdiction of the Licensor, without regard to conflict of law principles.
+
+  8. Entire Agreement
+  These Terms represent the entire agreement regarding the Software unless superseded by a separate written agreement signed by the Licensor.
+
+  All rights reserved. Unauthorized use is strictly prohibited.</div>
+    <p id="tosError"></p>
+    <div class="tos-actions">
+      <button id="tosAgreeBtn" type="button" onclick="acceptTosAgreement()">Agree</button>
+    </div>
+  </div>
+</div>
+
 <header>
   <h1>NovaFix</h1>
   <p>Mind • Body • Money • Music • Productivity</p>
@@ -2840,6 +2953,9 @@ const keyboardShortcutsList = document.getElementById("keyboardShortcutsList");
 const keyboardShortcutsToggleBtn = document.getElementById("keyboardShortcutsToggleBtn");
 const friendsInsightsList = document.getElementById("friendsInsightsList");
 const welcomeGuideModal = document.getElementById("welcomeGuideModal");
+const tosModal = document.getElementById("tosModal");
+const tosAgreeBtn = document.getElementById("tosAgreeBtn");
+const tosError = document.getElementById("tosError");
 const guideStepCounter = document.getElementById("guideStepCounter");
 const guideStepTitle = document.getElementById("guideStepTitle");
 const guideStepText = document.getElementById("guideStepText");
@@ -3036,6 +3152,10 @@ function closeTopLayerForSystemBack() {
 
   if (reportRedirectConfirmModal && reportRedirectConfirmModal.style.display === "flex") {
     closeReportRedirectConfirm(null, true);
+    return true;
+  }
+
+  if (tosModal && tosModal.style.display === "flex") {
     return true;
   }
 
@@ -3662,8 +3782,16 @@ function getRemainingSplashDelayMs() {
 
 try {
   onAuthStateChanged(auth, (user) => {
+    authStateChangeSequence += 1;
+    const currentAuthSequence = authStateChangeSequence;
+    if (authStateDelayTimer) {
+      clearTimeout(authStateDelayTimer);
+      authStateDelayTimer = null;
+    }
     const splashDelayMs = getRemainingSplashDelayMs();
-    setTimeout(async () => {
+    authStateDelayTimer = setTimeout(async () => {
+      authStateDelayTimer = null;
+      if (currentAuthSequence !== authStateChangeSequence) return;
       hideSplash();
       if (user) {
         if (signupFlowInProgress) {
@@ -3689,9 +3817,14 @@ try {
         if (!googleIdentityReady) {
           return;
         }
+        if (currentAuthSequence !== authStateChangeSequence) return;
 
         await initializeAuthenticatedSession(user);
       } else {
+        closeTosModal(true);
+        resolveTosPendingWaiters(false);
+        tosPendingUserId = "";
+        showTosError("");
         stopSentRequestExpiryTicker();
         stopDailyChallengeWatcher();
         stopFriendInsightsWatcher();
@@ -3702,6 +3835,7 @@ try {
         stopStartupResetCountdown();
         startExportCooldown(0);
         startDisplayNameEditCooldown(0);
+        startVerificationCooldown(0);
         clearWaterGoalResetSchedule();
         clearSleepDailyResetSchedule();
         clearMoodDailyResetSchedule();
@@ -4377,6 +4511,18 @@ async function initializeAuthenticatedSession(user) {
   const sessionUserId = String(user?.uid || "").trim();
   if (!sessionUserId) return;
   clearAuthProgressMessage();
+
+  if (signInModal) signInModal.style.display = "none";
+  dashboard.style.display = "grid";
+  dashboard.classList.add("preload-shell");
+  accountBtn.style.display = "none";
+
+  const tosAccepted = await ensureTosAccepted(sessionUserId);
+  const activeUserAfterTos = auth.currentUser;
+  if (!tosAccepted || !activeUserAfterTos?.uid || activeUserAfterTos.uid !== sessionUserId) {
+    return;
+  }
+
   dashboard.style.display = "grid";
   dashboard.classList.add("preload-shell");
   setPageTitle("dashboard");
@@ -4673,6 +4819,11 @@ let welcomeGuideStepIndex = 0;
 let welcomeGuideUserId = "";
 let welcomeGuideCheckedThisSession = false;
 const WELCOME_GUIDE_VERSION = 1;
+const TOS_VERSION = "2026";
+let tosResolvePendingQueue = [];
+let tosPendingUserId = "";
+let authStateChangeSequence = 0;
+let authStateDelayTimer = null;
 const WELCOME_GUIDE_STEPS = [
   {
     title: "Dashboard Overview",
@@ -5246,6 +5397,86 @@ function openWelcomeGuideFromHelp() {
   const activeUserId = String(auth.currentUser?.uid || "").trim();
   closeAccountPanel();
   openWelcomeGuide(activeUserId);
+}
+
+function showTosError(message = "") {
+  if (!tosError) return;
+  tosError.innerText = String(message || "").trim();
+}
+
+function openTosModal(userId = "") {
+  if (!tosModal) return;
+  tosPendingUserId = String(userId || "").trim();
+  showTosError("");
+  if (tosAgreeBtn) tosAgreeBtn.disabled = false;
+  tosModal.style.display = "flex";
+  ensureAppBackGuardState("tos-gate", true);
+}
+
+function closeTosModal(force = false) {
+  if (!tosModal) return;
+  if (!force) return;
+  tosModal.style.display = "none";
+  ensureAppBackGuardState("tos-gate", false);
+}
+
+function resolveTosPendingWaiters(value) {
+  const waiters = Array.isArray(tosResolvePendingQueue)
+    ? [...tosResolvePendingQueue]
+    : [];
+  tosResolvePendingQueue = [];
+  waiters.forEach((resolve) => {
+    try {
+      if (typeof resolve === "function") resolve(value);
+    } catch (_) {}
+  });
+}
+
+async function acceptTosAgreement() {
+  const userId = String(tosPendingUserId || auth.currentUser?.uid || "").trim();
+  if (!userId) {
+    showTosError("Your session expired. Please sign in again.");
+    return;
+  }
+
+  if (tosAgreeBtn) tosAgreeBtn.disabled = true;
+  showTosError("");
+
+  try {
+    await setDoc(doc(db, "users", userId, "settings", "onboarding"), {
+      tosAccepted: true,
+      tosAcceptedAt: serverTimestamp(),
+      tosVersion: TOS_VERSION,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    closeTosModal(true);
+    tosPendingUserId = "";
+    resolveTosPendingWaiters(true);
+  } catch (err) {
+    notifyFirestoreError(err);
+    showTosError("Could not save agreement. Please try again.");
+  } finally {
+    if (tosAgreeBtn) tosAgreeBtn.disabled = false;
+  }
+}
+
+async function ensureTosAccepted(userId) {
+  const activeUserId = String(userId || "").trim();
+  if (!activeUserId) return false;
+
+  try {
+    const snap = await getDoc(doc(db, "users", activeUserId, "settings", "onboarding"));
+    const data = snap.exists() ? (snap.data() || {}) : {};
+    if (data.tosAccepted === true) return true;
+  } catch (_) {
+    // If onboarding read fails, keep gate visible and require explicit agree action.
+  }
+
+  openTosModal(activeUserId);
+  return await new Promise((resolve) => {
+    tosResolvePendingQueue.push(resolve);
+  });
 }
 
 function openReportRedirectConfirm() {
@@ -19338,6 +19569,7 @@ Object.assign(window, {
   nextWelcomeGuideStep,
   skipWelcomeGuide,
   openWelcomeGuideFromHelp,
+  acceptTosAgreement,
   openReportRedirectConfirm,
   closeReportRedirectConfirm,
   continueReportRedirect,
