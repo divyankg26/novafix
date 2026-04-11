@@ -7,25 +7,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="light">
 <meta name="supported-color-schemes" content="light">
+<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#ffffff">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="msapplication-navbutton-color" content="#ffffff">
 
 <style>
 :root{
   color-scheme:light only;
-  --waveA:#29b6f6;
-  --waveB:#26c6da;
-  --waveC:#4dd0e1;
-  --waveD:#64b5f6;
-  --waveE:#b2ebf2;
-  --primary:#3949ab;
-  --accent:#5c6bc0;
+  --app-bg:#c2b1fb;
+  --primary:#6b2d84;
+  --accent:#7d3c98;
   --glass:rgba(255,255,255,0.18);
   --glass-strong:rgba(255,255,255,0.24);
   --surface-1:rgba(255,255,255,0.11);
   --surface-2:rgba(255,255,255,0.16);
   --surface-dark:rgba(9,20,38,0.28);
   --border-soft:rgba(255,255,255,0.22);
-  --text:#fff;
-  --heading-dark-contrast:#1f2a7a;
+  --text:#ffffff;
   --motion-fast:.22s;
   --motion-medium:.34s;
   --ease-smooth:cubic-bezier(.22,.61,.36,1);
@@ -42,24 +42,17 @@ html,body{
 }
 
 body{
-  background:linear-gradient(130deg,var(--waveA),var(--waveB),var(--waveC),var(--waveD),var(--waveE));
-  background-size:420% 420%;
-  animation:waveMove 52s cubic-bezier(.43,.03,.57,.97) infinite;
+  background-color:#ffffff;
+  background-image:linear-gradient(0deg,var(--app-bg),var(--app-bg));
   overflow-x:hidden;
   -webkit-tap-highlight-color: transparent;
 }
 
 @media (prefers-color-scheme: dark){
   body{
-    background:linear-gradient(130deg,var(--waveA),var(--waveB),var(--waveC),var(--waveD),var(--waveE)) !important;
+    background-color:#ffffff !important;
+    background-image:linear-gradient(0deg,var(--app-bg),var(--app-bg)) !important;
   }
-}
-
-body.wave-light-headings .import-transfer-card h3,
-body.wave-light-headings .welcome-guide-title,
-body.wave-light-headings .welcome-guide-body h3,
-body.wave-light-headings .modal-content h2{
-  color:var(--heading-dark-contrast) !important;
 }
 
 body::before{
@@ -67,18 +60,8 @@ body::before{
   position:fixed;
   inset:0;
   pointer-events:none;
-  background:
-    radial-gradient(circle at 14% 18%, rgba(255,255,255,.18), transparent 42%),
-    radial-gradient(circle at 84% 72%, rgba(255,255,255,.12), transparent 45%);
+  background:none;
   z-index:0;
-}
-
-@keyframes waveMove{
-  0%{background-position:0% 35%}
-  25%{background-position:70% 45%}
-  50%{background-position:100% 65%}
-  75%{background-position:35% 75%}
-  100%{background-position:0% 35%}
 }
 
 /* SPLASH */
@@ -245,6 +228,17 @@ body::before{
   justify-content:center;
   align-items:center;
   z-index:10038;
+  padding:16px;
+}
+
+#reportRedirectConfirmModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.78);
+  justify-content:center;
+  align-items:center;
+  z-index:10039;
   padding:16px;
 }
 
@@ -679,7 +673,7 @@ header p{margin:8px 0 0;opacity:.94}
 .account-title{
   margin:0 0 4px;
   font-size:20px;
-  color:var(--primary);
+  color:#fff;
 }
 
 .account-subtitle{
@@ -797,6 +791,11 @@ header p{margin:8px 0 0;opacity:.94}
   text-align:center;
 }
 
+.account-transfer-box .export-actions button:only-child{
+  width:100%;
+  white-space:nowrap;
+}
+
 #exportDataBtn:disabled{
   background:rgba(160,160,160,.45) !important;
   color:rgba(255,255,255,.82);
@@ -826,6 +825,11 @@ header p{margin:8px 0 0;opacity:.94}
 .support-email-highlight{
   color:#7ec8ff;
   font-weight:600;
+}
+
+.mobile-device .account-tab-btn[data-account-tab="shortcuts"],
+.mobile-device .account-tab-panel[data-account-panel="shortcuts"]{
+  display:none !important;
 }
 
 @media (max-width: 640px){
@@ -1213,14 +1217,14 @@ textarea:focus-visible{
   margin-top:10px;
 }
 
-.bedtime-input-group :is(input,select,button){
+.bedtime-input-group :is(input,button){
   width:100%;
   max-width:100%;
   box-sizing:border-box;
   display:block;
 }
 
-.bedtime-input-group :is(input,select,button) + :is(input,select,button){
+.bedtime-input-group :is(input,button) + :is(input,button){
   margin-top:0;
 }
 
@@ -1232,8 +1236,7 @@ textarea:focus-visible{
 }
 
 #reminderUnit,
-#mood,
-#bedtimeMeridiem{
+#mood{
   -webkit-appearance:none;
   -moz-appearance:none;
   appearance:none;
@@ -1249,8 +1252,7 @@ textarea:focus-visible{
 }
 
 #reminderUnit option,
-#mood option,
-#bedtimeMeridiem option{
+#mood option{
   color:#111;
 }
 
@@ -2166,7 +2168,7 @@ textarea:focus-visible{
 
 <!-- SPLASH -->
 <div id="splash">
-  <img src="https://gcdnb.pbrd.co/images/xJrED7A8KAPz.png?o=1">
+  <img src="https://gcdnb.pbrd.co/images/R9dzcTLsE18r.png">
 </div>
 
 <!-- SIGN-IN / SIGN-UP MODAL -->
@@ -2299,15 +2301,26 @@ textarea:focus-visible{
     <div class="account-transfer-box">
       <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Bug Reporting</h4>
       <div class="export-actions" style="margin-bottom:8px;">
-        <button id="helpReportNowBtn" type="button" onclick="window.open('https://mail.google.com/mail/u/0/#inbox?compose=new', '_blank', 'noopener,noreferrer')">Report Now</button>
+        <button id="helpReportNowBtn" type="button" onclick="openReportRedirectConfirm()">Report Now</button>
       </div>
-      <p class="export-note" style="margin-top:0;text-align:left;">Found a bug or issue? Report it at <span style="color:#7ec8ff;">support.novafix@gmail.com</span> with a short description, what you expected, and what actually happened.</p>
+      <p class="export-note" style="margin-top:0;text-align:left;">Found a bug or issue? Report it at <span class="support-email-highlight">support.novafix@gmail.com</span> with a short description, what you expected, and what actually happened.</p>
     </div>
   </div>
 
 </div>
 
 <div id="accountOverlay" onclick="closeAccountPanel()"></div>
+
+<div id="reportRedirectConfirmModal" onclick="closeReportRedirectConfirm(event)">
+  <div class="import-transfer-card" onclick="event.stopPropagation()">
+    <h3>Redirect Confirmation</h3>
+    <p class="import-transfer-note">You will be redirected to the bug report page. Continue?</p>
+    <div class="import-transfer-actions">
+      <button type="button" class="import-transfer-cancel" onclick="closeReportRedirectConfirm()">Cancel</button>
+      <button type="button" onclick="continueReportRedirect()">Continue</button>
+    </div>
+  </div>
+</div>
 
 <div id="importTransferModal" onclick="closeImportTransferModal(event)">
   <div class="import-transfer-card" onclick="event.stopPropagation()">
@@ -2467,18 +2480,13 @@ textarea:focus-visible{
 <input type="number" id="sleepInput" placeholder="Hours" min="0.1" step="0.1">
 <button id="sleepSaveBtn" onclick="saveSleep()">Save</button>
 <div class="input-group bedtime-input-group">
-  <input id="bedtimeTimeInput" placeholder="Bed time (e.g. 8:30)">
-  <select id="bedtimeMeridiem" aria-label="Bed time unit">
-    <option value="">AM/PM</option>
-    <option value="AM">AM</option>
-    <option value="PM">PM</option>
-  </select>
+  <input id="bedtimeTimeInput" placeholder="Bed Time (in 24 hour format).">
   <button id="bedtimeSetBtn" onclick="setBedtimeReminder()">Set Bed Time</button>
 </div>
 <p id="bedtimeInputError" class="limit-note"></p>
 <p id="sleepResetCountdown" class="reset-hint reset-countdown-alert"></p>
 <p id="sleepLimitError" class="limit-note"></p>
-<button id="sleepClearBtn" class="water-clear-btn" onclick="clearSleepData()">Clear Sleep + Bed Time</button>
+<button id="sleepClearBtn" class="water-clear-btn" onclick="clearBedtimeData()">Clear Bed Time</button>
 <p id="sleepFriendInsight" class="friend-card-note">Friend benchmark: add a friend to compare sleep consistency.</p>
 <p id="sleepResult"></p>
 </div>
@@ -2807,6 +2815,7 @@ const accountOverlay = document.getElementById("accountOverlay");
 const accountPanel = document.getElementById("accountPanel");
 const accountTabButtons = Array.from(document.querySelectorAll(".account-tab-btn"));
 const accountTabPanels = Array.from(document.querySelectorAll(".account-tab-panel"));
+const reportRedirectConfirmModal = document.getElementById("reportRedirectConfirmModal");
 const importTransferModal = document.getElementById("importTransferModal");
 const importSourceEmailInput = document.getElementById("importSourceEmail");
 const importSourcePasswordInput = document.getElementById("importSourcePassword");
@@ -2911,7 +2920,6 @@ const waterGoalResetCountdown = document.getElementById("waterGoalResetCountdown
 const sleepInput = document.getElementById("sleepInput");
 const sleepSaveBtn = document.getElementById("sleepSaveBtn");
 const bedtimeTimeInput = document.getElementById("bedtimeTimeInput");
-const bedtimeMeridiem = document.getElementById("bedtimeMeridiem");
 const bedtimeSetBtn = document.getElementById("bedtimeSetBtn");
 const bedtimeInputError = document.getElementById("bedtimeInputError");
 const sleepResetCountdown = document.getElementById("sleepResetCountdown");
@@ -3023,6 +3031,11 @@ function closeTopLayerForSystemBack() {
 
   if (googleIdentityModal && googleIdentityModal.style.display === "flex") {
     closeGoogleIdentitySetupModal();
+    return true;
+  }
+
+  if (reportRedirectConfirmModal && reportRedirectConfirmModal.style.display === "flex") {
+    closeReportRedirectConfirm(null, true);
     return true;
   }
 
@@ -3340,6 +3353,10 @@ if (reminderUnit) {
 
 if (bedtimeTimeInput) {
   bedtimeTimeInput.addEventListener("input", () => {
+    const normalized = normalizeBedtimeTimeText(bedtimeTimeInput.value || "");
+    if (bedtimeTimeInput.value !== normalized) {
+      bedtimeTimeInput.value = normalized;
+    }
     bedtimeInputTouchedSinceSync = true;
     if (bedtimeInputError) {
       bedtimeInputError.innerText = "";
@@ -3347,16 +3364,19 @@ if (bedtimeTimeInput) {
     }
     updateBedtimeSetButtonState();
   });
-}
 
-if (bedtimeMeridiem) {
-  bedtimeMeridiem.addEventListener("change", () => {
-    bedtimeInputTouchedSinceSync = true;
-    if (bedtimeInputError) {
-      bedtimeInputError.innerText = "";
-      bedtimeInputError.classList.remove("show");
+  bedtimeTimeInput.addEventListener("keydown", async (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    const parsed = parseBedtimeInput(bedtimeTimeInput.value || "");
+    if (!parsed.ok) {
+      bedtimeInputTouchedSinceSync = true;
+      setBedtimeInputError(parsed.message);
+      updateBedtimeSetButtonState();
+      return;
     }
-    updateBedtimeSetButtonState();
+    if (bedtimeSetBtn?.disabled) return;
+    await setBedtimeReminder();
   });
 }
 
@@ -3558,7 +3578,7 @@ async function clearAllAccountData() {
     sleepResult.innerText = "";
     if (timeMirror) timeMirror.innerHTML = "";
     setTimeMirrorClearButtonState(false);
-    bedtimeSettings = { timeText: "", meridiem: "", enabled: false };
+    bedtimeSettings = { timeText: "", enabled: false };
     bedtimeReminderLastTriggeredKey = "";
     bedtimeInputTouchedSinceSync = false;
     bedtimeAllowUnchangedResubmit = false;
@@ -3567,7 +3587,6 @@ async function clearAllAccountData() {
       bedtimeReminderTimeoutId = null;
     }
     if (bedtimeTimeInput) bedtimeTimeInput.value = "";
-    if (bedtimeMeridiem) bedtimeMeridiem.value = "";
     if (bedtimeInputError) {
       bedtimeInputError.innerText = "";
       bedtimeInputError.classList.remove("show");
@@ -3688,7 +3707,7 @@ try {
         clearMoodDailyResetSchedule();
         clearBedtimeReminderSchedule();
         closeBedtimeReminderModal(null, true);
-        bedtimeSettings = { timeText: "", meridiem: "", enabled: false };
+        bedtimeSettings = { timeText: "", enabled: false };
         bedtimeReminderLastTriggeredKey = "";
         bedtimeInputTouchedSinceSync = false;
         bedtimeAllowUnchangedResubmit = false;
@@ -3722,7 +3741,6 @@ try {
         if (timeMirror) timeMirror.innerHTML = "";
         setTimeMirrorClearButtonState(false);
         if (bedtimeTimeInput) bedtimeTimeInput.value = "";
-        if (bedtimeMeridiem) bedtimeMeridiem.value = "";
         setBedtimeInputError("");
         wellnessScoreEl.innerText = "0/100";
         wellnessStatusEl.innerText = "Needs Focus";
@@ -3841,192 +3859,6 @@ try {
 
 setTimeout(hideSplash, 2000);
 initializeUniversalBackHandling();
-
-// ---------- COLOR WAVES ----------
-const waveSchemes = [
-  ["#2196f3", "#ff9800", "#00c9a7", "#ffd166", "#ff7f50"],
-  ["#00acc1", "#ffca28", "#43a047", "#ffb74d", "#1e88e5"],
-  ["#26c6da", "#8bc34a", "#ffb300", "#ff7043", "#1565c0"],
-  ["#00897b", "#ffa726", "#4fc3f7", "#9ccc65", "#ef6c00"],
-  ["#0277bd", "#66bb6a", "#ffb300", "#ff8a65", "#455a64"],
-  ["#1e88e5", "#7e57c2", "#f06292", "#26a69a", "#ffca28"],
-  ["#00796b", "#f9a825", "#29b6f6", "#aed581", "#f4511e"],
-  ["#00bcd4", "#c0ca33", "#ffb74d", "#42a5f5", "#6d4c41"],
-  ["#2e7d32", "#ffb300", "#4dd0e1", "#ff7043", "#5c6bc0"],
-  ["#039be5", "#9ccc65", "#ffa000", "#26a69a", "#8d6e63"],
-  ["#1565c0", "#66bb6a", "#ffca28", "#26c6da", "#e65100"],
-  ["#3949ab", "#ab47bc", "#ec407a", "#26a69a", "#ffb300"],
-  ["#00838f", "#fbc02d", "#4caf50", "#ff8a65", "#42a5f5"],
-  ["#0d47a1", "#8bc34a", "#ffb74d", "#00acc1", "#bf360c"],
-  ["#26a69a", "#ffa000", "#64b5f6", "#9ccc65", "#ef5350"],
-  ["#1976d2", "#7cb342", "#ffca28", "#00bfa5", "#ff7043"],
-  ["#00695c", "#ffb74d", "#4dd0e1", "#c0ca33", "#1e88e5"],
-  ["#5e35b1", "#f06292", "#26c6da", "#ffca28", "#43a047"],
-  ["#0277bd", "#f57c00", "#80cbc4", "#aed581", "#ff8a65"],
-  ["#004d40", "#ffb300", "#29b6f6", "#9ccc65", "#ef6c00"],
-  ["#1b5e20", "#ff8a65", "#4fc3f7", "#fdd835", "#455a64"],
-  ["#0097a7", "#d4e157", "#ffb74d", "#1e88e5", "#6d4c41"],
-  ["#1565c0", "#ffb300", "#26a69a", "#ffd54f", "#ff7043"],
-  ["#303f9f", "#ce93d8", "#ff80ab", "#26a69a", "#ffca28"]
-];
-let w = 1;
-let [currentWaveA, currentWaveB, currentWaveC, currentWaveD, currentWaveE] = waveSchemes[0];
-let waveAnimationId = null;
-let waveLightHeadingMode = false;
-const WAVE_HOLD_MS = 14000;
-const WAVE_TRANSITION_MS = 18000;
-
-function hexToRgb(hex) {
-  const normalized = hex.replace("#", "");
-  const value = normalized.length === 3
-    ? normalized.split("").map((char) => char + char).join("")
-    : normalized;
-  const parsed = Number.parseInt(value, 16);
-  return {
-    r: (parsed >> 16) & 255,
-    g: (parsed >> 8) & 255,
-    b: parsed & 255
-  };
-}
-
-function rgbToHex({ r, g, b }) {
-  const toHex = (value) => Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, "0");
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
-
-function lerp(start, end, progress) {
-  return start + (end - start) * progress;
-}
-
-function toSrgbLinear(channel) {
-  const value = Math.max(0, Math.min(255, Number(channel) || 0)) / 255;
-  return value <= 0.04045
-    ? (value / 12.92)
-    : Math.pow((value + 0.055) / 1.055, 2.4);
-}
-
-function getRelativeLuminanceFromHex(hex) {
-  const { r, g, b } = hexToRgb(hex);
-  const red = toSrgbLinear(r);
-  const green = toSrgbLinear(g);
-  const blue = toSrgbLinear(b);
-  return (0.2126 * red) + (0.7152 * green) + (0.0722 * blue);
-}
-
-function updateAdaptiveTextContrast(colorA, colorB, colorC, colorD, colorE) {
-  const colors = [colorA, colorB, colorC, colorD, colorE].filter(Boolean);
-  if (!colors.length) return;
-
-  const luminances = colors.map((color) => getRelativeLuminanceFromHex(color));
-  const avgLuminance = luminances.reduce((sum, value) => sum + value, 0) / luminances.length;
-  const maxLuminance = Math.max(...luminances);
-
-  const shouldEnterLightMode = avgLuminance >= 0.6 || (avgLuminance >= 0.56 && maxLuminance >= 0.72);
-  const shouldExitLightMode = avgLuminance <= 0.5 && maxLuminance <= 0.66;
-
-  if (!waveLightHeadingMode && shouldEnterLightMode) {
-    waveLightHeadingMode = true;
-  } else if (waveLightHeadingMode && shouldExitLightMode) {
-    waveLightHeadingMode = false;
-  }
-
-  if (document.body) {
-    document.body.classList.toggle("wave-light-headings", waveLightHeadingMode);
-  }
-}
-
-function setWaveColors(colorA, colorB, colorC, colorD, colorE) {
-  document.documentElement.style.setProperty("--waveA", colorA);
-  document.documentElement.style.setProperty("--waveB", colorB);
-  document.documentElement.style.setProperty("--waveC", colorC);
-  document.documentElement.style.setProperty("--waveD", colorD);
-  document.documentElement.style.setProperty("--waveE", colorE);
-  document.documentElement.style.setProperty("--primary", colorA);
-  document.documentElement.style.setProperty("--accent", colorB);
-  updateAdaptiveTextContrast(colorA, colorB, colorC, colorD, colorE);
-}
-
-function animateWaveTo(targetScheme, durationMs) {
-  if (waveAnimationId) cancelAnimationFrame(waveAnimationId);
-
-  const [targetA, targetB, targetC, targetD, targetE] = targetScheme;
-
-  const startA = hexToRgb(currentWaveA);
-  const startB = hexToRgb(currentWaveB);
-  const startC = hexToRgb(currentWaveC);
-  const startD = hexToRgb(currentWaveD);
-  const startE = hexToRgb(currentWaveE);
-  const endA = hexToRgb(targetA);
-  const endB = hexToRgb(targetB);
-  const endC = hexToRgb(targetC);
-  const endD = hexToRgb(targetD);
-  const endE = hexToRgb(targetE);
-  const startTime = performance.now();
-
-  const tick = (now) => {
-    const elapsed = now - startTime;
-    const progress = Math.min(1, elapsed / durationMs);
-    const eased = progress * progress * progress * (progress * (progress * 6 - 15) + 10);
-
-    const nextA = rgbToHex({
-      r: lerp(startA.r, endA.r, eased),
-      g: lerp(startA.g, endA.g, eased),
-      b: lerp(startA.b, endA.b, eased)
-    });
-
-    const nextB = rgbToHex({
-      r: lerp(startB.r, endB.r, eased),
-      g: lerp(startB.g, endB.g, eased),
-      b: lerp(startB.b, endB.b, eased)
-    });
-
-    const nextC = rgbToHex({
-      r: lerp(startC.r, endC.r, eased),
-      g: lerp(startC.g, endC.g, eased),
-      b: lerp(startC.b, endC.b, eased)
-    });
-
-    const nextD = rgbToHex({
-      r: lerp(startD.r, endD.r, eased),
-      g: lerp(startD.g, endD.g, eased),
-      b: lerp(startD.b, endD.b, eased)
-    });
-
-    const nextE = rgbToHex({
-      r: lerp(startE.r, endE.r, eased),
-      g: lerp(startE.g, endE.g, eased),
-      b: lerp(startE.b, endE.b, eased)
-    });
-
-    setWaveColors(nextA, nextB, nextC, nextD, nextE);
-
-    if (progress < 1) {
-      waveAnimationId = requestAnimationFrame(tick);
-      return;
-    }
-
-    currentWaveA = targetA;
-    currentWaveB = targetB;
-    currentWaveC = targetC;
-    currentWaveD = targetD;
-    currentWaveE = targetE;
-    setTimeout(rotateWave, WAVE_HOLD_MS);
-  };
-
-  waveAnimationId = requestAnimationFrame(tick);
-}
-
-function rotateWave() {
-  if (waveSchemes.length <= 1) return;
-  const targetScheme = waveSchemes[w];
-  w = (w + 1) % waveSchemes.length;
-  animateWaveTo(targetScheme, WAVE_TRANSITION_MS);
-}
-
-setWaveColors(currentWaveA, currentWaveB, currentWaveC, currentWaveD, currentWaveE);
-if (waveSchemes.length > 1) {
-  setTimeout(rotateWave, WAVE_HOLD_MS);
-}
 
 // ---------- SIGN-IN / SIGN-UP ----------
 let authMode="signin";
@@ -4808,10 +4640,11 @@ const IS_MOBILE_DEVICE = (() => {
   const mobileUa = /(android|iphone|ipad|ipod|mobile|phone|windows\s+phone)/i.test(String(navigator.userAgent || ""));
   const hasTouch = Number(navigator.maxTouchPoints || 0) > 1;
   const narrowScreen = typeof window !== "undefined"
-    ? (window.matchMedia?.("(max-width: 900px)")?.matches || window.innerWidth <= 900)
+    ? (window.matchMedia?.("(max-width: 900px)")?.matches || Math.min(window.innerWidth, window.innerHeight) <= 900)
     : false;
   return mobileUa || (hasTouch && narrowScreen);
 })();
+document.documentElement.classList.toggle("mobile-device", IS_MOBILE_DEVICE);
 const SHORTCUT_MOD_LABEL = IS_MAC_OS ? "Option" : "Alt";
 const CARD_SHORTCUTS = [
   { cardIndex: 0, keys: ["a", "i"], label: "AI Companion" },
@@ -5413,6 +5246,23 @@ function openWelcomeGuideFromHelp() {
   const activeUserId = String(auth.currentUser?.uid || "").trim();
   closeAccountPanel();
   openWelcomeGuide(activeUserId);
+}
+
+function openReportRedirectConfirm() {
+  if (!reportRedirectConfirmModal) return;
+  reportRedirectConfirmModal.style.display = "flex";
+  ensureAppBackGuardState("report-redirect-confirm", true);
+}
+
+function closeReportRedirectConfirm(event, force = false) {
+  if (!reportRedirectConfirmModal) return;
+  if (!force && event && event.target !== reportRedirectConfirmModal) return;
+  reportRedirectConfirmModal.style.display = "none";
+}
+
+function continueReportRedirect() {
+  closeReportRedirectConfirm(null, true);
+  window.open("https://mail.google.com/mail/u/0/#inbox", "_blank", "noopener,noreferrer");
 }
 
 async function maybeShowWelcomeGuide(userId) {
@@ -9642,7 +9492,6 @@ let bedtimeReminderTimeoutId = null;
 let bedtimeReminderLastTriggeredKey = "";
 let bedtimeSettings = {
   timeText: "",
-  meridiem: "",
   enabled: false
 };
 let bedtimeInputTouchedSinceSync = false;
@@ -15690,16 +15539,12 @@ async function tryAiAction(input, user, options = {}) {
     || msg.match(/^(?:bed\s*time|bedtime|sleep\s*time|down\s*time|downtime)\s*[:\-]?\s*(\d{1,2}:\d{2})(?:\s*(am|pm))?/i);
   if (bedtimeCommandMatch?.[1]) {
     const aiTime = bedtimeCommandMatch[1];
-    const aiMeridiem = normalizeBedtimeMeridiem(bedtimeCommandMatch[2] || "");
-    if (!aiMeridiem) {
-      return "ℹ️ Include AM or PM too, like: set bedtime 8:30 PM.";
-    }
-    const bedtimeResult = await setBedtimeReminder(aiTime, aiMeridiem);
+    const bedtimeResult = await setBedtimeReminder(aiTime, bedtimeCommandMatch[2] || "");
     if (!bedtimeResult.ok) return `ℹ️ ${bedtimeResult.message}`;
     return `✅ Bed time set to ${bedtimeResult.label}. I will remind you in-app at that time.`;
   }
   if (/(?:set|save|update|add)\b.*\b(?:bed\s*time|bedtime|sleep\s*time|down\s*time|downtime)\b/i.test(msg) && !bedtimeCommandMatch) {
-    return "ℹ️ Use format HH:MM with AM/PM, like: set sleep time 10:30 PM.";
+    return "ℹ️ Use 24-hour format HH:MM, like: set sleep time 22:30.";
   }
 
   const sleepMatch = lower.match(/(?:log|save|track|set)\s+(?:my\s+)?sleep\s*(?:to\s+|for\s+)?(\d+(?:\.\d+)?)\s*(?:h|hr|hrs|hour|hours)?(?:\s+of\s+sleep)?(?:\s+right\s+now)?/i)
@@ -17711,33 +17556,82 @@ function normalizeBedtimeMeridiem(value) {
   return "";
 }
 
-function parseBedtimeInput(timeText, meridiemValue) {
-  const safeTime = String(timeText || "").trim();
-  const meridiem = normalizeBedtimeMeridiem(meridiemValue);
-  const match = safeTime.match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) {
-    return { ok: false, message: "Use bedtime format HH:MM, for example 8:30." };
+function normalizeBedtimeTimeText(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  const filtered = raw.replace(/[^\d:]/g, "");
+  const firstColonIndex = filtered.indexOf(":");
+
+  const normalizeMinutePart = (valuePart) => {
+    const digits = String(valuePart || "").replace(/\D/g, "").slice(0, 2);
+    if (digits.length <= 1) return digits;
+    if (Number(digits[0]) > 5) return digits[0];
+    return digits;
+  };
+
+  const normalizeHourPart = (valuePart) => {
+    const digits = String(valuePart || "").replace(/\D/g, "").slice(0, 2);
+    if (digits.length <= 1) return digits;
+    if (Number(digits[0]) > 2) return digits[0];
+    if (Number(digits[0]) === 2 && Number(digits[1]) > 3) return digits[0];
+    return digits;
+  };
+
+  if (firstColonIndex !== -1) {
+    const hourPart = normalizeHourPart(filtered.slice(0, firstColonIndex));
+    if (!hourPart) return "";
+    const minutePart = normalizeMinutePart(filtered.slice(firstColonIndex + 1));
+    return minutePart.length ? `${hourPart}:${minutePart}` : `${hourPart}:`;
   }
 
-  const hour = Number(match[1]);
+  const digits = filtered.replace(/\D/g, "").slice(0, 4);
+  if (!digits) return "";
+  if (digits.length === 1) return digits;
+  if (digits.length === 2) {
+    return normalizeHourPart(digits);
+  }
+
+  const firstTwo = digits.slice(0, 2);
+  const normalizedFirstTwo = normalizeHourPart(firstTwo);
+  const useTwoDigitHour = normalizedFirstTwo.length === 2;
+  const hourPart = useTwoDigitHour ? normalizedFirstTwo : normalizeHourPart(digits[0]);
+  const minuteSource = useTwoDigitHour ? digits.slice(2) : digits.slice(1, 3);
+
+  const minutePart = normalizeMinutePart(minuteSource);
+  return minutePart.length ? `${hourPart}:${minutePart}` : `${hourPart}:`;
+}
+
+function parseBedtimeInput(timeText, meridiemValue = "") {
+  const safeTime = normalizeBedtimeTimeText(timeText);
+  const legacyMeridiem = normalizeBedtimeMeridiem(meridiemValue);
+  const match = safeTime.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) {
+    return { ok: false, message: "Use bedtime format HH:MM (24h), for example 21:30." };
+  }
+
+  let hour = Number(match[1]);
   const minute = Number(match[2]);
-  if (!Number.isInteger(hour) || hour < 1 || hour > 12) {
-    return { ok: false, message: "Bedtime hour must be between 1 and 12." };
+
+  // Legacy migration support: convert stored/input 12h values when AM/PM exists.
+  if (legacyMeridiem && Number.isInteger(hour) && hour >= 1 && hour <= 12) {
+    hour = (hour % 12) + (legacyMeridiem === "PM" ? 12 : 0);
+  }
+
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23) {
+    return { ok: false, message: "Bedtime hour must be between 00 and 23." };
   }
   if (!Number.isInteger(minute) || minute < 0 || minute > 59) {
     return { ok: false, message: "Bedtime minutes must be between 00 and 59." };
   }
-  if (!meridiem) {
-    return { ok: false, message: "Select AM or PM for bedtime." };
-  }
 
+  const formattedTime = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
   return {
     ok: true,
     hour,
     minute,
-    meridiem,
-    formattedTime: `${hour}:${String(minute).padStart(2, "0")}`,
-    label: `${hour}:${String(minute).padStart(2, "0")} ${meridiem}`
+    formattedTime,
+    label: formattedTime
   };
 }
 
@@ -17769,21 +17663,19 @@ function updateBedtimeSetButtonState() {
   if (!bedtimeSetBtn) return;
 
   const timeText = String(bedtimeTimeInput?.value || "").trim();
-  const meridiem = normalizeBedtimeMeridiem(bedtimeMeridiem?.value || "");
-  const currentParsed = parseBedtimeInput(timeText, meridiem);
+  const currentParsed = parseBedtimeInput(timeText);
 
   if (!currentParsed.ok) {
     bedtimeSetBtn.disabled = true;
-    bedtimeSetBtn.title = "Enter a valid bedtime and AM/PM to set.";
+    bedtimeSetBtn.title = "Enter a valid 24-hour bedtime to set.";
     clearBedtimeAlreadySetMessage();
     return;
   }
 
-  const storedParsed = parseBedtimeInput(bedtimeSettings?.timeText || "", bedtimeSettings?.meridiem || "");
+  const storedParsed = parseBedtimeInput(bedtimeSettings?.timeText || "");
   const hasStoredBedtime = !!bedtimeSettings?.enabled && storedParsed.ok;
   const unchanged = hasStoredBedtime
-    && currentParsed.formattedTime === storedParsed.formattedTime
-    && currentParsed.meridiem === storedParsed.meridiem;
+    && currentParsed.formattedTime === storedParsed.formattedTime;
 
   if (unchanged) {
     if (bedtimeInputTouchedSinceSync) {
@@ -17810,8 +17702,8 @@ function closeBedtimeReminderModal(event, force = false) {
 
 function openBedtimeReminderModal() {
   if (!bedtimeReminderModal || !bedtimeReminderPreview) return;
-  const label = bedtimeSettings?.timeText && bedtimeSettings?.meridiem
-    ? `${bedtimeSettings.timeText} ${bedtimeSettings.meridiem}`
+  const label = bedtimeSettings?.timeText
+    ? bedtimeSettings.timeText
     : "your scheduled bedtime";
   bedtimeReminderPreview.innerHTML = `
     <div class="friend-row">
@@ -17836,13 +17728,12 @@ function scheduleBedtimeReminder() {
   clearBedtimeReminderSchedule();
   if (!bedtimeSettings?.enabled) return;
 
-  const parsed = parseBedtimeInput(bedtimeSettings.timeText, bedtimeSettings.meridiem);
+  const parsed = parseBedtimeInput(bedtimeSettings.timeText);
   if (!parsed.ok) return;
 
   const now = getServerNowDate();
   const target = new Date(now);
-  const hour24 = parsed.hour % 12 + (parsed.meridiem === "PM" ? 12 : 0);
-  target.setHours(hour24, parsed.minute, 0, 0);
+  target.setHours(parsed.hour, parsed.minute, 0, 0);
   if (target.getTime() <= now.getTime()) {
     target.setDate(target.getDate() + 1);
   }
@@ -17860,12 +17751,11 @@ function scheduleBedtimeReminder() {
 }
 
 async function loadBedtimeSettings(userId) {
-  bedtimeSettings = { timeText: "", meridiem: "", enabled: false };
+  bedtimeSettings = { timeText: "", enabled: false };
   bedtimeReminderLastTriggeredKey = "";
   bedtimeInputTouchedSinceSync = false;
   bedtimeAllowUnchangedResubmit = false;
   if (bedtimeTimeInput) bedtimeTimeInput.value = "";
-  if (bedtimeMeridiem) bedtimeMeridiem.value = "";
   setBedtimeInputError("");
   updateBedtimeSetButtonState();
   closeBedtimeReminderModal(null, true);
@@ -17883,12 +17773,10 @@ async function loadBedtimeSettings(userId) {
 
     bedtimeSettings = {
       timeText: parsed.formattedTime,
-      meridiem: parsed.meridiem,
       enabled: true
     };
 
-    if (bedtimeTimeInput) bedtimeTimeInput.value = parsed.formattedTime;
-    if (bedtimeMeridiem) bedtimeMeridiem.value = parsed.meridiem;
+    if (bedtimeTimeInput) bedtimeTimeInput.value = "";
     bedtimeInputTouchedSinceSync = false;
     bedtimeAllowUnchangedResubmit = false;
     scheduleBedtimeReminder();
@@ -17907,8 +17795,7 @@ async function setBedtimeReminder(timeOverride = "", meridiemOverride = "") {
   }
 
   const timeText = String(timeOverride || bedtimeTimeInput?.value || "").trim();
-  const meridiem = normalizeBedtimeMeridiem(meridiemOverride || bedtimeMeridiem?.value || "");
-  const parsed = parseBedtimeInput(timeText, meridiem);
+  const parsed = parseBedtimeInput(timeText, meridiemOverride || "");
   if (!parsed.ok) {
     setBedtimeInputError(parsed.message);
     updateBedtimeSetButtonState();
@@ -17921,19 +17808,17 @@ async function setBedtimeReminder(timeOverride = "", meridiemOverride = "") {
     await setDoc(doc(db, "users", user.uid, "settings", "sleep"), {
       bedtimeEnabled: true,
       bedtimeTime: parsed.formattedTime,
-      bedtimeMeridiem: parsed.meridiem,
+      bedtimeMeridiem: "",
       updatedAt: serverTimestamp(),
       updatedAtMs: Date.now()
     }, { merge: true });
 
     bedtimeSettings = {
       timeText: parsed.formattedTime,
-      meridiem: parsed.meridiem,
       enabled: true
     };
 
-    if (bedtimeTimeInput) bedtimeTimeInput.value = parsed.formattedTime;
-    if (bedtimeMeridiem) bedtimeMeridiem.value = parsed.meridiem;
+    if (bedtimeTimeInput) bedtimeTimeInput.value = "";
     bedtimeReminderLastTriggeredKey = "";
     bedtimeInputTouchedSinceSync = false;
     bedtimeAllowUnchangedResubmit = false;
@@ -18063,17 +17948,13 @@ async function clearSleepData() {
   if (sleepInput) sleepInput.value = "";
   if (sleepResult) sleepResult.innerText = "";
 
-  bedtimeSettings = { timeText: "", meridiem: "", enabled: false };
+  bedtimeSettings = { timeText: "", enabled: false };
   bedtimeReminderLastTriggeredKey = "";
   bedtimeInputTouchedSinceSync = false;
   bedtimeAllowUnchangedResubmit = false;
   clearBedtimeReminderSchedule();
   closeBedtimeReminderModal(null, true);
   if (bedtimeTimeInput) bedtimeTimeInput.value = "";
-  if (bedtimeMeridiem) {
-    bedtimeMeridiem.value = "";
-    bedtimeMeridiem.selectedIndex = 0;
-  }
   setBedtimeInputError("");
   updateBedtimeSetButtonState();
   updateSleepLimitUI();
@@ -18085,6 +17966,40 @@ async function clearSleepData() {
       deleteDoc(doc(db, "users", user.uid, "settings", "sleep"))
     ]);
     showToast("Sleep logs and bed time reminder cleared.");
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+}
+
+async function clearBedtimeData() {
+  const user = auth.currentUser;
+  if (!user?.uid) {
+    showToast("Please sign in first.");
+    return;
+  }
+
+  const shouldClear = confirm("Clear your bed time reminder?");
+  if (!shouldClear) return;
+
+  bedtimeSettings = { timeText: "", enabled: false };
+  bedtimeReminderLastTriggeredKey = "";
+  bedtimeInputTouchedSinceSync = false;
+  bedtimeAllowUnchangedResubmit = false;
+  clearBedtimeReminderSchedule();
+  closeBedtimeReminderModal(null, true);
+  if (bedtimeTimeInput) bedtimeTimeInput.value = "";
+  setBedtimeInputError("");
+  updateBedtimeSetButtonState();
+
+  try {
+    await setDoc(doc(db, "users", user.uid, "settings", "sleep"), {
+      bedtimeEnabled: false,
+      bedtimeTime: "",
+      bedtimeMeridiem: "",
+      updatedAt: serverTimestamp(),
+      updatedAtMs: Date.now()
+    }, { merge: true });
+    showToast("Bed time reminder cleared.");
   } catch (err) {
     notifyFirestoreError(err);
   }
@@ -19106,7 +19021,7 @@ async function applyImportPayloadToCurrentUser(user, payload) {
     await setDoc(doc(db, "users", user.uid, "settings", "sleep"), {
       bedtimeEnabled: !!payload.sleepSettings.bedtimeEnabled,
       bedtimeTime: String(payload.sleepSettings.bedtimeTime || ""),
-      bedtimeMeridiem: normalizeBedtimeMeridiem(payload.sleepSettings.bedtimeMeridiem || "")
+      bedtimeMeridiem: ""
     }, { merge: true });
   }
 
@@ -19402,6 +19317,7 @@ Object.assign(window, {
   clearWaterData,
   saveSleep,
   clearSleepData,
+  clearBedtimeData,
   setBedtimeReminder,
   closeBedtimeReminderModal,
   clearTimeMirror,
@@ -19422,6 +19338,9 @@ Object.assign(window, {
   nextWelcomeGuideStep,
   skipWelcomeGuide,
   openWelcomeGuideFromHelp,
+  openReportRedirectConfirm,
+  closeReportRedirectConfirm,
+  continueReportRedirect,
   handleGoogleAuth,
   submitGoogleIdentitySetup,
   cancelGoogleIdentitySetup,
