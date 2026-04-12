@@ -6,6 +6,7 @@ NovaFix currently supports the following versions:
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 11.2.1  | :white_check_mark: |
 | 11.1.0  | :white_check_mark: |
 | 11.0.0  | :white_check_mark: |
 |< 11.0.0 | :x:                |
