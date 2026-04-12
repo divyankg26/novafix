@@ -2,16 +2,16 @@
 
 ## Supported Versions
 
-NovaFix supports the following versions:
+NovaFix currently supports the following versions:
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 10.6.2  | :white_check_mark: |
-| 10.5.3  | :x:                |
-| < 10.0  | :x:                |
+| 11.1.0  | :white_check_mark: |
+| 11.0.0  | :white_check_mark: |
+|< 11.0.0 | :x:                |
 
 ## Reporting a Vulnerability
 
 Vulnerabilities can be reported by contacting:
 
-goyal.divyank2012@gmail.com
+support.novafix@gmail.com
