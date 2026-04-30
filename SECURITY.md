@@ -8,7 +8,7 @@ NovaFix currently supports the following versions:
 | ------- | ------------------ |
 | 11.3.1  | :white_check_mark: |
 | 11.2.1  | :white_check_mark: |
-| 11.1.0  | :x:                |
+| 11.1.0  | :warning:                |
 | 11.0.0  | :x:                |
 |< 11.0.0 | :x:                |
 
