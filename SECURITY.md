@@ -8,7 +8,7 @@ NovaFix currently supports the following versions:
 | ------- | ------------------ |
 | 11.3.1  | :white_check_mark: |
 | 11.2.1  | :white_check_mark: |
-| 11.1.0  | :warning:                |
+| 11.1.0  | :warning:          |
 | 11.0.0  | :x:                |
 |< 11.0.0 | :x:                |
 
@@ -17,3 +17,7 @@ NovaFix currently supports the following versions:
 Vulnerabilities can be reported by contacting:
 
 support.novafix@gmail.com
+
+:white_check_mark: Fully supported  
+:warning: Security fixes only  
+:x: No longer supported  
