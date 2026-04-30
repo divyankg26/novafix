@@ -4,8 +4,6 @@
 
 NovaFix currently supports the following versions:
 
-Legend:
-
 :white_check_mark: Fully supported  
 :warning: Security fixes only  
 :x: No longer supported  
