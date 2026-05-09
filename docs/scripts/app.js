@@ -831,7 +831,7 @@ const accountPanel = document.getElementById("accountPanel");
 const accountTabButtons = Array.from(document.querySelectorAll(".account-tab-btn"));
 const accountTabPanels = Array.from(document.querySelectorAll(".account-tab-panel"));
 const friendsTabBtn = accountTabButtons.find((buttonEl) => String(buttonEl?.dataset?.accountTab || "").trim().toLowerCase() === "friends") || null;
-const APP_VERSION = "v11.3.1";
+const APP_VERSION = "v11.3.2";
 const aboutAppVersion = document.getElementById("aboutAppVersion");
 const reportRedirectConfirmModal = document.getElementById("reportRedirectConfirmModal");
 const importTransferModal = document.getElementById("importTransferModal");
@@ -11528,6 +11528,32 @@ function updateWellnessScore() {
   const actionBoost = Math.max(0, Number(wellnessActionBoost) || 0);
   const totalScore = Math.max(0, Math.min(100, waterPoints + sleepPoints + moodPoints + taskPoints + gratitudePoints + challengePoints + actionBoost));
 
+  const waterGap = Math.max(0, effectiveWaterGoal - waterToday);
+  const waterGapSeverity = waterGap > 0 ? Math.min(1, waterGap / Math.max(1, effectiveWaterGoal)) : 0;
+  const sleepGapSeverity = sleepToday < 7 ? Math.min(1, (7 - sleepToday) / 7) : 0;
+  const taskGapSeverity = taskRatio < 0.7 ? Math.min(1, 0.7 - taskRatio) : 0;
+  const moodGapSeverity = !moodMeta.logged
+    ? 1
+    : moodMeta.label === "Angry"
+      ? 0.95
+      : moodMeta.label === "Stressed"
+        ? 0.85
+        : moodMeta.label === "Low"
+          ? 0.7
+          : moodMeta.label === "Neutral"
+            ? 0.2
+            : 0;
+  const gratitudeGapSeverity = hasGratitudeToday ? 0 : 0.45;
+  const challengeGapSeverity = dailyChallengeCompleted ? 0 : 0.5;
+  const biggestOtherGapSeverity = Math.max(
+    sleepGapSeverity,
+    taskGapSeverity,
+    moodGapSeverity,
+    gratitudeGapSeverity,
+    challengeGapSeverity
+  );
+  const waterIsBiggestGap = waterGapSeverity > 0 && waterGapSeverity >= biggestOtherGapSeverity;
+
   wellnessScoreEl.innerText = `${totalScore}/100`;
 
   let status = "Needs Focus";
@@ -11542,62 +11568,121 @@ function updateWellnessScore() {
   }
 
   const rankedActions = [];
-  const addRankedAction = (text, urgency, ease, stateFit = 0) => {
+  const addRankedAction = (text, urgency, ease, stateFit = 0, category = text) => {
     const score = (Number(urgency) || 0) * 2 + (Number(ease) || 0) + (Number(stateFit) || 0);
     rankedActions.push({
       text,
+      category,
       score,
       urgency: Number(urgency) || 0
     });
   };
 
   if (!moodMeta.logged) {
-    addRankedAction("Log your mood right now.", 10, 10, 2);
+    addRankedAction("Log your mood right now.", 10, 10, 3, "mood");
   } else if (moodMeta.label === "Angry") {
-    addRankedAction("Run a 2-minute rescue now before continuing work.", 10, 9, 4);
+    addRankedAction("Run a 2-minute rescue now before continuing work.", 10, 9, 4, "mood");
   } else if (moodMeta.label === "Stressed") {
-    addRankedAction("Take a 2-minute breathing reset before your next task.", 9, 9, 4);
+    addRankedAction("Take a 2-minute breathing reset before your next task.", 9, 9, 4, "mood");
   } else if (moodMeta.label === "Low") {
-    addRankedAction("Take a 10-minute walk or breathing reset now.", 8, 7, 3);
+    addRankedAction("Take a 10-minute walk or breathing reset now.", 8, 7, 3, "mood");
+  } else if (moodMeta.label === "Neutral") {
+    addRankedAction("Use one calming reset to keep your mood steady.", 4, 9, 1, "mood");
   }
 
   if (waterRatio < 1) {
+    const remaining = Math.max(0, effectiveWaterGoal - waterToday);
     if (hasCustomWaterGoal) {
-      const remaining = Math.max(0, effectiveWaterGoal - waterToday);
-      addRankedAction(`Drink ${remaining} more glass${remaining === 1 ? "" : "es"} to hit your goal.`, waterRatio < 0.5 ? 9 : 7, 9, 2);
+      addRankedAction(
+        `Drink ${remaining} more glass${remaining === 1 ? "" : "es"} to hit your goal.`,
+        waterIsBiggestGap ? (waterToday === 0 ? 8 : remaining <= 2 ? 7 : 6) : 3,
+        waterIsBiggestGap ? (waterToday === 0 ? 10 : 7) : 8,
+        2,
+        "water"
+      );
     } else {
-      addRankedAction("Log one more glass of water to support hydration.", 7, 9, 2);
+      addRankedAction(
+        waterToday === 0
+          ? "Log one glass of water to start hydration."
+          : "Drink one more glass of water to keep hydration moving.",
+        waterIsBiggestGap ? (waterToday === 0 ? 7 : 5) : 2,
+        waterIsBiggestGap ? (waterToday === 0 ? 10 : 7) : 8,
+        2,
+        "water"
+      );
     }
   }
 
   if (sleepToday < 7) {
-    addRankedAction("Set tonight’s sleep target to at least 7-8 hours.", sleepToday <= 5 ? 8 : 6, 5, 1);
+    addRankedAction(
+      sleepToday > 0
+        ? "Protect your sleep window tonight so tomorrow feels easier."
+        : "Set tonight’s sleep target to at least 7-8 hours.",
+      sleepToday <= 5 ? 8 : 6,
+      5,
+      1,
+      "sleep"
+    );
   }
 
   if (taskRatio < 0.7) {
     const pendingCount = Math.max(0, totalTasks - doneTasks);
-    addRankedAction("Complete your top pending task now.", pendingCount >= 5 ? 8 : 6, 7, 2);
+    addRankedAction(
+      pendingCount > 0
+        ? pendingCount === 1
+          ? "Complete your top pending task now."
+          : `Complete one of your ${pendingCount} pending tasks now.`
+        : "Add a small task so today has one clear win.",
+      pendingCount >= 5 ? 8 : 6,
+      7,
+      2,
+      "tasks"
+    );
   }
 
-  if (!hasGratitudeToday) addRankedAction("Write one gratitude note now.", 5, 9, 1);
-  if (!dailyChallengeCompleted) addRankedAction("Complete today’s daily challenge.", 6, 6, 1);
+  if (!hasGratitudeToday) addRankedAction("Write one gratitude note now.", 5, 9, 1, "gratitude");
+  if (!dailyChallengeCompleted) addRankedAction("Complete today’s daily challenge.", 6, 6, 1, "challenge");
+
+  if (waterToday > 0 && moodMeta.logged && !hasGratitudeToday) {
+    addRankedAction("Stack a gratitude note after your last check-in.", 4, 9, 1, "gratitude");
+  }
+
+  if (moodMeta.logged && !dailyChallengeCompleted && taskRatio >= 0.7) {
+    addRankedAction("Finish today’s daily challenge to lock the streak.", 5, 7, 1, "challenge");
+  }
 
   if (!rankedActions.length) {
-    addRankedAction("Protect momentum with one quick check-in now.", 6, 10, 2);
-    addRankedAction("Finish one small task before your next break.", 5, 8, 1);
-    addRankedAction("Hydrate once more to maintain your streak.", 4, 9, 1);
+    addRankedAction("Protect momentum with one quick check-in now.", 6, 10, 2, "momentum");
+    addRankedAction("Finish one small task before your next break.", 5, 8, 1, "tasks");
+    addRankedAction("Hydrate once more to maintain your streak.", 4, 9, 1, "water");
+    addRankedAction("Write one gratitude note to close the loop.", 4, 9, 1, "gratitude");
   }
 
   rankedActions.sort((a, b) => b.score - a.score || b.urgency - a.urgency || a.text.localeCompare(b.text));
 
-  const primaryAction = rankedActions[0]?.text || "Protect momentum with one quick check-in now.";
-  const secondaryActions = rankedActions
-    .slice(1)
-    .map((entry) => entry.text)
-    .filter((value, index, array) => array.indexOf(value) === index)
-    .slice(0, 3);
-  while (secondaryActions.length < 3) {
-    secondaryActions.push("Keep your current streak alive with one small check-in.");
+  const uniqueActions = [];
+  const seenCategories = new Set();
+  rankedActions.forEach((entry) => {
+    const category = String(entry.category || entry.text || "").toLowerCase();
+    if (seenCategories.has(category)) return;
+    seenCategories.add(category);
+    uniqueActions.push(entry.text);
+  });
+
+  const fallbackActions = [
+    "Take a 2-minute breathing reset.",
+    "Add one gratitude note to round out today.",
+    "Drink a glass of water if you’re behind.",
+    "Clear one small task before your next break.",
+    "Set tonight’s sleep target before you log off."
+  ];
+
+  const primaryAction = uniqueActions[0] || "Protect momentum with one quick check-in now.";
+  const secondaryActions = uniqueActions.slice(1, 6);
+  while (secondaryActions.length < 5) {
+    const nextFallback = fallbackActions[secondaryActions.length] || "Keep your current streak alive with one small check-in.";
+    if (!secondaryActions.includes(nextFallback)) secondaryActions.push(nextFallback);
+    else secondaryActions.push("Keep your current streak alive with one small check-in.");
   }
 
   if (wellnessDoNowEl) {
@@ -12853,16 +12938,31 @@ const AI_REMINDER_ADDED_BASE = [
 ];
 
 const AI_MOOD_LOGGED_BASE = [
-  "✅ Mood logged: {mood}.",
-  "Got it — mood saved as {mood}.",
-  "{mood} recorded. Good check-in.",
-  "Saved your mood: {mood} — thanks for sharing.",
+  "Logged Mood [{mood}]",
+  "Mood logged: {mood}.",
+  "Mood saved: {mood}.",
+  "Checked in: {mood}.",
+  "Mood recorded: {mood}.",
+  "Saved mood: {mood}.",
   "Mood noted: {mood}.",
-  "That's logged: {mood} — small check-ins help.",
-  "Logged {mood} — keeping track.",
-  "Your mood ({mood}) is saved.",
-  "Checked: {mood}. I'll factor that into insights.",
-  "Done — mood set to {mood}."
+  "All set — {mood} is logged.",
+  "Nice check-in: {mood}.",
+  "Mood update: {mood}."
+];
+
+const AI_MOOD_LOGGED_FRAMES = [
+  (text) => text,
+  (text) => `Logged Mood [${text}]`,
+  (text) => `Mood log: ${text}`,
+  (text) => `Mood check-in saved: ${text}`,
+  (text) => `Mood update saved: ${text}`,
+  (text) => `Mood record: ${text}`,
+  (text) => `Saved mood note: ${text}`,
+  (text) => `Checked mood: ${text}`,
+  (text) => `Thanks for logging: ${text}`,
+  (text) => `All set: ${text}`,
+  (text) => `Mood in the log: ${text}`,
+  (text) => `Good check-in: ${text}`
 ];
 
 const AI_WATER_LOGGED_BASE = [
@@ -12926,7 +13026,7 @@ const FRIEND_MOTIVATION_BEHIND_BASE = [
 // Expand pools to target 100-150 variants for diverse replies
 const AI_TASK_ADDED_POOL = expandAiResponsePool(AI_TASK_ADDED_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX });
 const AI_REMINDER_ADDED_POOL = expandAiResponsePool(AI_REMINDER_ADDED_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX });
-const AI_MOOD_LOGGED_POOL = expandAiResponsePool(AI_MOOD_LOGGED_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX });
+const AI_MOOD_LOGGED_POOL = expandAiResponsePool(AI_MOOD_LOGGED_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX, frames: AI_MOOD_LOGGED_FRAMES });
 const AI_WATER_LOGGED_POOL = expandAiResponsePool(AI_WATER_LOGGED_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX });
 const AI_GREETING_POOL = expandAiResponsePool(AI_GREETING_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX });
 
@@ -17073,7 +17173,7 @@ async function saveMood() {
       moodHistory.push(moodValue);
       moodDates.push(getServerNowDate());
       renderMoodLog({ id: moodRef.id, mood: moodValue, time: getServerNowDate() });
-      const moodMsg = pickNonRepeatingVariant(AI_MOOD_LOGGED_POOL, 'mood_logged').replaceAll('{mood}', moodValue);
+      const moodMsg = `Logged Mood [${moodValue}]`;
       showToast(moodMsg);
       updateInsights();
       await trimCollectionToMaxEntries(user.uid, "moods", MAX_MOOD_ENTRIES, (entry) => toDateSafe(entry.time)?.getTime?.() || 0);

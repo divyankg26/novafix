@@ -268,9 +268,9 @@
 
 .about-version-row:hover,
 .about-version-row:focus-within{
-  background:linear-gradient(135deg, rgba(255,243,128,.34), rgba(255,236,179,.22));
-  border-color:rgba(255,255,255,.24);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.18), 0 10px 24px rgba(255,193,7,.08);
+  background:linear-gradient(135deg, rgba(201,79,137,.38), rgba(153,45,104,.28));
+  border-color:rgba(232,147,185,.48);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18), 0 10px 24px rgba(181,64,118,.2);
   transform:translateY(-1px);
 }
 
