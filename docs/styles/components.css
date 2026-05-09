@@ -1,0 +1,583 @@
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible{
+  outline:2px solid rgba(255,255,255,.92);
+  outline-offset:2px;
+}
+
+.limit-note{
+  display:none;
+  margin:8px 0 0;
+}
+
+.micro-tip{
+  margin:0 0 8px;
+  font-size:12px;
+  line-height:1.4;
+  opacity:.9;
+}
+
+.reset-hint{
+  margin:6px 0 0;
+  font-size:12px;
+  line-height:1.4;
+  opacity:.9;
+}
+
+.reset-countdown-alert{
+  opacity:1;
+}
+
+.limit-note,
+.reset-countdown-alert,
+.insight-reset-note{
+  text-align:center;
+  font-size:12px;
+  line-height:1.4;
+  color:#ff6b6b;
+  font-weight:700;
+}
+
+.soft-note{
+  margin:8px 0 0;
+  font-size:12px;
+  line-height:1.4;
+  opacity:.92;
+}
+
+.friend-card-note{
+  margin:8px 0 0;
+  font-size:12px;
+  line-height:1.45;
+  padding:8px 10px;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,.2);
+  background:rgba(255,255,255,.08);
+  color:#f3f7ff;
+}
+
+#dailyChallengeResetCountdown{
+  margin:10px 0;
+}
+
+#dailyChallengeFriendInsight{
+  margin-top:10px;
+}
+
+#challengeResult{
+  margin:10px 0 0;
+}
+
+.status-loading,
+.status-empty{
+  margin-top:10px;
+  padding:12px;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,.2);
+  background:rgba(255,255,255,.08);
+  font-size:13px;
+  line-height:1.4;
+}
+
+.status-loading{ opacity:.88; }
+
+#uxToast{
+  position:fixed;
+  left:50%;
+  bottom:22px;
+  transform:translateX(-50%);
+  display:none;
+  align-items:center;
+  gap:10px;
+  max-width:min(560px, calc(100vw - 24px));
+  width:max-content;
+  padding:10px 12px;
+  border-radius:12px;
+  background:rgba(0,0,0,.55);
+  border:1px solid rgba(255,255,255,.26);
+  backdrop-filter:blur(10px);
+  z-index:10050;
+  box-shadow:0 12px 30px rgba(0,0,0,.3);
+}
+
+#uxToastText{
+  font-size:13px;
+  line-height:1.35;
+}
+
+#uxToastAction{
+  border:none;
+  border-radius:9px;
+  padding:7px 10px;
+  font-size:12px;
+  font-weight:700;
+  background:linear-gradient(135deg,var(--primary),var(--accent));
+  color:#fff;
+  cursor:pointer;
+}
+
+.limit-note.show{
+  display:block;
+}
+
+.chat,#moodLogs,#gratitudeLogs,#reminders,#taskList,#timeMirror{
+  flex:1 1 0;
+  min-height:0;
+  overflow-y:auto;
+  padding:10px;
+  border-radius:12px;
+  background:linear-gradient(180deg, rgba(7,16,30,.26), rgba(7,16,30,.16));
+  margin-top:8px;
+  border:1px solid rgba(255,255,255,.2);
+}
+
+#moodLogs{
+  min-height:130px;
+}
+
+#reminders,#taskList,#gratitudeLogs{
+  margin-top:16px;
+}
+
+#reminders .item-row{
+  align-items:center;
+  margin-bottom:10px;
+}
+
+#reminders .item-text{
+  line-height:1.4;
+  padding-top:2px;
+}
+
+#reminderSetBtn{
+  width:100%;
+  display:block;
+  text-align:center;
+}
+
+#reminderText,
+#reminderMinutes,
+#reminderUnit{
+  width:100%;
+  flex:1 1 100%;
+  display:block;
+}
+
+#futureTask{
+  margin-top:14px;
+}
+
+.bedtime-input-group{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  margin-top:10px;
+}
+
+.bedtime-input-group :is(input,button){
+  width:100%;
+  max-width:100%;
+  box-sizing:border-box;
+  display:block;
+}
+
+.bedtime-input-group :is(input,button) + :is(input,button){
+  margin-top:0;
+}
+
+#sleepSaveBtn,
+#bedtimeSetBtn{
+  width:100%;
+  display:block;
+  text-align:center;
+}
+
+#reminderUnit,
+#mood{
+  -webkit-appearance:none;
+  -moz-appearance:none;
+  appearance:none;
+  padding-right:36px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(255,255,255,0.86) 50%),
+    linear-gradient(135deg, rgba(255,255,255,0.86) 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) calc(50% - 2px),
+    calc(100% - 11px) calc(50% - 2px);
+  background-size:6px 6px, 6px 6px;
+  background-repeat:no-repeat;
+}
+
+#reminderUnit option,
+#mood option{
+  color:#111;
+}
+
+#taskList .item-row{
+  align-items:center;
+  margin-bottom:10px;
+}
+
+#gratitudeLogs .item-row{
+  align-items:flex-start;
+  margin-bottom:10px;
+}
+
+#taskList .item-text,
+#gratitudeLogs .item-text{
+  line-height:1.4;
+  padding-top:2px;
+}
+
+.scroll-card{
+  height:430px;
+  max-height:430px;
+  overflow:hidden;
+}
+
+.sleep-card{
+  height:430px;
+  max-height:430px;
+  overflow-y:auto;
+  overflow-x:hidden;
+  scrollbar-width:thin;
+  scrollbar-color:var(--primary) transparent;
+}
+
+.startup-scroll-card{
+  height:430px;
+  max-height:430px;
+  overflow-y:auto;
+  overflow-x:hidden;
+  scrollbar-width:thin;
+  scrollbar-color:var(--primary) transparent;
+}
+
+.sleep-card::-webkit-scrollbar{
+  width:6px;
+}
+
+.startup-scroll-card::-webkit-scrollbar{
+  width:6px;
+}
+
+.sleep-card::-webkit-scrollbar-track{
+  background:rgba(255,255,255,.08);
+  border-radius:999px;
+}
+
+.startup-scroll-card::-webkit-scrollbar-track{
+  background:rgba(255,255,255,.08);
+  border-radius:999px;
+}
+
+.sleep-card::-webkit-scrollbar-thumb{
+  background:var(--primary);
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.18);
+}
+
+.startup-scroll-card::-webkit-scrollbar-thumb{
+  background:var(--primary);
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.18);
+}
+
+.card-scroll-body{
+  flex:1 1 0;
+  min-height:0;
+  overflow-y:auto;
+  margin-top:8px;
+  padding-right:4px;
+}
+
+.weekly-scroll-body,
+.quest-scroll-body{
+  background:linear-gradient(180deg, rgba(7,16,30,.26), rgba(7,16,30,.16));
+  border:1px solid rgba(255,255,255,.2);
+  border-radius:14px;
+  padding:10px 12px;
+  box-shadow:none;
+}
+
+#timeMirror{white-space:pre-wrap;}
+
+#gratitudeLogs button,
+#reminders button{
+  margin-left:12px;
+}
+
+#reminders .item-actions{
+  align-items:center;
+  gap:8px;
+  flex-wrap:nowrap;
+}
+
+#reminders .item-actions button{
+  margin-left:0;
+  display:grid;
+  place-items:center;
+  width:34px;
+  height:34px;
+  min-height:34px;
+  padding:0;
+  flex:0 0 34px;
+  line-height:1;
+}
+
+#reminders .item-actions button + button{
+  margin-top:0 !important;
+}
+
+#taskList .item-actions{
+  align-items:center;
+  gap:8px;
+  flex-wrap:nowrap;
+}
+
+#taskList .item-actions button{
+  margin-left:0;
+  display:grid;
+  place-items:center;
+  width:34px;
+  height:34px;
+  min-height:34px;
+  padding:0;
+  flex:0 0 34px;
+  line-height:1;
+}
+
+#taskList .item-actions button + button{
+  margin-top:0 !important;
+}
+
+#gratitudeLogs .item-actions{
+  align-items:center;
+  gap:8px;
+  flex-wrap:nowrap;
+}
+
+#gratitudeLogs .item-actions button{
+  margin-left:0;
+  display:grid;
+  place-items:center;
+  width:34px;
+  height:34px;
+  min-height:34px;
+  padding:0;
+  flex:0 0 34px;
+  line-height:1;
+}
+
+#gratitudeLogs .item-actions button + button{
+  margin-top:0 !important;
+}
+
+.item-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+
+.item-text{
+  flex:1;
+  min-width:0;
+  word-break:break-word;
+}
+
+.item-actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-shrink:0;
+}
+
+.ai-header-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+}
+
+.ai-header-row h2{margin:0}
+
+.ai-clear-btn{
+  padding:8px 12px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.28);
+  background:rgba(255,255,255,.18);
+  font-size:13px;
+  font-weight:700;
+  line-height:1.25;
+  box-shadow:none;
+}
+
+.ai-clear-btn:disabled{
+  background:rgba(160,160,160,.35);
+  color:rgba(255,255,255,.8);
+  cursor:not-allowed;
+  filter:grayscale(.2);
+}
+
+.chat-message{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:8px;
+  margin-bottom:8px;
+  padding:8px 10px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.16);
+  background:rgba(255,255,255,.12);
+}
+
+.chat-message.is-user{
+  background:linear-gradient(180deg, rgba(22,143,255,.24), rgba(22,143,255,.14));
+  border-color:rgba(86,178,255,.45);
+}
+
+.chat-message.is-ai{
+  background:linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.1));
+}
+
+.chat-text{
+  font-size:14px;
+  line-height:1.45;
+  word-break:break-word;
+}
+
+.chat-edit-btn{
+  padding:6px 10px;
+  border-radius:10px;
+  font-size:12px;
+  white-space:nowrap;
+}
+
+.mood-item{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  margin-bottom:8px;
+  padding:8px 10px;
+  border-radius:10px;
+  background:rgba(255,255,255,.12);
+}
+
+.mood-item span{
+  font-size:14px;
+  line-height:1.4;
+}
+
+.mood-remove{
+  padding:6px 10px;
+  border-radius:10px;
+  border:none;
+  font-size:12px;
+}
+
+.task-done{
+  text-decoration:line-through;
+  opacity:.75;
+}
+
+.insight-list{margin:6px 0 0;padding-left:18px}
+.insight-list li{margin:4px 0}
+
+.insight-row{margin-top:8px}
+.insight-row small{display:block;margin-bottom:4px;opacity:.9}
+.insight-bar{
+  width:100%;
+  height:10px;
+  border-radius:10px;
+  background:rgba(255,255,255,.2);
+  overflow:hidden;
+}
+.insight-fill{
+  height:100%;
+  background:linear-gradient(135deg,var(--primary),var(--accent));
+  width:0%;
+}
+
+.insight-switch-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-top:10px;
+}
+
+.insight-task-top{
+  margin-top:10px;
+}
+
+.insight-task-label{
+  display:block;
+  text-align:center;
+  margin:0 0 6px;
+  font-weight:700;
+}
+
+.insight-metric-title{
+  text-align:left;
+  margin:0;
+  font-weight:700;
+}
+
+.insight-metric-label{
+  display:block;
+  text-align:center;
+  margin:0 0 6px;
+  opacity:.95;
+}
+
+.insight-reset-note{
+  display:block;
+  margin:0 0 6px;
+  opacity:1;
+}
+
+.insight-graph-scroll{
+  width:100%;
+  margin-top:8px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  border-radius:10px;
+  background:rgba(0,0,0,.14);
+}
+
+.insight-graph-track{
+  display:block;
+  width:max-content;
+  min-width:100%;
+}
+
+.insight-graph-scroll::-webkit-scrollbar{
+  height:6px;
+}
+
+.insight-graph-scroll::-webkit-scrollbar-thumb{
+  background:var(--primary);
+  border-radius:3px;
+}
+
+.insight-line-graph{
+  width:auto;
+  min-width:0;
+  height:180px;
+  margin-top:0;
+  display:block;
+  flex:none;
+}
+
+.insight-column{
+  fill:url(#insightGraphGradient);
+  opacity:1;
+}
+
+.insight-axis-line{
+  stroke:rgba(255,255,255,.95);
+  stroke-width:1.5;
+}
