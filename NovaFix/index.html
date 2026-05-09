@@ -1,0 +1,634 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title id="appPageTitle">NovaFix - Sign In</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+(function () {
+  if (location.protocol === "file:") {
+    location.replace("http://localhost:8765/index.html");
+  }
+})();
+</script>
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#ffffff">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="msapplication-navbutton-color" content="#ffffff">
+
+<link rel="stylesheet" href="styles/base.css">
+<link rel="stylesheet" href="styles/layout.css">
+<link rel="stylesheet" href="styles/components.css">
+<link rel="stylesheet" href="styles/responsive.css">
+</head>
+<body>
+
+<audio id="reminderSound" src="https://image2url.com/r2/default/audio/1770462028211-e2a46d69-8e18-430d-971b-e111cf9254b9.mp3" preload="auto"></audio>
+
+<!-- SPLASH -->
+<div id="splash">
+  <img src="https://i.postimg.cc/Y2g2bvkK/Whats-App-Image-2026-04-26-at-18-19-02-removebg-preview-2.png">
+</div>
+
+<!-- SIGN-IN / SIGN-UP MODAL -->
+<div id="signInModal">
+  <div class="modal-content">
+    <h2 id="modalTitle">Welcome to NovaFix 🌟</h2>
+    <input id="usernameInput" type="text" placeholder="Enter username" style="display:none;">
+    <input id="displayNameInput" type="text" placeholder="Enter display name" style="display:none;">
+    <input id="emailInput" type="email" placeholder="Enter email">
+    <input id="passwordInput" type="password" placeholder="Enter password">
+    <button id="actionButton" onclick="handleAuth()">Sign In</button>
+    <button id="resetPasswordButton" class="google-btn" onclick="sendResetPasswordEmail()">Reset Password</button>
+    <button id="resendVerificationButton" class="google-btn" onclick="resendVerificationEmailFromModal()">Resend Verification Email</button>
+    <button id="googleAuthButton" class="google-btn" onclick="handleGoogleAuth()">Sign In with Google</button>
+    <p onclick="toggleAuth()"><span id="toggleText">Don't have an account? Sign Up</span></p>
+    <p id="signInError" style="color:red; display:none;">Error message here!</p>
+  </div>
+</div>
+
+<div id="googleIdentityModal">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <h2 id="googleIdentityTitle">Set Your Profile</h2>
+    <p id="googleIdentityNote" class="identity-setup-note">Choose your username and display name.</p>
+    <input id="googleIdentityUsernameInput" type="text" placeholder="Choose username" autocomplete="off" autocapitalize="none" spellcheck="false">
+    <input id="googleIdentityDisplayNameInput" type="text" placeholder="Choose display name" autocomplete="off" autocapitalize="words" spellcheck="false">
+    <input id="googleIdentityPasswordInput" type="password" placeholder="Set password" autocomplete="new-password" autocapitalize="none" spellcheck="false">
+    <div class="identity-setup-actions">
+      <button id="googleIdentitySaveBtn" onclick="submitGoogleIdentitySetup()">Continue</button>
+      <button id="googleIdentityCancelBtn" onclick="cancelGoogleIdentitySetup()">Sign Out</button>
+    </div>
+    <p id="googleIdentityError"></p>
+  </div>
+</div>
+
+<div id="welcomeGuideModal">
+  <div class="welcome-guide-card">
+    <div class="welcome-guide-top">
+      <h2 class="welcome-guide-title">Welcome to NovaFix ✨</h2>
+      <p id="guideStepCounter" class="welcome-guide-step">Step 1/5</p>
+    </div>
+    <div class="welcome-guide-body">
+      <h3 id="guideStepTitle">Your Dashboard</h3>
+      <p id="guideStepText">Track habits, mood, hydration, sleep, and productivity from one place.</p>
+      <div id="guideStepTip" class="welcome-guide-tip">Tip: Complete logs daily to unlock better insights.</div>
+    </div>
+    <div id="guideDots" class="welcome-guide-dots"></div>
+    <div class="welcome-guide-actions">
+      <button id="guidePrevBtn" onclick="prevWelcomeGuideStep()">Previous</button>
+      <button id="guideSkipBtn" onclick="skipWelcomeGuide()">Skip Guide</button>
+      <button id="guideNextBtn" onclick="nextWelcomeGuideStep()">Next</button>
+    </div>
+  </div>
+</div>
+
+<div id="tosModal">
+  <div class="tos-card" role="dialog" aria-modal="true" aria-labelledby="tosTitle">
+    <h3 id="tosTitle">Terms of Service</h3>
+    <div class="tos-scroll">TERMS OF SERVICE
+
+  Last Updated: May 2026
+
+  This Terms of Service ("Terms") governs access to and use of the software, source code, documentation, design elements, algorithms, structure, and any associated materials (collectively, the "Software") provided by Divyank Goyal ("Licensor," "we," "us," or "our").
+  By accessing, using, copying, or interacting with the Software in any way, you agree to be bound by these Terms. If you do not agree, you must not use the Software.
+
+  1. Ownership
+  The Software is and shall remain the exclusive intellectual property of the Licensor. No ownership rights, title, or interest in the Software are transferred to you under these Terms.
+
+  2. License to Use
+  You are granted a limited, non-exclusive, non-transferable, and revocable license to use the Software for personal, non-commercial purposes.
+
+  3. Restrictions on Use
+  You are strictly prohibited from engaging in any of the following activities without prior written permission from the Licensor:
+  Copying, reproducing, or distributing the Software in whole or in part
+  Modifying, adapting, translating, reverse engineering, decompiling, or disassembling the Software
+  Creating derivative works based on the Software
+  Using the Software for commercial purposes without prior written permission
+  Selling, sublicensing, leasing, renting, publishing, or transferring the Software
+  The utilization of older versions of this software.
+  Removing, altering, or obscuring any proprietary notices or markings
+  Using the Software in any product, system, or service that competes with the Licensor
+
+  4. Enforcement and Remedies
+  Any violation of these Terms may result in action, including suspension of access or legal remedies where appropriate.
+  The Licensor reserves the right to pursue all available remedies under applicable law, including but not limited to injunctive relief, damages, and recovery of legal fees.
+
+  5. Termination
+  We may suspend or terminate your access to the Software if you violate these Terms.
+  Upon termination, your right to use the Software ends immediately.
+
+
+  6. Disclaimer of Warranty
+  The Software is provided "AS IS" and "AS AVAILABLE," without warranties of any kind, whether express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, or non-infringement.
+
+  7. Governing Law
+  These Terms shall be governed by and interpreted in accordance with the laws applicable in the jurisdiction of the Licensor, without regard to conflict of law principles.
+
+  8. Entire Agreement
+  These Terms represent the entire agreement regarding the Software unless superseded by a separate written agreement signed by the Licensor.
+
+  All rights reserved. Unauthorized copying, distribution, or commercial use is strictly prohibited.</div>
+    <p id="tosError"></p>
+    <div class="tos-actions">
+      <button id="tosAgreeBtn" type="button" onclick="acceptTosAgreement()">Agree</button>
+    </div>
+  </div>
+</div>
+
+<header>
+  <h1>NovaFix</h1>
+  <p>Mind • Body • Money • Music • Productivity</p>
+</header>
+
+<button id="accountBtn" onclick="toggleAccountPanel()">Account</button>
+
+<div id="accountPanel">
+  <h3 class="account-title">👤 Account</h3>
+  <p class="account-subtitle">Manage your profile and data controls</p>
+  <div class="account-tabs">
+    <button type="button" class="account-tab-btn active" data-account-tab="general">General</button>
+    <button type="button" class="account-tab-btn" data-account-tab="friends">Friends</button>
+    <button type="button" class="account-tab-btn" data-account-tab="shortcuts">Shortcuts</button>
+    <button type="button" class="account-tab-btn" data-account-tab="help">Help</button>
+    <button type="button" class="account-tab-btn" data-account-tab="about">About</button>
+  </div>
+
+  <div class="account-tab-panel active" data-account-panel="general">
+    <div class="account-row"><b>Username:</b> <span id="accountName">-</span></div>
+    <div class="account-row"><b>Display Name:</b> <span id="accountDisplayName">-</span></div>
+    <button id="editDisplayNameBtn" onclick="editAccountDisplayName()">Edit Display Name</button>
+    <p id="accountDisplayNameError" class="limit-note" style="display:none;"></p>
+    <div class="account-row"><b>Email:</b> <span id="accountEmail">-</span></div>
+    <div class="account-row"><b>Verification:</b> <span id="accountVerifyStatus">-</span></div>
+    <button id="accountResetPasswordBtn" onclick="sendAccountResetPasswordEmail()">Change Password</button>
+    <button id="clearDataBtn" onclick="clearAllAccountData()">Clear All Data</button>
+    <button id="signOutBtn" onclick="signOutUser()">Sign Out</button>
+    <div class="account-transfer-box">
+      <div class="export-actions">
+        <button id="exportDataBtn" onclick="exportAllData()">Export My Data</button>
+        <button onclick="startImportData()">Import Data</button>
+      </div>
+      <p class="export-note">Store one secure Firebase backup and import from another account via email + password.</p>
+    </div>
+  </div>
+
+  <div class="account-tab-panel" data-account-panel="friends">
+    <div class="account-transfer-box">
+      <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Friend Requests</h4>
+      <div class="export-actions" style="margin-bottom:8px;">
+        <button id="addFriendsBtn" onclick="startAddFriendRequest()">Add Friends</button>
+      </div>
+      <p class="export-note">Send a friend request by username, then compare progress and motivate each other.</p>
+      <div id="friendRequestsList" class="friends-list-box"></div>
+    </div>
+
+    <div class="account-transfer-box">
+      <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Sent Requests</h4>
+      <div id="sentRequestsList" class="friends-list-box"></div>
+    </div>
+
+    <div class="account-transfer-box">
+      <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Current Friends</h4>
+      <div id="currentFriendsList" class="friends-list-box"></div>
+    </div>
+  </div>
+
+  <div class="account-tab-panel" data-account-panel="shortcuts">
+    <div class="account-transfer-box" id="keyboardShortcutsBox">
+      <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Keyboard Shortcuts</h4>
+      <p class="export-note" id="keyboardShortcutsSubtitle" style="margin-top:0;margin-bottom:8px;text-align:left;"></p>
+      <div id="keyboardShortcutsList" class="friends-list-box"></div>
+      <button id="keyboardShortcutsToggleBtn" type="button" class="keyboard-shortcuts-toggle">Show all shortcuts</button>
+    </div>
+  </div>
+
+  <div class="account-tab-panel" data-account-panel="help">
+    <div class="account-transfer-box">
+      <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Welcome Guide</h4>
+      <div class="export-actions" style="margin-bottom:8px;">
+        <button id="helpWelcomeGuideBtn" type="button" onclick="openWelcomeGuideFromHelp()">View Welcome Guide</button>
+      </div>
+      <p class="export-note" style="margin-top:0;text-align:left;">Need a quick walkthrough? Open the Welcome Guide to see how the dashboard, limits, and key features work.</p>
+    </div>
+
+    <div class="account-transfer-box">
+      <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Bug Reporting</h4>
+      <div class="export-actions" style="margin-bottom:8px;">
+        <button id="helpReportNowBtn" type="button" onclick="openReportRedirectConfirm()">Report Now</button>
+      </div>
+      <p class="export-note" style="margin-top:0;text-align:left;">Found a bug or issue? Report it at <span class="support-email-highlight">support.novafix@gmail.com</span> with a short description, what you expected, and what actually happened.</p>
+    </div>
+  </div>
+
+  <div class="account-tab-panel" data-account-panel="about">
+    <div class="account-transfer-box">
+      <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">About NovaFix</h4>
+      <p class="export-note" style="margin-top:0;text-align:left;">NovaFix is your wellness dashboard for mood, sleep, water, tasks, and daily planning.</p>
+      <div class="account-row about-version-row"><b>Version:</b> <span id="aboutAppVersion">v11.3.1</span></div>
+      <p class="export-note" style="margin-top:8px;text-align:left;">Built to help you track patterns, stay organized, and keep moving with less friction.</p>
+    </div>
+  </div>
+
+</div>
+
+<div id="accountOverlay" onclick="closeAccountPanel()"></div>
+
+<div id="reportRedirectConfirmModal" onclick="closeReportRedirectConfirm(event)">
+  <div class="import-transfer-card" onclick="event.stopPropagation()">
+    <h3>Redirect Confirmation</h3>
+    <p class="import-transfer-note">You will be redirected to the bug report page. Continue?</p>
+    <div class="import-transfer-actions">
+      <button type="button" class="import-transfer-cancel" onclick="closeReportRedirectConfirm()">Cancel</button>
+      <button type="button" onclick="continueReportRedirect()">Continue</button>
+    </div>
+  </div>
+</div>
+
+<div id="importTransferModal" onclick="closeImportTransferModal(event)">
+  <div class="import-transfer-card" onclick="event.stopPropagation()">
+    <h3>Import From Another Account</h3>
+    <p class="import-transfer-note">Enter source account credentials. This will replace your current data with that account’s latest Firebase backup. The source account will see a security warning on next login.</p>
+    <input id="importSourceEmail" type="email" placeholder="Source account email">
+    <input id="importSourcePassword" type="password" placeholder="Source account password">
+    <p id="importTransferError" class="import-transfer-error"></p>
+    <div class="import-transfer-actions">
+      <button id="importTransferCancelBtn" class="import-transfer-cancel" onclick="closeImportTransferModal()">Cancel</button>
+      <button id="importTransferConfirmBtn" onclick="submitImportTransfer()">Import</button>
+    </div>
+  </div>
+</div>
+
+<div id="addFriendModal" onclick="closeAddFriendModal(event)">
+  <div class="import-transfer-card" onclick="event.stopPropagation()">
+    <h3>Add Friend</h3>
+    <p class="import-transfer-note">Enter your friend's username to send a request. They will see an accept/decline prompt on next login.</p>
+    <input id="addFriendEmail" type="text" placeholder="Friend username">
+    <p id="addFriendError" class="import-transfer-error"></p>
+    <div class="import-transfer-actions">
+      <button id="addFriendCancelBtn" class="import-transfer-cancel" onclick="closeAddFriendModal()">Cancel</button>
+      <button id="addFriendConfirmBtn" onclick="submitAddFriendRequest()">Send Request</button>
+    </div>
+  </div>
+</div>
+
+<div id="reverseFriendRequestModal" onclick="closeReverseFriendRequestModal(event)">
+  <div class="import-transfer-card" onclick="event.stopPropagation()">
+    <h3>Pending Friend Request</h3>
+    <p class="import-transfer-note">This user has already sent you a request. Accept or decline now.</p>
+    <div id="reverseFriendRequestPreview" class="friends-list-box"></div>
+  </div>
+</div>
+
+<div id="bedtimeReminderModal" onclick="closeBedtimeReminderModal(event)">
+  <div class="import-transfer-card" onclick="event.stopPropagation()">
+    <h3>Bed Time Reminder</h3>
+    <p class="import-transfer-note">It's your scheduled bedtime. Start winding down now for better recovery.</p>
+    <div id="bedtimeReminderPreview" class="friends-list-box"></div>
+    <div class="import-transfer-actions">
+      <button class="import-transfer-cancel" onclick="closeBedtimeReminderModal(null, true)">Dismiss</button>
+    </div>
+  </div>
+</div>
+
+<div id="crashAlertBanner" class="crash-banner">
+<div class="crash-banner-row">
+  <div>
+      <strong>⚠️ Mood Crash Warning</strong>
+      <p id="crashBannerText" class="crash-risk-sub">Your dip risk is elevated right now.</p>
+  </div>
+  <div class="crash-banner-actions">
+    <button onclick="runCrashRescueFlow()">Run 2-Min Rescue</button>
+    <button id="crashAlertDismissBtn" class="crash-dismiss-btn" type="button" onclick="dismissCrashAlertBanner()">Dismiss</button>
+  </div>
+</div>
+</div>
+
+<div class="dashboard">
+
+<!-- AI Companion -->
+<div class="card scroll-card">
+<div class="ai-header-row">
+<h2>🤖 AI Companion</h2>
+<button id="aiClearBtn" class="ai-clear-btn" onclick="clearAiChats()">Clear</button>
+</div>
+<p class="micro-tip">Tip: Ask short, clear prompts for better advice.</p>
+<div class="chat" id="chat"></div>
+<div class="input-group">
+<textarea id="aiInput" rows="2" placeholder="Talk to AI"></textarea>
+<button id="aiTalkBtn" onclick="aiChat()">Talk</button>
+</div>
+<p id="aiLimitError" class="limit-note"></p>
+</div>
+
+<!-- Reminders -->
+<div class="card scroll-card">
+<h2>⏰ Reminders</h2>
+<p class="micro-tip">Tip: Keep reminders specific, like “Drink water now”.</p>
+<div class="input-group">
+<input id="reminderText" placeholder="Reminder">
+<input type="number" id="reminderMinutes" placeholder="Time" min="1" step="1">
+<select id="reminderUnit" aria-label="Reminder time unit">
+  <option value="second">Second(s)</option>
+  <option value="minute" selected>Minute(s)</option>
+  <option value="hour">Hour(s)</option>
+  <option value="day">Day(s)</option>
+  <option value="week">Week(s)</option>
+  <option value="month">Month(s)</option>
+</select>
+<button id="reminderSetBtn" onclick="addReminder()">Set</button>
+</div>
+<p class="reset-hint">Daily limits show a live countdown when reached.</p>
+<p id="reminderLimitError" class="limit-note"></p>
+<ul id="reminders"></ul>
+</div>
+
+<!-- Tasks -->
+<div class="card scroll-card">
+<h2>📊 Productivity</h2>
+<p class="micro-tip">Tip: Add tiny tasks first to build momentum.</p>
+<div class="input-group">
+<input id="task" placeholder="Task">
+<button id="taskAddBtn" onclick="addTask()">Add</button>
+</div>
+<p id="taskLimitError" class="limit-note"></p>
+<p id="taskFriendInsight" class="friend-card-note">Friend benchmark: add a friend to compare productivity pace.</p>
+<ul id="taskList"></ul>
+</div>
+
+<!-- Grocery Finance -->
+<div class="card">
+<h2>🧾 Grocery Financing</h2>
+<input id="gCost" placeholder="Monthly ₹">
+<input id="gMonths" placeholder="Months">
+<input id="buffer" placeholder="Buffer %">
+<button onclick="calculateFinance()">Plan</button>
+<p id="financeResult"></p>
+</div>
+
+<!-- Mood Tracker -->
+<div class="card scroll-card">
+<h2>🧘 Mood Tracker</h2>
+<p class="micro-tip">Tip: A quick mood log now improves your crash-risk forecast.</p>
+<select id="mood">
+<option>😤 Angry</option>
+<option>😔 Low</option>
+<option>😣 Stressed</option>
+<option>😐 Neutral</option>
+<option selected>😊 Happy</option>
+<option>🤩 Excited</option>
+</select>
+<button id="moodSaveBtn" onclick="saveMood()">Save</button>
+<p id="moodLimitError" class="limit-note"></p>
+<p id="moodResetCountdown" class="reset-hint reset-countdown-alert"></p>
+<p id="moodFriendInsight" class="friend-card-note">Friend benchmark: add a friend to compare average mood of the day.</p>
+<div id="moodLogs"></div>
+</div>
+
+<!-- Water -->
+<div class="card scroll-card">
+<h2>💧 Water Intake</h2>
+<p class="micro-tip">Tip: Set your daily goal once each morning.</p>
+<input id="waterGoalInput" placeholder="Daily goal">
+<button onclick="setWaterGoal()">Set Goal</button>
+<input type="number" id="waterInput" placeholder="Glasses" min="0.1" step="0.1">
+<button id="waterTrackBtn" onclick="saveWater()">Track</button>
+<p id="waterGoalResetCountdown" class="reset-hint reset-countdown-alert"></p>
+<p id="waterLimitError" class="limit-note"></p>
+<button id="waterClearBtn" class="water-clear-btn" onclick="clearWaterData()">Clear Intake + Goal</button>
+<p id="waterFriendInsight" class="friend-card-note">Friend benchmark: add a friend to compare hydration consistency.</p>
+<p id="waterProgress"></p>
+</div>
+
+<!-- Sleep -->
+<div class="card sleep-card">
+<h2>💤 Sleep</h2>
+<p class="micro-tip">Tip: Log sleep after waking for a consistent trend.</p>
+<input type="number" id="sleepInput" placeholder="Hours" min="0.1" step="0.1">
+<button id="sleepSaveBtn" onclick="saveSleep()">Save</button>
+<div class="input-group bedtime-input-group">
+  <input id="bedtimeTimeInput" placeholder="Bed Time (in 24 hour format).">
+  <button id="bedtimeSetBtn" onclick="setBedtimeReminder()">Set Bed Time</button>
+</div>
+<p id="bedtimeInputError" class="limit-note"></p>
+<p id="sleepResetCountdown" class="reset-hint reset-countdown-alert"></p>
+<p id="sleepLimitError" class="limit-note"></p>
+<button id="sleepClearBtn" class="water-clear-btn" onclick="clearBedtimeData()">Clear Bed Time</button>
+<p id="sleepFriendInsight" class="friend-card-note">Friend benchmark: add a friend to compare sleep consistency.</p>
+<p id="sleepResult"></p>
+</div>
+
+<!-- Wellness Music -->
+<div class="card wellness-music-card">
+<h2>🎵 Wellness Music</h2>
+<iframe id="wellnessMusicFrame" style="border-radius:14px" src="https://open.spotify.com/embed/playlist/7JKDTbcB00R2kwBpLRo72r" width="100%" height="190" allow="encrypted-media; autoplay" title="Wellness Music"></iframe>
+<script src="scripts/wellness-music.js"></script>
+</div>
+
+<!-- Time Traveller Mirror -->
+<div class="card scroll-card">
+<div class="ai-header-row">
+<h2>🪞 Time Traveller Mirror</h2>
+<button id="timeMirrorClearBtn" class="ai-clear-btn" onclick="clearTimeMirror()">Clear</button>
+</div>
+<input id="futureTask" placeholder="Enter goal">
+<button id="timeMirrorCheckBtn" onclick="timeTraveller()">Check</button>
+<div id="timeMirror"></div>
+</div>
+
+<!-- Motivational Quotes -->
+<div class="card">
+<h2>💡 Motivational Quotes</h2>
+<p id="quoteDisplay"></p>
+<button onclick="newQuote()">Inspire Me</button>
+</div>
+
+<!-- Gratitude Journal -->
+<div class="card scroll-card">
+<h2>🙏 Gratitude Journal</h2>
+<p class="micro-tip">Tip: 1 line is enough — consistency beats length.</p>
+<textarea id="gratitudeInput" rows="3"></textarea>
+<button id="gratitudeSaveBtn" onclick="saveGratitude()">Save</button>
+<p id="gratitudeResetCountdown" class="reset-hint reset-countdown-alert"></p>
+<p id="gratitudeLimitError" class="limit-note"></p>
+<div id="gratitudeLogs"></div>
+<p id="gratitudeFriendInsight" class="friend-card-note">Friend benchmark: add a friend to compare gratitude consistency.</p>
+</div>
+
+<!-- Daily Challenge -->
+<div class="card">
+<h2>🏆 Daily Challenge</h2>
+<p class="micro-tip">Tip: Completing this boosts your overall wellness score.</p>
+<p id="dailyChallenge"></p>
+<button id="challengeCompleteBtn" onclick="completeChallenge()">Complete</button>
+<p id="challengeResult"></p>
+<p id="dailyChallengeResetCountdown" class="reset-hint reset-countdown-alert"></p>
+<p id="dailyChallengeFriendInsight" class="friend-card-note">Friend benchmark: add a friend to compare daily challenge consistency.</p>
+</div>
+
+<!-- Daily Wellness Score -->
+<div class="card">
+<h2>⭐ Daily Wellness Score</h2>
+<div id="wellnessScore" class="wellness-badge">0/100</div>
+<p id="wellnessStatus" class="wellness-status">Needs Focus</p>
+<p id="wellnessScoreResetCountdown" class="reset-hint reset-countdown-alert"></p>
+<p id="wellnessReassurance" class="soft-note">Log one check-in to start momentum today.</p>
+<p id="wellnessDoNow" class="wellness-do-now"><b>DO NOW:</b> Log your first check-in for today.</p>
+<ul id="wellnessActions" class="wellness-actions">
+  <li class="wellness-secondary-task">Set your water target and drink one glass.</li>
+  <li class="wellness-secondary-task">Add one gratitude note tonight.</li>
+  <li class="wellness-secondary-task">Complete one pending task to build momentum.</li>
+</ul>
+<p id="wellnessFriendInsight" class="friend-card-note">Friend benchmark: add a friend to compare daily wellness score.</p>
+</div>
+
+<!-- Mood Crash Prevention -->
+<div class="card">
+<h2>🚨 Mood Crash Prevention</h2>
+<div class="crash-risk-head">
+  <div id="crashRiskValue" class="crash-risk-value">0/100</div>
+  <div id="crashRiskLevel" class="crash-risk-pill">Low Risk</div>
+</div>
+<div class="crash-meter"><div id="crashRiskFill" class="crash-meter-fill"></div></div>
+<p id="crashRiskReason" class="crash-risk-sub">Log your first entries to generate risk analysis.</p>
+<button class="crash-rescue-btn" onclick="runCrashRescueFlow()">Run 2-Min Rescue</button>
+<ul id="crashRescuePlan" class="crash-plan"></ul>
+</div>
+
+<!-- Weekly Review + AI Coach -->
+<div class="card scroll-card">
+<h2>🧠 Weekly Review + AI Coach</h2>
+<div class="card-scroll-body weekly-scroll-body">
+<p id="weeklyRange" class="weekly-range">Last 7 days review</p>
+
+<p class="weekly-section-title">✅ What Improved</p>
+<ul id="weeklyImproved" class="weekly-list"></ul>
+
+<p class="weekly-section-title">⚠️ What Dropped</p>
+<ul id="weeklyDropped" class="weekly-list"></ul>
+
+<p class="weekly-section-title">🎯 Top 3 Next-Week Actions</p>
+<ul id="weeklyActions" class="weekly-list"></ul>
+
+<p class="weekly-section-title">🧩 Mood Pattern Analysis</p>
+<ul id="weeklyPatternInsights" class="weekly-list"></ul>
+
+<p class="weekly-section-title">📊 Weekly Goal Scorecard</p>
+<ul id="weeklyGoalScorecard" class="weekly-list"></ul>
+
+<p class="weekly-section-title">🏅 Progress Milestones</p>
+<ul id="progressMilestones" class="weekly-list"></ul>
+
+<div class="weekly-target-box">
+  <p id="weeklyTargetsDisplay" class="weekly-target-text">Targets: Water -, Sleep -, Tasks -</p>
+  <button class="weekly-target-btn" onclick="setNextWeekTargets()">Set Next Week Targets</button>
+</div>
+</div>
+</div>
+
+<!-- Adaptive Habit Quest -->
+<div class="card quest-card scroll-card" id="questCard">
+<h2>🎮 Adaptive Habit Quest</h2>
+<div class="card-scroll-body quest-scroll-body">
+<p class="micro-tip">Tip: Finish all 4 quests before today’s reset countdown ends to lock streak progress.</p>
+<div class="quest-top">
+  <div id="questXp" class="quest-stat">XP 0/100</div>
+</div>
+<div id="questStreak" class="quest-stat">Streak 0 🔥</div>
+<div id="questWeekStreak" class="challenge-streak">
+  <div id="questWeekStreakLabels" class="challenge-streak-labels"></div>
+  <div id="questWeekStreakCircles" class="challenge-streak-circles"></div>
+</div>
+<div class="quest-progress"><div id="questProgressFill" class="quest-progress-fill"></div></div>
+<p id="questShield" class="burnout-sub">Streak shield: Inactive</p>
+<p id="questProgressHint" class="soft-note">Complete all 4 quests to secure today’s streak.</p>
+<ul id="questList" class="quest-list"></ul>
+</div>
+</div>
+
+<!-- Predictive Burnout Radar -->
+<div class="card">
+<h2>📡 Predictive Burnout Radar</h2>
+<div id="burnoutRisk" class="burnout-risk">0/100</div>
+<p id="burnoutWindow" class="wellness-status">Low Risk • Stable window</p>
+<p id="burnoutReason" class="burnout-sub">Forecast appears stable right now.</p>
+<ul id="burnoutSchedule" class="burnout-list"></ul>
+<button class="burnout-btn" onclick="applyRecoverySchedule()">Start Simple Recovery Plan</button>
+</div>
+
+<!-- Insights -->
+<div class="card" id="insightsCard">
+<h2>📈 Insights & Streaks</h2>
+<p class="micro-tip">Tip: Trends get sharper when you log daily at similar times.</p>
+
+<div class="insight-task-top">
+  <small id="insightTaskTopLabel" class="insight-task-label">Tasks completed 0/0</small>
+  <div class="insight-bar"><div id="insightTaskTopBar" class="insight-fill"></div></div>
+</div>
+
+<div class="insight-switch-head">
+  <p id="insightMetricTitle" class="insight-metric-title">Productivity Trend</p>
+  <button id="insightNextBtn" onclick="nextInsightMetric()">Next</button>
+</div>
+<small id="insightMetricLabel" class="insight-metric-label">0%</small>
+<small id="insightWeeklyResetCountdown" class="insight-reset-note"></small>
+<div id="insightGraphScroll" class="insight-graph-scroll">
+  <div id="insightGraphTrack" class="insight-graph-track">
+    <svg id="insightLineGraph" class="insight-line-graph" viewBox="0 0 640 74" preserveAspectRatio="xMinYMid meet">
+      <defs>
+        <linearGradient id="insightGraphGradient" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="var(--primary)" />
+          <stop offset="100%" stop-color="var(--accent)" />
+        </linearGradient>
+      </defs>
+      <g id="insightAxisLayer"></g>
+      <g id="insightBarLayer"></g>
+      <g id="insightBarLabelLayer"></g>
+    </svg>
+  </div>
+</div>
+</div>
+
+<!-- Personalized Daily Plan -->
+<div class="card startup-scroll-card">
+<h2>🗂️ Personalized Daily Plan</h2>
+<p class="micro-tip">Top 3 priorities generated from your mood, sleep, hydration, and task trends.</p>
+<ul id="startupDailyPlanList" class="startup-list"></ul>
+<div class="input-group startup-actions-two">
+  <button id="startupRefreshPlanBtn" onclick="refreshStartupPlan()">Generate Plan</button>
+  <button id="startupApplyPlanBtn" onclick="applyStartupPlanAsTasks()" disabled>Apply as Tasks</button>
+</div>
+<p id="startupPlanResetCountdown" class="insight-reset-note"></p>
+<p id="startupPlanMeta" class="startup-mini">Plan updates automatically when your logs change.</p>
+</div>
+
+<!-- Weekly Startup Report -->
+<div class="card startup-scroll-card">
+<h2>🧾 Weekly Startup Report</h2>
+<p class="micro-tip">One-click summary of wins, risks, and next actions for sharing.</p>
+<div class="input-group startup-actions-two">
+  <button id="startupGenerateReportBtn" onclick="generateStartupWeeklyReport()">Generate Report</button>
+  <button onclick="copyStartupWeeklyReport()">Copy Report</button>
+</div>
+<ul id="startupWeeklyReportText" class="startup-list compact"><li>No report generated yet.</li></ul>
+<small id="startupReportResetCountdown" class="insight-reset-note"></small>
+</div>
+
+<!-- Behavior Memory Graph -->
+<div class="card">
+<h2>🧬 Behavior Memory Graph</h2>
+<p class="micro-tip">Signals the patterns that most improve your next-day stability.</p>
+<ul id="startupBehaviorMemory" class="startup-list"></ul>
+</div>
+
+<div id="uxToast">
+  <span id="uxToastText"></span>
+  <button id="uxToastAction" style="display:none;"></button>
+</div>
+
+<script src="scripts/app.js"></script>
+</body>
+</html>
