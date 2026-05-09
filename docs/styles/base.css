@@ -23,6 +23,8 @@ html,body{
   width:100%;
   font-family:'Segoe UI',sans-serif;
   color:var(--text);
+  line-height:1.35;
+  scroll-behavior:smooth;
   background-color:#ffffff;
   background-image:linear-gradient(0deg,var(--app-bg),var(--app-bg));
   overflow-x:hidden;
