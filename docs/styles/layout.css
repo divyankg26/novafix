@@ -199,19 +199,6 @@
 .account-tab-btn.active{
   color:#fff;
   text-decoration:underline;
-  text-underline-offset:3px;
-}
-
-.account-tab-btn::after{
-  display:none;
-}
-
-.account-tab-btn.has-pending-request::after{
-  content:"";
-  position:absolute;
-  top:2px;
-  right:18px;
-  width:6px;
   height:6px;
   border-radius:50%;
   background:#ff3b30;

@@ -1541,11 +1541,13 @@ async function clearAllAccountData() {
 
     try {
       const queueQueries = [
-        fsGetDocs(query(collection(db, "friendRequestsQueue"), where("fromUid", "==", user.uid))),
-        fsGetDocs(query(collection(db, "friendRequestsQueue"), where("toUid", "==", user.uid)))
+        safeGetDocs(query(collection(db, "friendRequestsQueue"), where("fromUid", "==", user.uid))).catch(() => ({ docs: [] })),
+        safeGetDocs(query(collection(db, "friendRequestsQueue"), where("toUid", "==", user.uid))).catch(() => ({ docs: [] }))
       ];
       if (userEmail) {
-        queueQueries.push(fsGetDocs(query(collection(db, "friendRequestsQueue"), where("toEmail", "==", userEmail))));
+        queueQueries.push(
+          safeGetDocs(query(collection(db, "friendRequestsQueue"), where("toEmail", "==", userEmail))).catch(() => ({ docs: [] }))
+        );
       }
       const queueSnapshots = await Promise.all(queueQueries);
       queueSnapshots.forEach((snap) => {
@@ -5858,7 +5860,6 @@ function renderFriendRequests(rows) {
 
   const hasUnseen = safeRows.length > 0;
   if (accountBtn) accountBtn.classList.toggle("has-pending-request", hasUnseen);
-  if (friendsTabBtn) friendsTabBtn.classList.toggle("has-pending-request", hasUnseen);
   if (!friendRequestsList) return;
   if (!safeRows.length) {
     friendRequestsList.innerHTML = `<div class="friend-row"><small>No pending requests yet.</small></div>`;
@@ -6014,10 +6015,64 @@ function ensureSentRequestExpiryTicker() {
 }
 
 function getFriendRequestActorKey(uidValue, emailValue) {
-  const uid = String(uidValue || "").trim();
+  const uid = cleanTextValue(uidValue);
   if (uid) return `uid:${uid}`;
-  const email = String(emailValue || "").trim().toLowerCase();
+  const email = cleanLowerTextValue(emailValue);
   return email ? `email:${email}` : "";
+}
+
+function cleanTextValue(value) {
+  if (value == null) return "";
+  return String(value).trim();
+}
+
+function cleanLowerTextValue(value) {
+  return cleanTextValue(value).toLowerCase();
+}
+
+function normalizeFriendRequestStatusValue(value, fallback = "pending") {
+  const status = cleanLowerTextValue(value);
+  if (!status) return fallback;
+  return isTerminalFriendRequestStatus(status) || status === "pending"
+    ? status
+    : fallback;
+}
+
+function getFriendRequestTimestampMs(entry = {}) {
+  const candidates = [
+    entry.updatedAtMs,
+    entry.createdAtMs,
+    entry.updatedAt,
+    entry.respondedAt,
+    entry.cancelledAt,
+    entry.expiredAt,
+    entry.createdAt
+  ];
+  for (const candidate of candidates) {
+    const milliseconds = getOptionalTimestampMs(candidate);
+    if (Number.isFinite(milliseconds) && milliseconds > 0) return milliseconds;
+  }
+  return 0;
+}
+
+function getFriendRequestLookupKeys(uidValue, emailValue) {
+  const keys = [];
+  const uid = cleanTextValue(uidValue);
+  const email = cleanLowerTextValue(emailValue);
+  if (uid) keys.push(`uid:${uid}`);
+  if (email) keys.push(`email:${email}`);
+  return [...new Set(keys)];
+}
+
+function getFriendRequestQueueDocIds(senderUid, uidValue, emailValue) {
+  const senderId = cleanTextValue(senderUid);
+  if (!senderId) return [];
+  const targetKeys = [];
+  const uid = cleanTextValue(uidValue);
+  const email = cleanLowerTextValue(emailValue);
+  if (uid) targetKeys.push(uid);
+  if (email) targetKeys.push(`email_${encodeURIComponent(email)}`);
+  return [...new Set(targetKeys)].map((key) => `${senderId}__${key}`);
 }
 
 function isTerminalFriendRequestStatus(statusValue) {
@@ -6048,11 +6103,7 @@ function renderSentFriendRequests(rows) {
       name: entry.toName
     }, "Friend"));
     const friendHandle = escapeHtml(formatUsernameHandle(entry.toUsername, entry.toEmail));
-    const createdMs = Number(entry?.createdAtMs)
-      || getOptionalTimestampMs(entry?.createdAt)
-      || Number(entry?.updatedAtMs)
-      || getOptionalTimestampMs(entry?.updatedAt)
-      || getServerNowDate().getTime();
+    const createdMs = getFriendRequestTimestampMs(entry) || getServerNowDate().getTime();
     const expiry = escapeHtml(formatRequestExpiryLabel({ createdAtMs: createdMs }));
     row.innerHTML = `<strong>${friendDisplayName}</strong><small>${friendHandle}</small><small>Pending request • Expires in <span class="sent-request-expiry" data-created-ms="${createdMs}">${expiry}</span></small>`;
 
@@ -6085,29 +6136,18 @@ async function loadSentFriendRequests(userId) {
     try {
       const queueSnap = await getDocs(query(collection(db, "friendRequestsQueue"), where("fromUid", "==", userId)));
       queueRows = queueSnap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
-    } catch (_) {
-      // Fallback to sender-owned sent docs only when queue read is unavailable.
+    } catch (err) {
+      structuredLog('warn', 'friends.sent.queueRead', err?.message || String(err), { userId, userEmail });
       queueRows = [];
     }
     const queueStatusByTarget = new Map();
     queueRows.forEach((entry) => {
-      const toUid = String(entry.toUid || "").trim();
-      const toEmail = String(entry.toEmail || "").trim().toLowerCase();
-      const status = String(entry.status || "").trim().toLowerCase();
-      const requestNonce = String(entry.requestNonce || "").trim();
-      const updatedAtMs = Number(entry.updatedAtMs)
-        || Number(entry.createdAtMs)
-        || getOptionalTimestampMs(entry.updatedAt)
-        || getOptionalTimestampMs(entry.respondedAt)
-        || getOptionalTimestampMs(entry.cancelledAt)
-        || getOptionalTimestampMs(entry.expiredAt)
-        || getOptionalTimestampMs(entry.createdAt)
-        || 0;
+      const targetKeys = getFriendRequestLookupKeys(entry.toUid, entry.toEmail);
+      const status = normalizeFriendRequestStatusValue(entry.status);
+      const requestNonce = cleanTextValue(entry.requestNonce);
+      const updatedAtMs = getFriendRequestTimestampMs(entry);
 
-      const keys = [];
-      if (toUid) keys.push(`uid:${toUid}`);
-      if (toEmail) keys.push(`email:${toEmail}`);
-      keys.forEach((key) => {
+      targetKeys.forEach((key) => {
         const existing = queueStatusByTarget.get(key);
         if (!existing || updatedAtMs >= Number(existing.updatedAtMs || 0)) {
           queueStatusByTarget.set(key, { status, updatedAtMs, requestNonce });
@@ -6123,56 +6163,45 @@ async function loadSentFriendRequests(userId) {
     let rows = snap.docs
       .map((docSnap) => ({ ref: docSnap.ref, id: docSnap.id, ...docSnap.data() }))
       .map((entry) => {
-        const pending = String(entry.status || "pending") === "pending";
-        const existingNonce = String(entry.requestNonce || "").trim();
+        const pending = normalizeFriendRequestStatusValue(entry.status) === "pending";
+        const existingNonce = cleanTextValue(entry.requestNonce);
         if (!pending || existingNonce) return entry;
 
-        const fallbackNonce = `legacy_${String(entry.id || "request")}_${Date.now().toString(36)}`;
-        const toUid = String(entry.toUid || "").trim();
-        const toEmail = String(entry.toEmail || "").trim().toLowerCase();
+        const fallbackNonce = `legacy_${cleanTextValue(entry.id || "request")}_${Date.now().toString(36)}`;
+        const toUid = cleanTextValue(entry.toUid);
+        const toEmail = cleanLowerTextValue(entry.toEmail);
         nonceBackfillUpdates.push(setDoc(entry.ref, {
           requestNonce: fallbackNonce,
           updatedAt: serverTimestamp(),
           updatedAtMs: Date.now()
         }, { merge: true }).catch((err) => structuredLog('warn', 'sent.nonce.backfill', err?.message || String(err))));
 
-        const queueKeys = [];
-        if (toUid) queueKeys.push(toUid);
-        if (toEmail) queueKeys.push(`email_${encodeURIComponent(toEmail)}`);
-        [...new Set(queueKeys)].forEach((key) => {
-          const queueId = `${userId}__${key}`;
+        getFriendRequestQueueDocIds(userId, toUid, toEmail).forEach((queueId) => {
           nonceBackfillUpdates.push(setDoc(doc(db, "friendRequestsQueue", queueId), {
             requestNonce: fallbackNonce,
             updatedAt: serverTimestamp(),
             updatedAtMs: Date.now(),
             queueId,
-            targetKey: key
+            targetKey: queueId.split("__").slice(1).join("__")
           }, { merge: true }).catch((err) => structuredLog('warn', 'queue.nonce', err?.message || String(err))));
         });
 
         return { ...entry, requestNonce: fallbackNonce };
       })
       .filter((entry) => {
-        const pending = String(entry.status || "pending") === "pending";
+        const pending = normalizeFriendRequestStatusValue(entry.status) === "pending";
         if (!pending) return false;
 
-        const toUid = String(entry.toUid || "").trim();
-        const toEmail = String(entry.toEmail || "").trim().toLowerCase();
+        const toUid = cleanTextValue(entry.toUid);
+        const toEmail = cleanLowerTextValue(entry.toEmail);
         const queueCandidates = [
-          toUid ? queueStatusByTarget.get(`uid:${toUid}`) : null,
-          toEmail ? queueStatusByTarget.get(`email:${toEmail}`) : null
+          ...getFriendRequestLookupKeys(toUid, toEmail).map((key) => queueStatusByTarget.get(key) || null)
         ].filter(Boolean);
         queueCandidates.sort((a, b) => Number(b?.updatedAtMs || 0) - Number(a?.updatedAtMs || 0));
         const queueStatusEntry = queueCandidates[0] || null;
-        const queueStatus = String(queueStatusEntry?.status || "");
-        const sentRequestNonce = String(entry.requestNonce || "").trim();
-        const queueRequestNonce = String(queueStatusEntry?.requestNonce || "").trim();
-        const queueStatusUpdatedAtMs = Number(queueStatusEntry?.updatedAtMs || 0);
-        const sentEntryUpdatedAtMs = Number(entry.updatedAtMs)
-          || Number(entry.createdAtMs)
-          || getOptionalTimestampMs(entry.updatedAt)
-          || getOptionalTimestampMs(entry.createdAt)
-          || 0;
+        const queueStatus = normalizeFriendRequestStatusValue(queueStatusEntry?.status, "");
+        const sentRequestNonce = cleanTextValue(entry.requestNonce);
+        const queueRequestNonce = cleanTextValue(queueStatusEntry?.requestNonce);
         const nonceMismatch = !!sentRequestNonce && !!queueRequestNonce && sentRequestNonce !== queueRequestNonce;
         const missingQueueNonceForKnownSent = !!sentRequestNonce && !queueRequestNonce;
         const terminalQueueStatus = isTerminalFriendRequestStatus(queueStatus);
@@ -6189,7 +6218,7 @@ async function loadSentFriendRequests(userId) {
 
         const expired = isFriendRequestExpired(entry, nowMs);
         if (expired) {
-          const requestNonce = String(entry.requestNonce || "").trim();
+          const requestNonce = cleanTextValue(entry.requestNonce);
           expiryUpdates.push(setDoc(entry.ref, {
             status: "expired",
             expiredAt: serverTimestamp(),
@@ -6198,11 +6227,7 @@ async function loadSentFriendRequests(userId) {
             ...(requestNonce ? { requestNonce } : {})
           }, { merge: true }).catch((err) => structuredLog('warn', 'sent.expiry', err?.message || String(err))));
 
-          const queueKeys = [];
-          if (toUid) queueKeys.push(toUid);
-          if (toEmail) queueKeys.push(`email_${encodeURIComponent(toEmail)}`);
-          [...new Set(queueKeys)].forEach((key) => {
-            const queueId = `${userId}__${key}`;
+          getFriendRequestQueueDocIds(userId, toUid, toEmail).forEach((queueId) => {
             expiryUpdates.push(setDoc(doc(db, "friendRequestsQueue", queueId), {
               status: "expired",
               expiredAt: serverTimestamp(),
@@ -6210,7 +6235,7 @@ async function loadSentFriendRequests(userId) {
               updatedAtMs: Date.now(),
               ...(requestNonce ? { requestNonce } : {}),
               queueId,
-              targetKey: key
+              targetKey: queueId.split("__").slice(1).join("__")
             }, { merge: true }).catch((err) => structuredLog('warn', 'queue.expiry', err?.message || String(err))));
           });
 
@@ -6276,13 +6301,13 @@ async function cancelSentFriendRequest(entry) {
   const user = auth.currentUser;
   if (!user?.uid) return;
 
-  const entryId = String(entry?.id || "").trim();
-  const toUid = String(entry?.toUid || "").trim();
-  const toEmail = String(entry?.toEmail || "").trim().toLowerCase();
+  const entryId = cleanTextValue(entry?.id);
+  const toUid = cleanTextValue(entry?.toUid);
+  const toEmail = cleanLowerTextValue(entry?.toEmail);
   if (!entryId) return;
 
   try {
-    const requestNonce = String(entry?.requestNonce || "").trim();
+    const requestNonce = cleanTextValue(entry?.requestNonce);
     await setDoc(doc(db, "users", user.uid, "friendRequestsSent", entryId), {
       status: "cancelled",
       cancelledAt: serverTimestamp(),
@@ -6291,12 +6316,8 @@ async function cancelSentFriendRequest(entry) {
       ...(requestNonce ? { requestNonce } : {})
     }, { merge: true });
 
-    const queueKeys = [];
-    if (toUid) queueKeys.push(toUid);
-    if (toEmail) queueKeys.push(`email_${encodeURIComponent(toEmail)}`);
-    const uniqueKeys = [...new Set(queueKeys)];
-    await Promise.all(uniqueKeys.map((key) => {
-      const queueId = `${user.uid}__${key}`;
+    const queueIds = getFriendRequestQueueDocIds(user.uid, toUid, toEmail);
+    await Promise.all(queueIds.map((queueId) => {
       return setDoc(doc(db, "friendRequestsQueue", queueId), {
         status: "cancelled",
         cancelledAt: serverTimestamp(),
@@ -6304,7 +6325,7 @@ async function cancelSentFriendRequest(entry) {
         updatedAtMs: Date.now(),
         ...(requestNonce ? { requestNonce } : {}),
         queueId,
-        targetKey: key
+        targetKey: queueId.split("__").slice(1).join("__")
       }, { merge: true }).catch((err) => structuredLog('warn', 'queue.cancel', err?.message || String(err)));
     }));
 
@@ -6742,12 +6763,12 @@ async function loadFriendRequests(userId, showLoginAlert = false) {
         safeGetDocs(query(
           collection(db, "friendRequestsQueue"),
           where("toUid", "==", userId)
-        )),
+        )).catch(() => ({ docs: [] })),
         userEmail
           ? safeGetDocs(query(
             collection(db, "friendRequestsQueue"),
             where("toEmail", "==", userEmail)
-          ))
+          )).catch(() => ({ docs: [] }))
           : Promise.resolve({ docs: [] })
       ]);
 
@@ -7594,21 +7615,16 @@ async function submitAddFriendRequest() {
       const pending = String(data.status || "pending") === "pending";
       if (!pending) return;
 
-      const toUid = String(data.toUid || "").trim();
-      const toEmail = String(data.toEmail || "").trim().toLowerCase();
-      const queueCandidates = [
-        toUid ? queueStatusByTarget.get(`uid:${toUid}`) : null,
-        toEmail ? queueStatusByTarget.get(`email:${toEmail}`) : null
-      ].filter(Boolean);
+      const toUid = cleanTextValue(data.toUid);
+      const toEmail = cleanLowerTextValue(data.toEmail);
+      const queueCandidates = getFriendRequestLookupKeys(toUid, toEmail)
+        .map((key) => queueStatusByTarget.get(key) || null)
+        .filter(Boolean);
       queueCandidates.sort((a, b) => Number(b?.updatedAtMs || 0) - Number(a?.updatedAtMs || 0));
       const queueStatusEntry = queueCandidates[0] || null;
-      const queueStatus = String(queueStatusEntry?.status || "");
-      const queueStatusUpdatedAtMs = Number(queueStatusEntry?.updatedAtMs || 0);
-      const sentUpdatedAtMs = Number(data.updatedAtMs)
-        || Number(data.createdAtMs)
-        || getOptionalTimestampMs(data.updatedAt)
-        || getOptionalTimestampMs(data.createdAt)
-        || 0;
+      const queueStatus = normalizeFriendRequestStatusValue(queueStatusEntry?.status, "");
+      const queueStatusUpdatedAtMs = getFriendRequestTimestampMs(queueStatusEntry || {});
+      const sentUpdatedAtMs = getFriendRequestTimestampMs(data);
       const terminalQueueStatus = isTerminalFriendRequestStatus(queueStatus);
       if (terminalQueueStatus && queueStatusUpdatedAtMs > 0 && queueStatusUpdatedAtMs >= sentUpdatedAtMs) {
         sentStatusSyncUpdates.push(setDoc(docSnap.ref, {
@@ -8029,8 +8045,8 @@ async function respondToFriendRequest(requestEntry, action) {
       || normalizeDisplayNameValue(requestData.toName)
       || recipientUsername;
     const recipientName = recipientDisplayName;
-    const queueToUid = String(requestData.toUid || user.uid || "").trim();
-    const queueToEmail = String(requestData.toEmail || recipientEmail || "").trim().toLowerCase();
+    const queueToUid = cleanTextValue(requestData.toUid || user.uid);
+    const queueToEmail = cleanLowerTextValue(requestData.toEmail || recipientEmail);
     const queueMutablePayload = {
       fromUid,
       fromEmail: senderEmail,
@@ -8048,18 +8064,14 @@ async function respondToFriendRequest(requestEntry, action) {
       respondedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       updatedAtMs: Date.now(),
-      requestNonce: String(requestData.requestNonce || "").trim()
+      requestNonce: cleanTextValue(requestData.requestNonce)
     };
-    const queueKeys = [];
-    if (queueToUid) queueKeys.push(queueToUid);
-    if (queueToEmail) queueKeys.push(`email_${encodeURIComponent(queueToEmail)}`);
-    const uniqueQueueKeys = [...new Set(queueKeys)];
-    await Promise.all(uniqueQueueKeys.map((key) => {
-      const queueId = `${fromUid}__${key}`;
+    const queueIds = getFriendRequestQueueDocIds(fromUid, queueToUid, queueToEmail);
+    await Promise.all(queueIds.map((queueId) => {
       return setDoc(doc(db, "friendRequestsQueue", queueId), {
         ...queueMutablePayload,
         queueId,
-        targetKey: key
+        targetKey: queueId.split("__").slice(1).join("__")
       }, { merge: true }).catch((err) => structuredLog('warn', 'respond.queue', err?.message || String(err)));
     }));
 
@@ -8092,8 +8104,8 @@ async function respondToFriendRequest(requestEntry, action) {
       const senderUpdates = [];
       senderSentSnap.docs.forEach((docSnap) => {
         const data = docSnap.data() || {};
-        const toUidMatches = String(data.toUid || "") === user.uid;
-        const toEmailMatches = recipientEmailForSenderSync && String(data.toEmail || "").trim().toLowerCase() === recipientEmailForSenderSync;
+        const toUidMatches = cleanTextValue(data.toUid) === user.uid;
+        const toEmailMatches = recipientEmailForSenderSync && cleanLowerTextValue(data.toEmail) === recipientEmailForSenderSync;
         if (!toUidMatches && !toEmailMatches) return;
 
         senderUpdates.push(setDoc(docSnap.ref, {
