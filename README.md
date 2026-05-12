@@ -45,4 +45,5 @@ Contact
 For permissions, licensing inquiries, or collaborations, contact:
 
 Divyank Goyal
+
 support.novafix@gmail.com
