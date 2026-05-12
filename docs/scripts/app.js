@@ -7,7 +7,7 @@ const firestoreModule = await import("https://www.gstatic.com/firebasejs/10.12.2
 const authModule = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
 
 const { initializeApp, getApps } = firebaseAppModule;
-const { initializeFirestore, persistentLocalCache, getFirestore, collection, collectionGroup, addDoc, getDocs, getDocsFromServer, serverTimestamp, deleteDoc, doc, updateDoc, setDoc, getDoc, getDocFromServer, runTransaction, query, where, onSnapshot } = firestoreModule;
+const { getFirestore, collection, collectionGroup, addDoc, getDocs, getDocsFromServer, serverTimestamp, deleteDoc, doc, updateDoc, setDoc, getDoc, getDocFromServer, runTransaction, query, where, onSnapshot } = firestoreModule;
 const { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendEmailVerification, sendPasswordResetEmail, fetchSignInMethodsForEmail, deleteUser, updateProfile, EmailAuthProvider, linkWithCredential, GoogleAuthProvider, signInWithPopup } = authModule;
 
 // 🔥 Your Firebase Config
@@ -25,13 +25,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 let db;
-try {
-  db = initializeFirestore(app, {
-    localCache: persistentLocalCache()
-  });
-} catch (_) {
-  db = getFirestore(app);
-}
+db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
   prompt: "select_account"
