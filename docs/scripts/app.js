@@ -118,11 +118,54 @@ const FIRESTORE_SCHEMAS = {
       updatedAt: 'timestamp'
     }
   },
+  moods: {
+    types: {
+      mood: 'string',
+      uid: 'string',
+      email: 'string',
+      time: 'timestamp'
+    }
+  },
+  tasks: {
+    types: {
+      text: 'string',
+      completed: 'boolean',
+      completedAt: 'timestamp',
+      time: 'timestamp'
+    }
+  },
+  reminders: {
+    types: {
+      text: 'string',
+      minutes: 'number',
+      targetAtMs: 'number',
+      createdAt: 'timestamp'
+    }
+  },
+  gratitudeLogs: {
+    types: {
+      text: 'string',
+      time: 'timestamp'
+    }
+  },
+  waterIntake: {
+    types: {
+      glasses: 'number',
+      time: 'timestamp'
+    }
+  },
+  sleepLogs: {
+    types: {
+      hours: 'number',
+      time: 'timestamp'
+    }
+  },
   friend: {
     types: {
       friendUid: 'string',
       friendEmail: 'string',
       status: 'string',
+      since: 'timestamp',
       connectedAt: 'timestamp',
       unfriendedAt: 'timestamp',
       updatedAt: 'timestamp',
@@ -153,6 +196,10 @@ const FIRESTORE_SCHEMAS = {
       status: 'string',
       createdAt: 'timestamp',
       updatedAt: 'timestamp',
+      respondedAt: 'timestamp',
+      cancelledAt: 'timestamp',
+      expiredAt: 'timestamp',
+      unfriendedAt: 'timestamp',
       createdAtMs: 'number',
       updatedAtMs: 'number',
       requestNonce: 'string'
@@ -162,11 +209,62 @@ const FIRESTORE_SCHEMAS = {
     types: {
       fromUid: 'string',
       fromEmail: 'string',
+      fromName: 'string',
+      fromUsername: 'string',
+      fromDisplayName: 'string',
       toUid: 'string',
       toEmail: 'string',
+      toName: 'string',
+      toUsername: 'string',
+      toDisplayName: 'string',
       status: 'string',
       createdAt: 'timestamp',
-      updatedAt: 'timestamp'
+      updatedAt: 'timestamp',
+      respondedAt: 'timestamp',
+      cancelledAt: 'timestamp',
+      expiredAt: 'timestamp',
+      unfriendedAt: 'timestamp',
+      createdAtMs: 'number',
+      updatedAtMs: 'number',
+      requestNonce: 'string'
+    }
+  },
+  friendRequestsQueue: {
+    types: {
+      fromUid: 'string',
+      fromEmail: 'string',
+      fromName: 'string',
+      fromUsername: 'string',
+      fromDisplayName: 'string',
+      toUid: 'string',
+      toEmail: 'string',
+      toName: 'string',
+      toUsername: 'string',
+      toDisplayName: 'string',
+      status: 'string',
+      delivery: 'string',
+      queueId: 'string',
+      targetKey: 'string',
+      requestNonce: 'string',
+      createdAt: 'timestamp',
+      updatedAt: 'timestamp',
+      respondedAt: 'timestamp',
+      cancelledAt: 'timestamp',
+      expiredAt: 'timestamp',
+      unfriendedAt: 'timestamp',
+      unfriendedBy: 'string',
+      createdAtMs: 'number',
+      updatedAtMs: 'number'
+    }
+  },
+  friendRequestDecisions: {
+    types: {
+      fromUid: 'string',
+      status: 'string',
+      unfriendedBy: 'string',
+      respondedAt: 'timestamp',
+      updatedAt: 'timestamp',
+      updatedAtMs: 'number'
     }
   },
   friendRequestDot: {
@@ -272,6 +370,7 @@ function isTimestampLike(v){
   if (v instanceof Date) return true;
   if (typeof v === 'number') return true;
   if (typeof v === 'object') {
+    if (v._methodName === 'serverTimestamp') return true;
     return ('seconds' in v) || ('_seconds' in v) || ('_nanoseconds' in v);
   }
   return false;
@@ -454,12 +553,17 @@ async function fsRunTransaction(dbInstance, updateFn){
   }
 }
 
-async function fsDeleteDoc(ref){
+async function fsDeleteDoc(ref, options = {}){
+  const silent = !!options?.silent;
   try{
     const res = await deleteDoc(ref);
     structuredLog('info', 'fs.delete', 'delete', { path: ref.path });
     return res;
   } catch(err){
+    if (silent && isFirestorePermissionDeniedError(err)) {
+      structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: ref?.path });
+      return null;
+    }
     structuredLog('error', 'fs.delete.error', err?.message || String(err), { path: ref?.path });
     notifyFirestoreError(err);
     throw err;
@@ -825,7 +929,7 @@ const accountPanel = document.getElementById("accountPanel");
 const accountTabButtons = Array.from(document.querySelectorAll(".account-tab-btn"));
 const accountTabPanels = Array.from(document.querySelectorAll(".account-tab-panel"));
 const friendsTabBtn = accountTabButtons.find((buttonEl) => String(buttonEl?.dataset?.accountTab || "").trim().toLowerCase() === "friends") || null;
-const APP_VERSION = "v11.4.3";
+const APP_VERSION = "v11.5.1";
 const aboutAppVersion = document.getElementById("aboutAppVersion");
 const reportRedirectConfirmModal = document.getElementById("reportRedirectConfirmModal");
 const importTransferModal = document.getElementById("importTransferModal");
@@ -1605,25 +1709,25 @@ async function clearAllAccountData() {
 
     if (friendIds.length) {
       await Promise.all(friendIds.map((friendUid) => {
-        return fsDeleteDoc(doc(db, "users", friendUid, "friends", user.uid)).catch((err) => structuredLog('warn', 'clearAll.delete.friend', err?.message || String(err)));
+        return fsDeleteDoc(doc(db, "users", friendUid, "friends", user.uid), { silent: true }).catch((err) => structuredLog('warn', 'clearAll.delete.friend', err?.message || String(err)));
       }));
     }
 
     if (sentRequestTargetIds.length) {
       await Promise.all(sentRequestTargetIds.map((targetUid) => {
-        return fsDeleteDoc(doc(db, "users", targetUid, "friendRequests", user.uid)).catch((err) => structuredLog('warn', 'clearAll.delete.sent', err?.message || String(err)));
+        return fsDeleteDoc(doc(db, "users", targetUid, "friendRequests", user.uid), { silent: true }).catch((err) => structuredLog('warn', 'clearAll.delete.sent', err?.message || String(err)));
       }));
     }
 
     if (incomingRequestSourceIds.length) {
       await Promise.all(incomingRequestSourceIds.map((sourceUid) => {
-        return fsDeleteDoc(doc(db, "users", sourceUid, "friendRequestsSent", user.uid)).catch((err) => structuredLog('warn', 'clearAll.delete.incoming', err?.message || String(err)));
+        return fsDeleteDoc(doc(db, "users", sourceUid, "friendRequestsSent", user.uid), { silent: true }).catch((err) => structuredLog('warn', 'clearAll.delete.incoming', err?.message || String(err)));
       }));
     }
 
     if (queueRequestDocIds.length) {
       await Promise.all(queueRequestDocIds.map((requestId) => {
-        return fsDeleteDoc(doc(db, "friendRequestsQueue", requestId)).catch((err) => structuredLog('warn', 'clearAll.delete.queue', err?.message || String(err)));
+        return fsDeleteDoc(doc(db, "friendRequestsQueue", requestId), { silent: true }).catch((err) => structuredLog('warn', 'clearAll.delete.queue', err?.message || String(err)));
       }));
     }
 
@@ -1632,7 +1736,7 @@ async function clearAllAccountData() {
         dateKeyLocal: preservedAiUsage.dateKeyLocal || preservedAiUsage.dateKeyGMT || getTodayKeyGMT(),
         dateKeyGMT: preservedAiUsage.dateKeyGMT || preservedAiUsage.dateKeyLocal || getTodayKeyGMT(),
         count: Number(preservedAiUsage.count) || 0,
-        updatedAt: serverTimestamp()
+        updatedAt: Date.now()
       }, 'aiUsage', { merge: true });
     }
     const preservedDateKey = preservedDailyUsage?.dateKey || "";
@@ -1651,7 +1755,7 @@ async function clearAllAccountData() {
       waterCount: Math.max(preservedWaterCount, waterTodayCount),
       reminderCount: Math.max(preservedReminderCount, remindersTodayCount),
       gratitudeCount: Math.max(preservedGratitudeCount, gratitudeTodayCount),
-      updatedAt: serverTimestamp()
+      updatedAt: Date.now()
     }, 'dailyUsage', { merge: true });
 
     moodLogs.innerHTML = "";
@@ -6164,20 +6268,20 @@ async function loadSentFriendRequests(userId) {
         const fallbackNonce = `legacy_${cleanTextValue(entry.id || "request")}_${Date.now().toString(36)}`;
         const toUid = cleanTextValue(entry.toUid);
         const toEmail = cleanLowerTextValue(entry.toEmail);
-        nonceBackfillUpdates.push(setDoc(entry.ref, {
+        nonceBackfillUpdates.push(fsSetDoc(entry.ref, {
           requestNonce: fallbackNonce,
           updatedAt: serverTimestamp(),
           updatedAtMs: Date.now()
-        }, { merge: true }).catch((err) => structuredLog('warn', 'sent.nonce.backfill', err?.message || String(err))));
+        }, 'friendRequestsSent', { merge: true }).catch((err) => structuredLog('warn', 'sent.nonce.backfill', err?.message || String(err))));
 
         getFriendRequestQueueDocIds(userId, toUid, toEmail).forEach((queueId) => {
-          nonceBackfillUpdates.push(setDoc(doc(db, "friendRequestsQueue", queueId), {
+          nonceBackfillUpdates.push(fsSetDoc(doc(db, "friendRequestsQueue", queueId), {
             requestNonce: fallbackNonce,
             updatedAt: serverTimestamp(),
             updatedAtMs: Date.now(),
             queueId,
             targetKey: queueId.split("__").slice(1).join("__")
-          }, { merge: true }).catch((err) => structuredLog('warn', 'queue.nonce', err?.message || String(err))));
+          }, 'friendRequestsQueue', { merge: true }).catch((err) => structuredLog('warn', 'queue.nonce', err?.message || String(err))));
         });
 
         return { ...entry, requestNonce: fallbackNonce };
@@ -6202,27 +6306,27 @@ async function loadSentFriendRequests(userId) {
         if (terminalQueueStatus
           && !nonceMismatch
           && !missingQueueNonceForKnownSent) {
-          statusSyncUpdates.push(setDoc(entry.ref, {
+          statusSyncUpdates.push(fsSetDoc(entry.ref, {
             status: queueStatus,
             updatedAt: serverTimestamp(),
             updatedAtMs: Date.now()
-          }, { merge: true }).catch((err) => structuredLog('warn', 'sent.statusSync', err?.message || String(err))));
+          }, 'friendRequestsSent', { merge: true }).catch((err) => structuredLog('warn', 'sent.statusSync', err?.message || String(err))));
           return false;
         }
 
         const expired = isFriendRequestExpired(entry, nowMs);
         if (expired) {
           const requestNonce = cleanTextValue(entry.requestNonce);
-          expiryUpdates.push(setDoc(entry.ref, {
+          expiryUpdates.push(fsSetDoc(entry.ref, {
             status: "expired",
             expiredAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
             updatedAtMs: Date.now(),
             ...(requestNonce ? { requestNonce } : {})
-          }, { merge: true }).catch((err) => structuredLog('warn', 'sent.expiry', err?.message || String(err))));
+          }, 'friendRequestsSent', { merge: true }).catch((err) => structuredLog('warn', 'sent.expiry', err?.message || String(err))));
 
           getFriendRequestQueueDocIds(userId, toUid, toEmail).forEach((queueId) => {
-            expiryUpdates.push(setDoc(doc(db, "friendRequestsQueue", queueId), {
+            expiryUpdates.push(fsSetDoc(doc(db, "friendRequestsQueue", queueId), {
               status: "expired",
               expiredAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
@@ -6230,17 +6334,17 @@ async function loadSentFriendRequests(userId) {
               ...(requestNonce ? { requestNonce } : {}),
               queueId,
               targetKey: queueId.split("__").slice(1).join("__")
-            }, { merge: true }).catch((err) => structuredLog('warn', 'queue.expiry', err?.message || String(err))));
+            }, 'friendRequestsQueue', { merge: true }).catch((err) => structuredLog('warn', 'queue.expiry', err?.message || String(err))));
           });
 
           if (toUid) {
-            expiryUpdates.push(setDoc(doc(db, "users", toUid, "friendRequests", userId), {
+            expiryUpdates.push(fsSetDoc(doc(db, "users", toUid, "friendRequests", userId), {
               status: "expired",
               expiredAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
               updatedAtMs: Date.now(),
               ...(requestNonce ? { requestNonce } : {})
-            }, { merge: true }).catch((err) => structuredLog('warn', 'incoming.expiry', err?.message || String(err))));
+            }, 'friendRequest', { merge: true }).catch((err) => structuredLog('warn', 'incoming.expiry', err?.message || String(err))));
           }
         }
         return !expired;
@@ -6302,17 +6406,17 @@ async function cancelSentFriendRequest(entry) {
 
   try {
     const requestNonce = cleanTextValue(entry?.requestNonce);
-    await setDoc(doc(db, "users", user.uid, "friendRequestsSent", entryId), {
+    await fsSetDoc(doc(db, "users", user.uid, "friendRequestsSent", entryId), {
       status: "cancelled",
       cancelledAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       updatedAtMs: Date.now(),
       ...(requestNonce ? { requestNonce } : {})
-    }, { merge: true });
+    }, 'friendRequestsSent', { merge: true });
 
     const queueIds = getFriendRequestQueueDocIds(user.uid, toUid, toEmail);
     await Promise.all(queueIds.map((queueId) => {
-      return setDoc(doc(db, "friendRequestsQueue", queueId), {
+      return fsSetDoc(doc(db, "friendRequestsQueue", queueId), {
         status: "cancelled",
         cancelledAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -6320,17 +6424,17 @@ async function cancelSentFriendRequest(entry) {
         ...(requestNonce ? { requestNonce } : {}),
         queueId,
         targetKey: queueId.split("__").slice(1).join("__")
-      }, { merge: true }).catch((err) => structuredLog('warn', 'queue.cancel', err?.message || String(err)));
+      }, 'friendRequestsQueue', { merge: true }).catch((err) => structuredLog('warn', 'queue.cancel', err?.message || String(err)));
     }));
 
     if (toUid) {
-      await setDoc(doc(db, "users", toUid, "friendRequests", user.uid), {
+      await fsSetDoc(doc(db, "users", toUid, "friendRequests", user.uid), {
         status: "cancelled",
         cancelledAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         updatedAtMs: Date.now(),
         ...(requestNonce ? { requestNonce } : {})
-      }, { merge: true }).catch((err) => structuredLog('warn', 'incoming.cancel', err?.message || String(err)));
+      }, 'friendRequest', { merge: true }).catch((err) => structuredLog('warn', 'incoming.cancel', err?.message || String(err)));
     }
 
     showToast("Sent request cancelled.");
@@ -6359,32 +6463,32 @@ async function unfriendByUid(friendUid) {
     }
 
     // Persistent local block so background self-heal/history recovery cannot resurrect this friendship.
-    await setDoc(doc(db, "users", user.uid, "friendUnfriended", safeFriendUid), {
+    await fsSetDoc(doc(db, "users", user.uid, "friendUnfriended", safeFriendUid), {
       friendUid: safeFriendUid,
       status: "unfriended",
       unfriendedBy: user.uid,
       unfriendedAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    }, { merge: true }).catch((err) => structuredLog('warn', 'friend.unfriend.local', err?.message || String(err)));
+    }, 'friendUnfriended', { merge: true }).catch((err) => structuredLog('warn', 'friend.unfriend.local', err?.message || String(err)));
 
     // Best-effort remote block so reverse-side recovery also stays blocked.
-    await setDoc(doc(db, "users", safeFriendUid, "friendUnfriended", user.uid), {
+    await fsSetDoc(doc(db, "users", safeFriendUid, "friendUnfriended", user.uid), {
       friendUid: user.uid,
       status: "unfriended",
       unfriendedBy: user.uid,
       unfriendedAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    }, { merge: true }).catch((err) => structuredLog('warn', 'friend.unfriend.remote', err?.message || String(err)));
+    }, 'friendUnfriended', { merge: true }).catch((err) => structuredLog('warn', 'friend.unfriend.remote', err?.message || String(err)));
 
     // Local safety mark: if delete is blocked/transient, this keeps it hidden from accepted-only views.
-    await setDoc(doc(db, "users", user.uid, "friends", safeFriendUid), {
+    await fsSetDoc(doc(db, "users", user.uid, "friends", safeFriendUid), {
       status: "unfriended",
       unfriendedAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    }, { merge: true }).catch((err) => structuredLog('warn', 'friend.unfriend.mark', err?.message || String(err)));
+    }, 'friend', { merge: true }).catch((err) => structuredLog('warn', 'friend.unfriend.mark', err?.message || String(err)));
 
-    await deleteDoc(doc(db, "users", user.uid, "friends", safeFriendUid)).catch((err) => structuredLog('warn', 'friend.delete.local', err?.message || String(err)));
-    await deleteDoc(doc(db, "users", safeFriendUid, "friends", user.uid)).catch((err) => structuredLog('warn', 'friend.delete.remote', err?.message || String(err)));
+    await fsDeleteDoc(doc(db, "users", user.uid, "friends", safeFriendUid), { silent: true }).catch((err) => structuredLog('warn', 'friend.delete.local', err?.message || String(err)));
+    await fsDeleteDoc(doc(db, "users", safeFriendUid, "friends", user.uid), { silent: true }).catch((err) => structuredLog('warn', 'friend.delete.remote', err?.message || String(err)));
 
     const sentDocsSnap = await fsGetDocs(collection(db, "users", user.uid, "friendRequestsSent"), 'friendRequestsSent');
     const sentUpdates = [];
@@ -6393,25 +6497,25 @@ async function unfriendByUid(friendUid) {
       const sameUid = String(data.toUid || "") === safeFriendUid;
       const sameEmail = friendEmail && String(data.toEmail || "").trim().toLowerCase() === friendEmail;
       if (!sameUid && !sameEmail) return;
-      sentUpdates.push(setDoc(docSnap.ref, {
+      sentUpdates.push(fsSetDoc(docSnap.ref, {
         status: "unfriended",
         unfriendedAt: serverTimestamp(),
         updatedAt: serverTimestamp()
-      }, { merge: true }).catch((err) => structuredLog('warn', 'sent.unfriend', err?.message || String(err))));
+      }, 'friendRequestsSent', { merge: true }).catch((err) => structuredLog('warn', 'sent.unfriend', err?.message || String(err))));
     });
     await Promise.all(sentUpdates);
 
-    await setDoc(doc(db, "users", user.uid, "friendRequests", safeFriendUid), {
+    await fsSetDoc(doc(db, "users", user.uid, "friendRequests", safeFriendUid), {
       status: "unfriended",
       unfriendedAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    }, { merge: true }).catch((err) => structuredLog('warn', 'incoming.unfriend', err?.message || String(err)));
+    }, 'friendRequest', { merge: true }).catch((err) => structuredLog('warn', 'incoming.unfriend', err?.message || String(err)));
 
-    await setDoc(doc(db, "users", user.uid, "friendRequestDecisions", safeFriendUid), {
+    await fsSetDoc(doc(db, "users", user.uid, "friendRequestDecisions", safeFriendUid), {
       fromUid: safeFriendUid,
       status: "unfriended",
       updatedAt: serverTimestamp()
-    }, { merge: true }).catch((err) => structuredLog('warn', 'decision.unfriend', err?.message || String(err)));
+    }, 'friendRequestDecisions', { merge: true }).catch((err) => structuredLog('warn', 'decision.unfriend', err?.message || String(err)));
 
     // Mark queue relationship entries as unfriended on both directions when available.
     const [myToFriendQueue, friendToMeQueue, friendToMeByEmailQueue] = await Promise.all([
@@ -6437,31 +6541,31 @@ async function unfriendByUid(friendUid) {
       const sameUid = String(data.toUid || "") === safeFriendUid;
       const sameEmail = !!friendEmail && String(data.toEmail || "").trim().toLowerCase() === friendEmail;
       if (sameUid || sameEmail) {
-        queueUpdates.push(setDoc(docSnap.ref, {
+        queueUpdates.push(fsSetDoc(docSnap.ref, {
           status: "unfriended",
           unfriendedBy: user.uid,
           updatedAt: serverTimestamp()
-        }, { merge: true }));
+        }, 'friendRequestsQueue', { merge: true }));
       }
     });
     friendToMeQueue.docs.forEach((docSnap) => {
       const data = docSnap.data() || {};
       if (String(data.fromUid || "") === safeFriendUid) {
-        queueUpdates.push(setDoc(docSnap.ref, {
+        queueUpdates.push(fsSetDoc(docSnap.ref, {
           status: "unfriended",
           unfriendedBy: user.uid,
           updatedAt: serverTimestamp()
-        }, { merge: true }));
+        }, 'friendRequestsQueue', { merge: true }));
       }
     });
     friendToMeByEmailQueue.docs.forEach((docSnap) => {
       const data = docSnap.data() || {};
       if (String(data.fromUid || "") === safeFriendUid) {
-        queueUpdates.push(setDoc(docSnap.ref, {
+        queueUpdates.push(fsSetDoc(docSnap.ref, {
           status: "unfriended",
           unfriendedBy: user.uid,
           updatedAt: serverTimestamp()
-        }, { merge: true }));
+        }, 'friendRequestsQueue', { merge: true }));
       }
     });
     await Promise.all(queueUpdates.map((promise) => promise.catch((err) => structuredLog('warn', 'queue.update', err?.message || String(err)))));
@@ -6501,21 +6605,21 @@ async function markFriendshipUnfriendedForAccountClear(user, friendUid, options 
   };
 
   await Promise.allSettled([
-    setDoc(doc(db, "users", userId, "friendUnfriended", safeFriendUid), {
+    fsSetDoc(doc(db, "users", userId, "friendUnfriended", safeFriendUid), {
       friendUid: safeFriendUid,
       ...unfriendedPayload
-    }, { merge: true }),
-    setDoc(doc(db, "users", safeFriendUid, "friendUnfriended", userId), {
+    }, 'friendUnfriended', { merge: true }),
+    fsSetDoc(doc(db, "users", safeFriendUid, "friendUnfriended", userId), {
       friendUid: userId,
       ...unfriendedPayload
-    }, { merge: true }),
-    setDoc(doc(db, "users", userId, "friends", safeFriendUid), unfriendedPayload, { merge: true }),
-    setDoc(doc(db, "users", safeFriendUid, "friends", userId), unfriendedPayload, { merge: true })
+    }, 'friendUnfriended', { merge: true }),
+    fsSetDoc(doc(db, "users", userId, "friends", safeFriendUid), unfriendedPayload, 'friend', { merge: true }),
+    fsSetDoc(doc(db, "users", safeFriendUid, "friends", userId), unfriendedPayload, 'friend', { merge: true })
   ]);
 
   await Promise.allSettled([
-    deleteDoc(doc(db, "users", userId, "friends", safeFriendUid)),
-    deleteDoc(doc(db, "users", safeFriendUid, "friends", userId))
+    fsDeleteDoc(doc(db, "users", userId, "friends", safeFriendUid), { silent: true }),
+    fsDeleteDoc(doc(db, "users", safeFriendUid, "friends", userId), { silent: true })
   ]);
 
   const queueQueries = [
@@ -6558,7 +6662,7 @@ async function markFriendshipUnfriendedForAccountClear(user, friendUid, options 
       || (fromUid === userId && friendEmail && toEmail === friendEmail)
       || (fromUid === safeFriendUid && userEmail && toEmail === userEmail);
     if (!matchesPair) return;
-    queueDeletes.push(fsDeleteDoc(docSnap.ref));
+    queueDeletes.push(fsDeleteDoc(docSnap.ref, { silent: true }));
   });
 
   const requestDocs = requestResults
@@ -6584,24 +6688,24 @@ async function markFriendshipUnfriendedForAccountClear(user, friendUid, options 
         || (fromEmail === friendEmail && toEmail === userEmail)
       ));
     if (!matchesPair) return;
-    requestDeletes.push(fsDeleteDoc(docSnap.ref));
+    requestDeletes.push(fsDeleteDoc(docSnap.ref, { silent: true }));
   });
 
   await Promise.allSettled([
     ...queueDeletes,
     ...requestDeletes,
-    setDoc(doc(db, "users", userId, "friendRequestDecisions", safeFriendUid), {
+    fsSetDoc(doc(db, "users", userId, "friendRequestDecisions", safeFriendUid), {
       fromUid: safeFriendUid,
       status: "unfriended",
       unfriendedBy: userId,
       updatedAt: serverTimestamp()
-    }, { merge: true }),
-    setDoc(doc(db, "users", safeFriendUid, "friendRequestDecisions", userId), {
+    }, 'friendRequestDecisions', { merge: true }),
+    fsSetDoc(doc(db, "users", safeFriendUid, "friendRequestDecisions", userId), {
       fromUid: userId,
       status: "unfriended",
       unfriendedBy: userId,
       updatedAt: serverTimestamp()
-    }, { merge: true })
+    }, 'friendRequestDecisions', { merge: true })
   ]);
 }
 
@@ -7026,7 +7130,7 @@ async function loadFriendsInsights(userId) {
     if (locallyUnfriendedFriendUids.size) {
       await Promise.all([...locallyUnfriendedFriendUids].map((blockedUid) => {
         if (!blockedUid) return Promise.resolve();
-        return deleteDoc(doc(db, "users", userId, "friends", blockedUid)).catch((err) => structuredLog('warn', 'cleanup.unfriended', err?.message || String(err)));
+        return fsDeleteDoc(doc(db, "users", userId, "friends", blockedUid), { silent: true }).catch((err) => structuredLog('warn', 'cleanup.unfriended', err?.message || String(err)));
       }));
     }
 
@@ -7043,7 +7147,7 @@ async function loadFriendsInsights(userId) {
     await Promise.all(friends.map((entry) => {
       const friendUid = String(entry.friendUid || "").trim();
       if (!friendUid || friendUid === userId) return Promise.resolve();
-      return setDoc(doc(db, "users", friendUid, "friends", userId), {
+      return fsSetDoc(doc(db, "users", friendUid, "friends", userId), {
         friendUid: userId,
         friendEmail: userEmail,
         friendName: myDisplayName,
@@ -7051,7 +7155,7 @@ async function loadFriendsInsights(userId) {
         friendDisplayName: myDisplayName,
         status: "accepted",
         updatedAt: serverTimestamp()
-      }, { merge: true }).catch(() => {});
+      }, 'friend', { merge: true }).catch(() => {});
     }));
 
     let queueFriends = [];
@@ -7219,7 +7323,7 @@ async function loadFriendsInsights(userId) {
           email: String(entry.friendEmail || "").trim().toLowerCase(),
           name: String(entry.friendName || "").trim()
         }, "Friend");
-        return setDoc(doc(db, "users", userId, "friends", friendUid), {
+        return fsSetDoc(doc(db, "users", userId, "friends", friendUid), {
           friendUid,
           friendEmail: String(entry.friendEmail || "").trim().toLowerCase(),
           friendName: fallbackName,
@@ -7227,7 +7331,7 @@ async function loadFriendsInsights(userId) {
           friendDisplayName: normalizeDisplayNameValue(entry.friendDisplayName || fallbackName) || fallbackName,
           status: "accepted",
           updatedAt: serverTimestamp()
-        }, { merge: true }).catch(() => {});
+        }, 'friend', { merge: true }).catch(() => {});
       }));
       queueOnlyAccepted.forEach((entry) => {
         const uid = String(entry.friendUid || "").trim();
@@ -7292,7 +7396,7 @@ async function loadFriendsInsights(userId) {
           email: String(entry.friendEmail || "").trim().toLowerCase(),
           name: String(entry.friendName || "").trim()
         }, "Friend");
-        return setDoc(doc(db, "users", userId, "friends", friendUid), {
+        return fsSetDoc(doc(db, "users", userId, "friends", friendUid), {
           friendUid,
           friendEmail: String(entry.friendEmail || "").trim().toLowerCase(),
           friendName: fallbackName,
@@ -7300,7 +7404,7 @@ async function loadFriendsInsights(userId) {
           friendDisplayName: normalizeDisplayNameValue(entry.friendDisplayName || fallbackName) || fallbackName,
           status: "accepted",
           updatedAt: serverTimestamp()
-        }, { merge: true }).catch(() => {});
+        }, 'friend', { merge: true }).catch(() => {});
       }));
 
       historicalOnlyAccepted.forEach((entry) => {
@@ -7621,21 +7725,21 @@ async function submitAddFriendRequest() {
       const sentUpdatedAtMs = getFriendRequestTimestampMs(data);
       const terminalQueueStatus = isTerminalFriendRequestStatus(queueStatus);
       if (terminalQueueStatus && queueStatusUpdatedAtMs > 0 && queueStatusUpdatedAtMs >= sentUpdatedAtMs) {
-        sentStatusSyncUpdates.push(setDoc(docSnap.ref, {
+        sentStatusSyncUpdates.push(fsSetDoc(docSnap.ref, {
           status: queueStatus,
           updatedAt: serverTimestamp(),
           updatedAtMs: Date.now()
-        }, { merge: true }).catch(() => {}));
+        }, 'friendRequestsSent', { merge: true }).catch(() => {}));
         return;
       }
 
       if (isFriendRequestExpired(data)) {
-        sentExpiryUpdates.push(setDoc(docSnap.ref, {
+        sentExpiryUpdates.push(fsSetDoc(docSnap.ref, {
           status: "expired",
           expiredAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
           updatedAtMs: Date.now()
-        }, { merge: true }).catch(() => {}));
+        }, 'friendRequestsSent', { merge: true }).catch(() => {}));
         return;
       }
 
@@ -7699,11 +7803,11 @@ async function submitAddFriendRequest() {
         return;
       }
       if (reverseData && String(reverseData.status || "") === "pending" && isFriendRequestExpired(reverseData)) {
-        await setDoc(doc(db, "users", user.uid, "friendRequests", targetUid), {
+        await fsSetDoc(doc(db, "users", user.uid, "friendRequests", targetUid), {
           status: "expired",
           expiredAt: serverTimestamp(),
           updatedAt: serverTimestamp()
-        }, { merge: true }).catch(() => {});
+        }, 'friendRequest', { merge: true }).catch(() => {});
       }
     }
 
@@ -7800,14 +7904,14 @@ async function submitAddFriendRequest() {
 
     const sentRequestDocId = targetUid || `email_${targetEmail}`;
 
-    await setDoc(doc(db, "users", user.uid, "friendRequestsSent", sentRequestDocId), {
+    await fsSetDoc(doc(db, "users", user.uid, "friendRequestsSent", sentRequestDocId), {
       ...requestPayload,
       status: "pending",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       createdAtMs: requestNowMs,
       updatedAtMs: requestNowMs
-    }, { merge: true });
+    }, 'friendRequestsSent', { merge: true });
 
     let deliveredToInbox = false;
     let queuedFallback = false;
@@ -7819,7 +7923,7 @@ async function submitAddFriendRequest() {
     if (uniqueQueueKeys.length) {
       const queueResults = await Promise.allSettled(uniqueQueueKeys.map((key) => {
         const queueId = `${user.uid}__${key}`;
-        return setDoc(doc(db, "friendRequestsQueue", queueId), {
+        return fsSetDoc(doc(db, "friendRequestsQueue", queueId), {
           ...requestPayload,
           queueId,
           delivery: "queued",
@@ -7827,7 +7931,7 @@ async function submitAddFriendRequest() {
           updatedAt: serverTimestamp(),
           updatedAtMs: requestNowMs,
           createdAtMs: requestNowMs
-        }, { merge: true });
+        }, 'friendRequestsQueue', { merge: true });
       }));
       queuedFallback = queueResults.some((result) => result.status === "fulfilled");
     } else {
@@ -7836,11 +7940,11 @@ async function submitAddFriendRequest() {
 
     try {
       if (incomingRef) {
-        await setDoc(incomingRef, {
+        await fsSetDoc(incomingRef, {
           ...requestPayload,
           updatedAtMs: requestNowMs,
           createdAtMs: requestNowMs
-        }, { merge: true });
+        }, 'friendRequest', { merge: true });
         deliveredToInbox = true;
       }
     } catch (err) {
@@ -7984,7 +8088,7 @@ async function respondToFriendRequest(requestEntry, action) {
           generatedAtMs: Date.now()
         };
 
-      await setDoc(doc(db, "users", user.uid, "friends", fromUid), {
+      await fsSetDoc(doc(db, "users", user.uid, "friends", fromUid), {
         friendUid: fromUid,
         friendEmail,
         friendName,
@@ -7994,9 +8098,9 @@ async function respondToFriendRequest(requestEntry, action) {
         status: "accepted",
         since: serverTimestamp(),
         updatedAt: serverTimestamp()
-      }, { merge: true });
+      }, 'friend', { merge: true });
 
-      await setDoc(doc(db, "users", fromUid, "friends", user.uid), {
+      await fsSetDoc(doc(db, "users", fromUid, "friends", user.uid), {
         friendUid: user.uid,
         friendEmail: String(user.email || "").trim().toLowerCase(),
         friendName: myDisplayName,
@@ -8006,14 +8110,14 @@ async function respondToFriendRequest(requestEntry, action) {
         status: "accepted",
         since: serverTimestamp(),
         updatedAt: serverTimestamp()
-      }, { merge: true }).catch((err) => structuredLog('warn', 'friend.accept.update', err?.message || String(err)));
+      }, 'friend', { merge: true }).catch((err) => structuredLog('warn', 'friend.accept.update', err?.message || String(err)));
 
       requestData.fromProfile = senderProfileSnapshot;
       requestData.toProfile = myProfileSnapshot;
 
       // Explicit accept re-opens this relationship after a previous unfriend block.
-      await deleteDoc(doc(db, "users", user.uid, "friendUnfriended", fromUid)).catch((err) => structuredLog('warn', 'friend.unblock.local', err?.message || String(err)));
-      await deleteDoc(doc(db, "users", fromUid, "friendUnfriended", user.uid)).catch((err) => structuredLog('warn', 'friend.unblock.remote', err?.message || String(err)));
+      await fsDeleteDoc(doc(db, "users", user.uid, "friendUnfriended", fromUid), { silent: true }).catch((err) => structuredLog('warn', 'friend.unblock.local', err?.message || String(err)));
+      await fsDeleteDoc(doc(db, "users", fromUid, "friendUnfriended", user.uid), { silent: true }).catch((err) => structuredLog('warn', 'friend.unblock.remote', err?.message || String(err)));
     }
 
     // Keep queue docs in sync so accepted/declined state is visible to both users.
@@ -8062,34 +8166,34 @@ async function respondToFriendRequest(requestEntry, action) {
     };
     const queueIds = getFriendRequestQueueDocIds(fromUid, queueToUid, queueToEmail);
     await Promise.all(queueIds.map((queueId) => {
-      return setDoc(doc(db, "friendRequestsQueue", queueId), {
+      return fsSetDoc(doc(db, "friendRequestsQueue", queueId), {
         ...queueMutablePayload,
         queueId,
         targetKey: queueId.split("__").slice(1).join("__")
-      }, { merge: true }).catch((err) => structuredLog('warn', 'respond.queue', err?.message || String(err)));
+      }, 'friendRequestsQueue', { merge: true }).catch((err) => structuredLog('warn', 'respond.queue', err?.message || String(err)));
     }));
 
-    await setDoc(requestRef, {
+    await fsSetDoc(requestRef, {
       status: accepted ? "accepted" : "declined",
       respondedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       updatedAtMs: Date.now()
-    }, { merge: true }).catch((err) => structuredLog('warn', 'respond.request', err?.message || String(err)));
+    }, 'friendRequest', { merge: true }).catch((err) => structuredLog('warn', 'respond.request', err?.message || String(err)));
 
-    await setDoc(doc(db, "users", user.uid, "friendRequestDecisions", fromUid), {
+    await fsSetDoc(doc(db, "users", user.uid, "friendRequestDecisions", fromUid), {
       fromUid,
       status: accepted ? "accepted" : "declined",
       respondedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       updatedAtMs: Date.now()
-    }, { merge: true }).catch((err) => structuredLog('warn', 'respond.decision', err?.message || String(err)));
+    }, 'friendRequestDecisions', { merge: true }).catch((err) => structuredLog('warn', 'respond.decision', err?.message || String(err)));
 
-    await setDoc(doc(db, "users", user.uid, "friendRequests", fromUid), {
+    await fsSetDoc(doc(db, "users", user.uid, "friendRequests", fromUid), {
       status: accepted ? "accepted" : "declined",
       respondedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       updatedAtMs: Date.now()
-    }, { merge: true }).catch((err) => structuredLog('warn', 'respond.incoming', err?.message || String(err)));
+    }, 'friendRequest', { merge: true }).catch((err) => structuredLog('warn', 'respond.incoming', err?.message || String(err)));
 
     // Ensure sender-side pending list clears regardless of sent doc ID strategy.
     const recipientEmailForSenderSync = recipientEmail;
@@ -8102,12 +8206,12 @@ async function respondToFriendRequest(requestEntry, action) {
         const toEmailMatches = recipientEmailForSenderSync && cleanLowerTextValue(data.toEmail) === recipientEmailForSenderSync;
         if (!toUidMatches && !toEmailMatches) return;
 
-        senderUpdates.push(setDoc(docSnap.ref, {
+        senderUpdates.push(fsSetDoc(docSnap.ref, {
           status: accepted ? "accepted" : "declined",
           respondedAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
           updatedAtMs: Date.now()
-        }, { merge: true }).catch(() => {}));
+        }, 'friendRequestsSent', { merge: true }).catch(() => {}));
       });
       await Promise.all(senderUpdates);
     } catch (_) {}
@@ -10327,31 +10431,31 @@ async function syncSocialProfileToFriendQueue(user, socialProfile) {
 
     const updates = [];
     fromSnap.docs.forEach((docSnap) => {
-      updates.push(setDoc(docSnap.ref, {
+      updates.push(fsSetDoc(docSnap.ref, {
         fromName: safeProfile.name,
         fromUsername: safeProfile.username,
         fromDisplayName: safeProfile.displayName || safeProfile.name,
         fromProfile: safeProfile,
         updatedAt: serverTimestamp()
-      }, { merge: true }).catch(() => {}));
+      }, 'friendRequestsQueue', { merge: true }).catch(() => {}));
     });
     toSnap.docs.forEach((docSnap) => {
-      updates.push(setDoc(docSnap.ref, {
+      updates.push(fsSetDoc(docSnap.ref, {
         toName: safeProfile.name,
         toUsername: safeProfile.username,
         toDisplayName: safeProfile.displayName || safeProfile.name,
         toProfile: safeProfile,
         updatedAt: serverTimestamp()
-      }, { merge: true }).catch(() => {}));
+      }, 'friendRequestsQueue', { merge: true }).catch(() => {}));
     });
     toEmailSnap.docs.forEach((docSnap) => {
-      updates.push(setDoc(docSnap.ref, {
+      updates.push(fsSetDoc(docSnap.ref, {
         toName: safeProfile.name,
         toUsername: safeProfile.username,
         toDisplayName: safeProfile.displayName || safeProfile.name,
         toProfile: safeProfile,
         updatedAt: serverTimestamp()
-      }, { merge: true }).catch(() => {}));
+      }, 'friendRequestsQueue', { merge: true }).catch(() => {}));
     });
 
     await Promise.all(updates);
@@ -10405,7 +10509,7 @@ async function syncSocialProfileToFriendsMirror(user, socialProfile) {
       const status = String(data.status || "accepted").trim().toLowerCase();
       if (!friendUid || status !== "accepted") return;
 
-      updates.push(setDoc(doc(db, "users", friendUid, "friends", userId), {
+      updates.push(fsSetDoc(doc(db, "users", friendUid, "friends", userId), {
         friendUid: userId,
         friendEmail: userEmail,
         friendName: safeProfile.name,
@@ -10414,7 +10518,7 @@ async function syncSocialProfileToFriendsMirror(user, socialProfile) {
         status: "accepted",
         sharedProfile: safeProfile,
         updatedAt: serverTimestamp()
-      }, { merge: true }).catch(() => {}));
+      }, 'friend', { merge: true }).catch(() => {}));
     });
 
     await Promise.all(updates);
@@ -14782,7 +14886,7 @@ async function editTaskFromAi(user, query, nextText) {
   if (!target || !target.id) return { ok: false, message: "No matching task found." };
 
   try {
-    await updateDoc(doc(db, "users", user.uid, "tasks", target.id), { text: rawNextText });
+    await fsUpdateDoc(doc(db, "users", user.uid, "tasks", target.id), { text: rawNextText }, 'tasks');
     await loadTasks(user.uid);
     return { ok: true, message: `✅ Updated task to: ${rawNextText}` };
   } catch (err) {
@@ -14826,10 +14930,10 @@ async function setTaskCompletionFromAi(user, query, completed) {
   }
 
   try {
-    await updateDoc(doc(db, "users", user.uid, "tasks", target.id), {
+    await fsUpdateDoc(doc(db, "users", user.uid, "tasks", target.id), {
       completed: !!completed,
       completedAt: completed ? serverTimestamp() : null
-    });
+    }, 'tasks');
     await loadTasks(user.uid);
     return {
       ok: true,
@@ -16655,7 +16759,7 @@ async function deleteReminderFromAi(userId, query) {
       return { ok: false, message: `No reminder matched \"${trimmedQuery}\".` };
     }
 
-    await deleteDoc(doc(db, "users", userId, "reminders", targetReminder.id));
+    await fsDeleteDoc(doc(db, "users", userId, "reminders", targetReminder.id));
     clearReminderTimer(targetReminder.id);
     await loadReminders(userId);
 
@@ -16692,9 +16796,9 @@ function renderReminder(entry, options = {}) {
 
     if (user && entry.id) {
       try {
-        await updateDoc(doc(db, "users", user.uid, "reminders", entry.id), {
+        await fsUpdateDoc(doc(db, "users", user.uid, "reminders", entry.id), {
           text: trimmedText
-        });
+        }, 'reminders');
       } catch (err) {
         notifyFirestoreError(err);
         return;
@@ -16716,7 +16820,7 @@ function renderReminder(entry, options = {}) {
 
     if (user && entry.id) {
       try {
-        await deleteDoc(doc(db, "users", user.uid, "reminders", entry.id));
+        await fsDeleteDoc(doc(db, "users", user.uid, "reminders", entry.id));
         await updateReminderLimitUI(user.uid);
       } catch (err) {
         notifyFirestoreError(err);
@@ -16921,10 +17025,10 @@ function renderTask(entry, options = {}) {
     const user = auth.currentUser;
     if (!user || !entry.id) return;
     try {
-      await updateDoc(doc(db, "users", user.uid, "tasks", entry.id), {
+      await fsUpdateDoc(doc(db, "users", user.uid, "tasks", entry.id), {
         completed: entry.completed,
         completedAt: entry.completed ? serverTimestamp() : null
-      });
+      }, 'tasks');
     } catch (err) {
       notifyFirestoreError(err);
     }
@@ -16940,7 +17044,7 @@ function renderTask(entry, options = {}) {
     const user = auth.currentUser;
     if (!user || !entry.id) return;
     try {
-      await updateDoc(doc(db, "users", user.uid, "tasks", entry.id), { text: newText.trim() });
+      await fsUpdateDoc(doc(db, "users", user.uid, "tasks", entry.id), { text: newText.trim() }, 'tasks');
     } catch (err) {
       notifyFirestoreError(err);
     }
@@ -16961,7 +17065,7 @@ function renderTask(entry, options = {}) {
       return;
     }
     try {
-      await deleteDoc(doc(db, "users", user.uid, "tasks", entry.id));
+      await fsDeleteDoc(doc(db, "users", user.uid, "tasks", entry.id));
       const listIndex = taskEntries.findIndex((taskItem) => taskItem.id === entry.id);
       if (listIndex >= 0) taskEntries.splice(listIndex, 1);
       renderTaskList();
@@ -17095,7 +17199,7 @@ async function deleteMoodLog(moodId) {
   if (!user || !moodId) return;
 
   try {
-    await deleteDoc(doc(db, "users", user.uid, "moods", moodId));
+    await fsDeleteDoc(doc(db, "users", user.uid, "moods", moodId));
     await loadMoods(user.uid);
   } catch (err) {
     notifyFirestoreError(err);
@@ -17234,11 +17338,11 @@ async function setWaterGoal(){
   if (!user) return;
   try {
     const todayKey = getTodayKey();
-    await setDoc(doc(db, "users", user.uid, "settings", "water"), {
+    await fsSetDoc(doc(db, "users", user.uid, "settings", "water"), {
       goal: waterGoal,
       goalDateKey: todayKey,
       lastResetDateKey: todayKey
-    }, { merge: true });
+    }, 'water', { merge: true });
   } catch (err) {
     notifyFirestoreError(err);
   }
@@ -17261,9 +17365,9 @@ async function loadWaterData(userId) {
       if (lastResetDateKey && lastResetDateKey !== todayKey) {
         shouldResetDayData = true;
       } else if (!lastResetDateKey) {
-        await setDoc(doc(db, "users", userId, "settings", "water"), {
+        await fsSetDoc(doc(db, "users", userId, "settings", "water"), {
           lastResetDateKey: todayKey
-        }, { merge: true });
+        }, 'water', { merge: true });
       }
 
       if (!shouldResetDayData && savedGoal > 0 && goalDateKey && goalDateKey !== todayKey) {
@@ -17278,11 +17382,11 @@ async function loadWaterData(userId) {
       }
     } else {
       waterGoal = 0;
-      await setDoc(doc(db, "users", userId, "settings", "water"), {
+      await fsSetDoc(doc(db, "users", userId, "settings", "water"), {
         goal: 0,
         goalDateKey: todayKey,
         lastResetDateKey: todayKey
-      }, { merge: true });
+      }, 'water', { merge: true });
     }
     waterGoalInput.value = waterGoal || "";
 
@@ -17422,11 +17526,11 @@ async function clearWaterData() {
     try {
       const intakeSnapshot = await getDocs(collection(db, "users", user.uid, "waterIntake"));
       await Promise.all(intakeSnapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
-      await setDoc(doc(db, "users", user.uid, "settings", "water"), {
+      await fsSetDoc(doc(db, "users", user.uid, "settings", "water"), {
         goal: 0,
         goalDateKey: getTodayKey(),
         lastResetDateKey: getTodayKey()
-      }, { merge: true });
+      }, 'water', { merge: true });
     } catch (err) {
       notifyFirestoreError(err);
     }
@@ -17465,11 +17569,11 @@ async function clearWaterData() {
               time: previousDates[i] || getServerNowDate()
             });
           }
-          await setDoc(doc(db, "users", user.uid, "settings", "water"), {
+          await fsSetDoc(doc(db, "users", user.uid, "settings", "water"), {
             goal: previousGoal,
             goalDateKey: getTodayKey(),
             lastResetDateKey: getTodayKey()
-          }, { merge: true });
+          }, 'water', { merge: true });
         } catch (err) {
           notifyFirestoreError(err);
         }
@@ -17678,13 +17782,13 @@ async function autoClearBedtimeAfterReminderTrigger(userId = "") {
   if (!activeUserId) return;
 
   try {
-    await setDoc(doc(db, "users", activeUserId, "settings", "sleep"), {
+    await fsSetDoc(doc(db, "users", activeUserId, "settings", "sleep"), {
       bedtimeEnabled: false,
       bedtimeTime: "",
       bedtimeMeridiem: "",
       updatedAt: serverTimestamp(),
       updatedAtMs: Date.now()
-    }, { merge: true });
+    }, 'sleep', { merge: true });
   } catch (err) {
     notifyFirestoreError(err);
   }
@@ -17782,13 +17886,13 @@ async function setBedtimeReminder(timeOverride = "", meridiemOverride = "") {
   setBedtimeInputError("");
 
   try {
-    await setDoc(doc(db, "users", user.uid, "settings", "sleep"), {
+    await fsSetDoc(doc(db, "users", user.uid, "settings", "sleep"), {
       bedtimeEnabled: true,
       bedtimeTime: parsed.formattedTime,
       bedtimeMeridiem: "",
       updatedAt: serverTimestamp(),
       updatedAtMs: Date.now()
-    }, { merge: true });
+    }, 'sleep', { merge: true });
 
     bedtimeSettings = {
       timeText: parsed.formattedTime,
@@ -17940,7 +18044,7 @@ async function clearSleepData() {
   try {
     await Promise.allSettled([
       clearUserCollection(user.uid, "sleepLogs"),
-      deleteDoc(doc(db, "users", user.uid, "settings", "sleep"))
+      fsDeleteDoc(doc(db, "users", user.uid, "settings", "sleep"), { silent: true })
     ]);
     showToast("Sleep logs and bed time reminder cleared.");
   } catch (err) {
@@ -17969,13 +18073,13 @@ async function clearBedtimeData() {
   updateBedtimeSetButtonState();
 
   try {
-    await setDoc(doc(db, "users", user.uid, "settings", "sleep"), {
+    await fsSetDoc(doc(db, "users", user.uid, "settings", "sleep"), {
       bedtimeEnabled: false,
       bedtimeTime: "",
       bedtimeMeridiem: "",
       updatedAt: serverTimestamp(),
       updatedAtMs: Date.now()
-    }, { merge: true });
+    }, 'sleep', { merge: true });
     showToast("Bed time reminder cleared.");
   } catch (err) {
     notifyFirestoreError(err);
@@ -18789,9 +18893,9 @@ function renderGratitude(entry) {
     if (!user || !entry.id) return;
 
     try {
-      await updateDoc(doc(db, "users", user.uid, "gratitudeLogs", entry.id), {
+      await fsUpdateDoc(doc(db, "users", user.uid, "gratitudeLogs", entry.id), {
         text: nextText.trim()
-      });
+      }, 'gratitudeLogs');
       entry.text = nextText.trim();
       label.textContent = `${rawTime.toLocaleTimeString()} - ${entry.text}`;
       const listIndex = gratitudeEntries.findIndex((item) => item.id === entry.id);
@@ -18817,7 +18921,7 @@ function renderGratitude(entry) {
     }
 
     try {
-      await deleteDoc(doc(db, "users", user.uid, "gratitudeLogs", entry.id));
+      await fsDeleteDoc(doc(db, "users", user.uid, "gratitudeLogs", entry.id));
       const listIndex = gratitudeEntries.findIndex((item) => item.id === entry.id);
       if (listIndex >= 0) gratitudeEntries.splice(listIndex, 1);
       updateInsights();
@@ -19245,13 +19349,13 @@ async function buildExportPayloadForUser(userId, userMeta = {}, dbInstance = db)
       email: userMeta.email || null,
       name: userMeta.name || null
     },
-    waterSettings: waterSettingsSnap.exists() ? waterSettingsSnap.data() : null,
-    sleepSettings: sleepSettingsSnap.exists() ? sleepSettingsSnap.data() : null,
-    dailyChallengeSettings: dailyChallengeSnap.exists() ? dailyChallengeSnap.data() : null,
-    weeklyTargets: weeklyTargetsSnap.exists() ? weeklyTargetsSnap.data() : null,
-    habitQuest: habitQuestSnap.exists() ? habitQuestSnap.data() : null,
-    insightsCurrent: insightsSnap.exists() ? insightsSnap.data() : null,
-    insightsBarGraphs: insightsBarGraphsSnap.exists() ? insightsBarGraphsSnap.data() : null,
+    waterSettings: waterSettingsSnap.exists ? waterSettingsSnap.data : null,
+    sleepSettings: sleepSettingsSnap.exists ? sleepSettingsSnap.data : null,
+    dailyChallengeSettings: dailyChallengeSnap.exists ? dailyChallengeSnap.data : null,
+    weeklyTargets: weeklyTargetsSnap.exists ? weeklyTargetsSnap.data : null,
+    habitQuest: habitQuestSnap.exists ? habitQuestSnap.data : null,
+    insightsCurrent: insightsSnap.exists ? insightsSnap.data : null,
+    insightsBarGraphs: insightsBarGraphsSnap.exists ? insightsBarGraphsSnap.data : null,
     moods: toSnapshotRows(moodsSnap),
     tasks: toSnapshotRows(tasksSnap),
     waterIntake: toSnapshotRows(waterSnap),
