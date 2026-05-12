@@ -199,11 +199,7 @@
 .account-tab-btn.active{
   color:#fff;
   text-decoration:underline;
-  height:6px;
-  border-radius:50%;
-  background:#ff3b30;
-  box-shadow:0 0 0 1px rgba(255,255,255,.65);
-  display:block;
+  text-underline-offset:3px;
 }
 
 .account-tab-btn:hover,

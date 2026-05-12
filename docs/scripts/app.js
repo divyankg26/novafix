@@ -825,7 +825,7 @@ const accountPanel = document.getElementById("accountPanel");
 const accountTabButtons = Array.from(document.querySelectorAll(".account-tab-btn"));
 const accountTabPanels = Array.from(document.querySelectorAll(".account-tab-panel"));
 const friendsTabBtn = accountTabButtons.find((buttonEl) => String(buttonEl?.dataset?.accountTab || "").trim().toLowerCase() === "friends") || null;
-const APP_VERSION = "v11.4.2";
+const APP_VERSION = "v11.4.3";
 const aboutAppVersion = document.getElementById("aboutAppVersion");
 const reportRedirectConfirmModal = document.getElementById("reportRedirectConfirmModal");
 const importTransferModal = document.getElementById("importTransferModal");
