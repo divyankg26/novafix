@@ -72,6 +72,8 @@ const FIRESTORE_SCHEMAS = {
     types: {
       googleIdentitySetupCompleted: 'boolean',
       googleIdentitySetupCompletedAt: 'timestamp',
+      lastSignInAt: 'timestamp',
+      lastSignInAtMs: 'number',
       googleLegacyPasswordRequired: 'boolean',
       googleImportPasswordEnabled: 'boolean',
       googleImportPasswordEnabledAt: 'timestamp',
@@ -2228,6 +2230,25 @@ function validateSignupDisplayName(displayNameValue) {
   return { ok: true, message: "", normalized: raw };
 }
 
+function validateEmailFormat(emailValue) {
+  const raw = String(emailValue || "").trim().toLowerCase();
+  if (!raw) return { ok: false, message: "Email is required." };
+  if (/\s/.test(raw)) return { ok: false, message: "Email cannot contain spaces." };
+  if (raw.length < 5 || raw.length > 254) return { ok: false, message: "Email must be between 5 and 254 characters." };
+  if (/\.\./.test(raw)) return { ok: false, message: "Email cannot contain consecutive dots." };
+  const parts = raw.split("@");
+  if (parts.length !== 2) return { ok: false, message: "Email must contain a single @ character." };
+  const [local, domain] = parts;
+  if (!local || !domain) return { ok: false, message: "Email local and domain parts cannot be empty." };
+  if (local.length > 64) return { ok: false, message: "Email local part is too long." };
+  if (domain.length > 255) return { ok: false, message: "Email domain is too long." };
+  // Basic character checks
+  if (!/^[^\s@]+$/.test(local)) return { ok: false, message: "Email local part contains invalid characters." };
+  if (!/^[A-Za-z0-9.-]+$/.test(domain)) return { ok: false, message: "Email domain contains invalid characters." };
+  if (domain.indexOf('.') === -1) return { ok: false, message: "Email domain must contain a dot (e.g. example.com)." };
+  return { ok: true, normalized: raw, message: "" };
+}
+
 function isValidUsernameKey(usernameKey) {
   const value = String(usernameKey || "").trim();
   return /^[a-z0-9_-]{1,20}$/.test(value);
@@ -2633,7 +2654,8 @@ let dashboardCardLoadTimeoutId = null;
 
 function clearDashboardCardLoadTimeout() {
   if (dashboardCardLoadTimeoutId) {
-    clearTimeout(dashboardCardLoadTimeoutId);
+    try { clearTimeout(dashboardCardLoadTimeoutId); } catch (e) {}
+    try { clearInterval(dashboardCardLoadTimeoutId); } catch (e) {}
     dashboardCardLoadTimeoutId = null;
   }
 }
@@ -2692,11 +2714,55 @@ async function initializeAuthenticatedSession(user) {
   closeGoogleIdentitySetupModal();
   updateAccountPanel(user);
   signInModal.style.display = "none";
+  // Record last sign-in timestamp in user profile (non-blocking).
+  // Read existing profile first to preserve required fields like `googleIdentitySetupCompleted`.
+  (async function writeLastSignInSafe() {
+    try {
+      const profileRef = doc(db, "users", user.uid, "settings", "profile");
+      let existing = null;
+      try {
+        const snap = await fsGetDoc(profileRef, 'profile');
+        if (snap && snap.exists) existing = snap.data || {};
+      } catch (_) {
+        existing = null;
+      }
+
+      const payload = {
+        lastSignInAt: serverTimestamp(),
+        lastSignInAtMs: getServerNowDate().getTime(),
+        updatedAt: serverTimestamp()
+      };
+
+      // Ensure required `googleIdentitySetupCompleted` is present for schema validation.
+      if (existing && typeof existing.googleIdentitySetupCompleted !== 'undefined') {
+        payload.googleIdentitySetupCompleted = !!existing.googleIdentitySetupCompleted;
+      } else {
+        payload.googleIdentitySetupCompleted = false;
+      }
+
+      await fsSetDoc(profileRef, payload, 'profile', { merge: true });
+    } catch (err) {
+      structuredLog('warn', 'auth.lastSignIn.write', err?.message || String(err));
+    }
+  })();
   clearDashboardCardLoadTimeout();
-  dashboardCardLoadTimeoutId = setTimeout(() => {
-    dashboardCardLoadTimeoutId = null;
-    forceDashboardCardLoad(sessionUserId);
-  }, DASHBOARD_CARD_LOAD_TIMEOUT_MS);
+  // Retry-based fallback: run force load periodically until success or max attempts
+  (function scheduleDashboardCardFallback() {
+    let attempts = 0;
+    const maxAttempts = Math.max(1, Math.ceil(DASHBOARD_CARD_LOAD_TIMEOUT_MS / 1500));
+    dashboardCardLoadTimeoutId = setInterval(() => {
+      attempts += 1;
+      const active = auth.currentUser;
+      if (!active?.uid || active.uid !== sessionUserId) {
+        clearDashboardCardLoadTimeout();
+        return;
+      }
+      forceDashboardCardLoad(sessionUserId);
+      if (attempts >= maxAttempts) {
+        clearDashboardCardLoadTimeout();
+      }
+    }, 1500);
+  })();
 
   await new Promise((resolve) => setTimeout(resolve, DASHBOARD_CARD_LOAD_DELAY_MS));
   const activeUserAfterShell = auth.currentUser;
@@ -4047,6 +4113,14 @@ async function resendVerificationEmailFromModal() {
     return;
   }
 
+  const emailValidation = validateEmailFormat(email);
+  if (!emailValidation.ok) {
+    error.style.display = "block";
+    error.style.color = "#ff6b6b";
+    error.innerText = emailValidation.message;
+    return;
+  }
+
   try {
     showAuthModalError("Hang on, resending verification email...", "auth_progress", "#9fd0ff");
     const credential = await signInWithEmailAndPassword(auth, email, password);
@@ -4092,6 +4166,12 @@ async function handleAuth() {
 
   if (!email || !password) {
     showAuthModalError("Email and password are required!", "credentials");
+    return;
+  }
+
+  const emailValidation = validateEmailFormat(email);
+  if (!emailValidation.ok) {
+    showAuthModalError(emailValidation.message, "credentials");
     return;
   }
 
@@ -4369,6 +4449,14 @@ async function sendResetPasswordEmail() {
     error.style.display = "block";
     error.style.color = "#ff6b6b";
     error.innerText = "Enter your email first, then tap Reset Password.";
+    return;
+  }
+
+  const emailValidation = validateEmailFormat(email);
+  if (!emailValidation.ok) {
+    error.style.display = "block";
+    error.style.color = "#ff6b6b";
+    error.innerText = emailValidation.message;
     return;
   }
 
