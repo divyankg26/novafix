@@ -498,10 +498,13 @@ function structuredLog(level, code, message, meta = {}){
 async function fsGetDoc(ref, schemaName = null){
   try{
     const res = await safeGetDoc(ref, schemaName);
-    structuredLog('info', 'fs.get', 'read', { path: ref.path, schema: schemaName, exists: !!res.exists });
+    structuredLog('info', 'fs.get', 'read', { path: ref.path, schema: schemaName, exists: !!res.exists, uid: auth.currentUser?.uid || null });
     return res;
   } catch (err){
-    structuredLog('error', 'fs.get.error', err?.message || String(err), { path: ref?.path, schema: schemaName });
+    const stack = (new Error()).stack;
+    const meta = { path: ref?.path, schema: schemaName, uid: auth.currentUser?.uid || null, stack };
+    structuredLog('error', 'fs.get.error', err?.message || String(err), meta);
+    try { console.error('FS GET ERROR', meta); } catch (_) {}
     notifyFirestoreError(err);
     throw err;
   }
@@ -522,10 +525,16 @@ async function fsGetDocs(q, schemaName = null){
 async function fsSetDoc(ref, data, schemaName = null, options = {}){
   try{
     const res = await safeSetDoc(ref, data, schemaName, options);
-    structuredLog('info', 'fs.set', 'write', { path: ref.path, schema: schemaName });
+    structuredLog('info', 'fs.set', 'write', { path: ref.path, schema: schemaName, uid: auth.currentUser?.uid || null });
     return res;
   } catch(err){
-    structuredLog('error', 'fs.set.error', err?.message || String(err), { path: ref?.path, schema: schemaName, data });
+    const meta = { path: ref?.path, schema: schemaName, data, uid: auth.currentUser?.uid || null };
+    structuredLog('error', 'fs.set.error', err?.message || String(err), meta);
+    if (String(err?.code || "").toLowerCase().includes('permission-denied')) {
+      structuredLog('warn', 'fs.set.permission_denied', 'Permission denied on client write', meta);
+    }
+    const stack = (new Error()).stack;
+    try { console.error('FS SET ERROR', { ...meta, stack }); } catch (_) {}
     notifyFirestoreError(err);
     throw err;
   }
@@ -6487,29 +6496,6 @@ async function cancelSentFriendRequest(entry) {
       ...(requestNonce ? { requestNonce } : {})
     }, 'friendRequestsSent', { merge: true });
 
-    const queueIds = getFriendRequestQueueDocIds(user.uid, toUid, toEmail);
-    await Promise.all(queueIds.map((queueId) => {
-      return fsSetDoc(doc(db, "friendRequestsQueue", queueId), {
-        status: "cancelled",
-        cancelledAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        updatedAtMs: Date.now(),
-        ...(requestNonce ? { requestNonce } : {}),
-        queueId,
-        targetKey: queueId.split("__").slice(1).join("__")
-      }, 'friendRequestsQueue', { merge: true }).catch((err) => structuredLog('warn', 'queue.cancel', err?.message || String(err)));
-    }));
-
-    if (toUid) {
-      await fsSetDoc(doc(db, "users", toUid, "friendRequests", user.uid), {
-        status: "cancelled",
-        cancelledAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        updatedAtMs: Date.now(),
-        ...(requestNonce ? { requestNonce } : {})
-      }, 'friendRequest', { merge: true }).catch((err) => structuredLog('warn', 'incoming.cancel', err?.message || String(err)));
-    }
-
     showToast("Sent request cancelled.");
     await loadSentFriendRequests(user.uid);
     await loadFriendRequests(user.uid);
@@ -6918,6 +6904,12 @@ async function upsertUserDirectoryProfile(user, options = {}) {
 
 async function loadFriendRequests(userId, showLoginAlert = false) {
   if (!friendRequestsList || !userId) return;
+  // Guard: avoid attempting to read another user's private friendRequests
+  const currentUid = auth.currentUser?.uid || null;
+  if (!currentUid || String(currentUid) !== String(userId)) {
+    structuredLog('warn', 'loadFriendRequests.auth_mismatch', 'Refusing to load friendRequests for a different user', { targetUserId: userId, currentUid });
+    return;
+  }
 
   try {
     const nowMs = getServerNowDate().getTime();
@@ -7934,17 +7926,6 @@ async function submitAddFriendRequest() {
       } catch (_) {}
     }
 
-    const incomingRef = targetUid ? doc(db, "users", targetUid, "friendRequests", user.uid) : null;
-    if (incomingRef) {
-      try {
-        const incomingRes = await fsGetDoc(incomingRef, 'friendRequest');
-        if (incomingRes.exists && String(incomingRes.data?.status || "") === "pending") {
-          setAddFriendError("Request already sent and pending.");
-          return;
-        }
-      } catch (_) {}
-    }
-
     const resolvedFromUsername = normalizeUsernameForLookup(await resolveUsernameFromDirectoryEmail(senderEmail));
     const fromUsername = resolvedFromUsername
       || getSafeUsernameForAuthenticatedUser(user, accountName?.innerText || "", senderEmail);
@@ -7986,58 +7967,9 @@ async function submitAddFriendRequest() {
       updatedAtMs: requestNowMs
     }, 'friendRequestsSent', { merge: true });
 
-    let deliveredToInbox = false;
-    let queuedFallback = false;
-
-    const queueKeys = [];
-    if (targetUid) queueKeys.push(targetUid);
-    if (targetEmail) queueKeys.push(`email_${encodeURIComponent(targetEmail)}`);
-    const uniqueQueueKeys = [...new Set(queueKeys)];
-    if (uniqueQueueKeys.length) {
-      const queueResults = await Promise.allSettled(uniqueQueueKeys.map((key) => {
-        const queueId = `${user.uid}__${key}`;
-        return fsSetDoc(doc(db, "friendRequestsQueue", queueId), {
-          ...requestPayload,
-          queueId,
-          delivery: "queued",
-          targetKey: key,
-          updatedAt: serverTimestamp(),
-          updatedAtMs: requestNowMs,
-          createdAtMs: requestNowMs
-        }, 'friendRequestsQueue', { merge: true });
-      }));
-      queuedFallback = queueResults.some((result) => result.status === "fulfilled");
-    } else {
-      queuedFallback = false;
-    }
-
-    try {
-      if (incomingRef) {
-        await fsSetDoc(incomingRef, {
-          ...requestPayload,
-          updatedAtMs: requestNowMs,
-          createdAtMs: requestNowMs
-        }, 'friendRequest', { merge: true });
-        deliveredToInbox = true;
-      }
-    } catch (err) {
-      const code = String(err?.code || "");
-      const permissionDenied = code.includes("permission-denied") || code.includes("unauthenticated");
-      if (!permissionDenied) throw err;
-
-      // queue fallback attempted above; keep existing state
-    }
-
-    if (!deliveredToInbox && !queuedFallback) {
-      setAddFriendError("Could not deliver this request due Firestore permissions. Enable friend request queue access in Firestore rules.");
-      return;
-    }
-
     closeAddFriendModal(null, true);
     await loadSentFriendRequests(user.uid);
-    showToast(deliveredToInbox
-      ? "Friend request sent. They will see it in-app on next login."
-      : "Friend request queued in-app. They will see it on next login.");
+    showToast("Friend request sent.");
   } catch (err) {
     notifyFirestoreError(err);
     setAddFriendError(
@@ -8192,59 +8124,6 @@ async function respondToFriendRequest(requestEntry, action) {
       await fsDeleteDoc(doc(db, "users", user.uid, "friendUnfriended", fromUid), { silent: true }).catch((err) => structuredLog('warn', 'friend.unblock.local', err?.message || String(err)));
       await fsDeleteDoc(doc(db, "users", fromUid, "friendUnfriended", user.uid), { silent: true }).catch((err) => structuredLog('warn', 'friend.unblock.remote', err?.message || String(err)));
     }
-
-    // Keep queue docs in sync so accepted/declined state is visible to both users.
-    const senderEmail = String(requestData.fromEmail || "").trim().toLowerCase();
-    const senderUsername = getNormalizedUsernameIdentity(
-      requestData.fromUsername || requestData?.fromProfile?.username || requestData.fromName,
-      senderEmail
-    ) || getEmailLocalIdentity(senderEmail)
-      || "friend";
-    const senderDisplayName = normalizeDisplayNameValue(requestData.fromDisplayName)
-      || normalizeDisplayNameValue(requestData?.fromProfile?.displayName)
-      || normalizeDisplayNameValue(requestData.fromName)
-      || senderUsername;
-    const senderName = senderDisplayName;
-    const recipientEmail = String(user.email || requestData.toEmail || "").trim().toLowerCase();
-    const recipientCandidateUsername = normalizeUsernameForLookup(accountName?.innerText || requestData.toUsername || requestData.toName);
-    const resolvedRecipientUsername = normalizeUsernameForLookup(await resolveUsernameFromDirectoryEmail(recipientEmail));
-    const recipientUsername = resolvedRecipientUsername
-      || getSafeUsernameForAuthenticatedUser(user, recipientCandidateUsername, recipientEmail);
-    const recipientDisplayName = normalizeDisplayNameValue(accountDisplayName?.innerText || "")
-      || normalizeDisplayNameValue(user.displayName)
-      || normalizeDisplayNameValue(requestData.toDisplayName)
-      || normalizeDisplayNameValue(requestData.toName)
-      || recipientUsername;
-    const recipientName = recipientDisplayName;
-    const queueToUid = cleanTextValue(requestData.toUid || user.uid);
-    const queueToEmail = cleanLowerTextValue(requestData.toEmail || recipientEmail);
-    const queueMutablePayload = {
-      fromUid,
-      fromEmail: senderEmail,
-      fromName: senderName,
-      fromUsername: senderUsername,
-      fromDisplayName: senderDisplayName,
-      fromProfile: requestData.fromProfile || null,
-      toUid: queueToUid,
-      toEmail: queueToEmail,
-      toName: recipientName,
-      toUsername: recipientUsername,
-      toDisplayName: recipientDisplayName,
-      toProfile: requestData.toProfile || null,
-      status: accepted ? "accepted" : "declined",
-      respondedAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      updatedAtMs: Date.now(),
-      requestNonce: cleanTextValue(requestData.requestNonce)
-    };
-    const queueIds = getFriendRequestQueueDocIds(fromUid, queueToUid, queueToEmail);
-    await Promise.all(queueIds.map((queueId) => {
-      return fsSetDoc(doc(db, "friendRequestsQueue", queueId), {
-        ...queueMutablePayload,
-        queueId,
-        targetKey: queueId.split("__").slice(1).join("__")
-      }, 'friendRequestsQueue', { merge: true }).catch((err) => structuredLog('warn', 'respond.queue', err?.message || String(err)));
-    }));
 
     await fsSetDoc(requestRef, {
       status: accepted ? "accepted" : "declined",
