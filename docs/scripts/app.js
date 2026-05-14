@@ -933,8 +933,6 @@ const accountPanel = document.getElementById("accountPanel");
 const accountTabButtons = Array.from(document.querySelectorAll(".account-tab-btn"));
 const accountTabPanels = Array.from(document.querySelectorAll(".account-tab-panel"));
 const friendsTabBtn = accountTabButtons.find((buttonEl) => String(buttonEl?.dataset?.accountTab || "").trim().toLowerCase() === "friends") || null;
-const APP_VERSION = "v11.5.1";
-const aboutAppVersion = document.getElementById("aboutAppVersion");
 const reportRedirectConfirmModal = document.getElementById("reportRedirectConfirmModal");
 const importTransferModal = document.getElementById("importTransferModal");
 const importSourceEmailInput = document.getElementById("importSourceEmail");
@@ -959,7 +957,6 @@ const keyboardShortcutsSubtitle = document.getElementById("keyboardShortcutsSubt
 const keyboardShortcutsList = document.getElementById("keyboardShortcutsList");
 const keyboardShortcutsToggleBtn = document.getElementById("keyboardShortcutsToggleBtn");
 const friendsInsightsList = document.getElementById("friendsInsightsList");
-if (aboutAppVersion) aboutAppVersion.innerText = APP_VERSION;
 const welcomeGuideModal = document.getElementById("welcomeGuideModal");
 const tosModal = document.getElementById("tosModal");
 const tosAgreeBtn = document.getElementById("tosAgreeBtn");
@@ -3069,7 +3066,7 @@ let welcomeGuideStepIndex = 0;
 let welcomeGuideUserId = "";
 let welcomeGuideCheckedThisSession = false;
 const WELCOME_GUIDE_VERSION = 1;
-const TOS_VERSION = "2026";
+const TOS_VERSION = "2026-05-14";
 
 // ---------- Loading state manager for UI feedback ----------
 const LoadingStateManager = {
@@ -3956,7 +3953,9 @@ async function ensureTosAccepted(userId) {
   try {
     const snap = await fsGetDoc(doc(db, "users", activeUserId, "settings", "onboarding"), 'onboarding');
     const data = snap.exists ? (snap.data || {}) : {};
-    if (data.tosAccepted === true) return true;
+    const accepted = data.tosAccepted === true;
+    const acceptedVersion = String(data.tosVersion || "").trim();
+    if (accepted && acceptedVersion === String(TOS_VERSION)) return true;
   } catch (err) {
     structuredLog('warn', 'tos.read', err?.message || String(err), { userId: activeUserId });
     // If onboarding read fails, keep gate visible and require explicit agree action.
