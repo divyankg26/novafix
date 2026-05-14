@@ -41,5 +41,9 @@ This Agreement shall be governed by and interpreted in accordance with the laws 
 #8. Entire Agreement
 This Agreement constitutes the entire agreement regarding the Software and supersedes any prior or contemporaneous understandings, unless replaced by a separate written agreement signed by the Copyright Holder.
 
+#9. Basic Activity Tracking
+To operate core account features, the app stores basic account activity metadata such as your account creation date and last login date.
+This tracking is limited to product operation, reliability, and account security.
+
 --
 All rights reserved. Unauthorized copying, distribution, or commercial use is strictly prohibited.
