@@ -352,7 +352,9 @@ const FIRESTORE_SCHEMAS = {
     types: {
       clientNow: 'number',
       serverNow: 'timestamp',
-      updatedAt: 'timestamp'
+      updatedAt: 'timestamp',
+      lastSignInAt: 'timestamp',
+      lastSignInAtMs: 'number'
     }
   },
   barGraphs: {
@@ -2714,33 +2716,17 @@ async function initializeAuthenticatedSession(user) {
   closeGoogleIdentitySetupModal();
   updateAccountPanel(user);
   signInModal.style.display = "none";
-  // Record last sign-in timestamp in user profile (non-blocking).
-  // Read existing profile first to preserve required fields like `googleIdentitySetupCompleted`.
+  // Record last sign-in timestamp on the existing writable `timeSync` settings doc.
   (async function writeLastSignInSafe() {
     try {
-      const profileRef = doc(db, "users", user.uid, "settings", "profile");
-      let existing = null;
-      try {
-        const snap = await fsGetDoc(profileRef, 'profile');
-        if (snap && snap.exists) existing = snap.data || {};
-      } catch (_) {
-        existing = null;
-      }
-
-      const payload = {
+      const timeSyncRef = doc(db, "users", user.uid, "settings", "timeSync");
+      await fsSetDoc(timeSyncRef, {
+        clientNow: Date.now(),
+        serverNow: serverTimestamp(),
         lastSignInAt: serverTimestamp(),
         lastSignInAtMs: getServerNowDate().getTime(),
         updatedAt: serverTimestamp()
-      };
-
-      // Ensure required `googleIdentitySetupCompleted` is present for schema validation.
-      if (existing && typeof existing.googleIdentitySetupCompleted !== 'undefined') {
-        payload.googleIdentitySetupCompleted = !!existing.googleIdentitySetupCompleted;
-      } else {
-        payload.googleIdentitySetupCompleted = false;
-      }
-
-      await fsSetDoc(profileRef, payload, 'profile', { merge: true });
+      }, 'timeSync', { merge: true });
     } catch (err) {
       structuredLog('warn', 'auth.lastSignIn.write', err?.message || String(err));
     }
