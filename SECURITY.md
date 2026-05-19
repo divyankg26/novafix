@@ -15,7 +15,7 @@ NovaFix currently supports the following versions:
 | < 11.6.x| :x:                |
 | < 11.0.0| :x:                |
 
-NovaFix supports the latest two versions with full updates. Older versions may receive limited security fixes or no support.
+NovaFix supports the latest version with full updates. Older versions may receive limited security fixes or no support.
 
 ## Reporting a Vulnerability
 
