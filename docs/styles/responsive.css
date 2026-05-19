@@ -162,6 +162,22 @@
   background:linear-gradient(135deg,var(--primary),var(--accent));
 }
 
+.crash-meter-fill.is-low{
+  background:linear-gradient(135deg, #22c55e, #16a34a);
+}
+
+.crash-meter-fill.is-mid{
+  background:linear-gradient(135deg, #facc15, #f59e0b);
+}
+
+.crash-meter-fill.is-high{
+  background:linear-gradient(135deg, #fb923c, #f97316);
+}
+
+.crash-meter-fill.is-critical{
+  background:linear-gradient(135deg, #f43f5e, #e11d48);
+}
+
 .crash-risk-sub{
   margin:8px 0 0;
   opacity:.92;

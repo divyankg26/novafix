@@ -523,12 +523,20 @@ async function fsGetDocs(q, schemaName = null){
 }
 
 async function fsSetDoc(ref, data, schemaName = null, options = {}){
+  const setOptions = { ...(options || {}) };
+  const silentPermissionDenied = !!setOptions.silentPermissionDenied || !!setOptions.silent;
+  delete setOptions.silentPermissionDenied;
+  delete setOptions.silent;
+
   try{
-    const res = await safeSetDoc(ref, data, schemaName, options);
+    const res = await safeSetDoc(ref, data, schemaName, setOptions);
     structuredLog('info', 'fs.set', 'write', { path: ref.path, schema: schemaName, uid: auth.currentUser?.uid || null });
     return res;
   } catch(err){
     const meta = { path: ref?.path, schema: schemaName, data, uid: auth.currentUser?.uid || null };
+    if (silentPermissionDenied && isFirestorePermissionDeniedError(err)) {
+      return null;
+    }
     structuredLog('error', 'fs.set.error', err?.message || String(err), meta);
     if (String(err?.code || "").toLowerCase().includes('permission-denied')) {
       structuredLog('warn', 'fs.set.permission_denied', 'Permission denied on client write', meta);
@@ -612,7 +620,7 @@ const MigrationService = {
   async migrate(userId) {
     if (!userId) return false;
     try {
-      await migrateUserDocument(userId);
+      const res = await getDoc(ref, schemaName);
       structuredLog('info', 'migration.service', 'user_migration_complete', { userId });
       return true;
     } catch (err) {
@@ -1031,6 +1039,7 @@ const taskLimitError = document.getElementById("taskLimitError");
 const taskFriendInsight = document.getElementById("taskFriendInsight");
 const taskList = document.getElementById("taskList");
 const gCost = document.getElementById("gCost");
+const gCurrency = document.getElementById("gCurrency");
 const gMonths = document.getElementById("gMonths");
 const buffer = document.getElementById("buffer");
 const financeResult = document.getElementById("financeResult");
@@ -1109,6 +1118,7 @@ const startupReportResetCountdown = document.getElementById("startupReportResetC
 
 // ---------- SPLASH + AUTH CHECK ----------
 document.body.style.overflow = "hidden";
+document.body.classList.add("splash-active");
 if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 let splashRemoved = false;
 let appBackGuardInitialized = false;
@@ -1213,6 +1223,7 @@ function hideSplash() {
       splash.remove();
       splashRemoved = true;
       document.body.style.overflow = "auto";
+      document.body.classList.remove("splash-active");
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     }
   }, 1000);
@@ -1342,12 +1353,10 @@ async function syncAccountIdentityFromProfile(user) {
     ? user.providerData.map((entry) => String(entry?.providerId || "").trim().toLowerCase())
     : [];
   const isGoogleAccount = providerIds.includes("google.com");
-  const emailLocal = safeEmail.split("@")[0] || "User";
   const emailLocalIdentity = getEmailLocalIdentity(safeEmail);
   const googleSeed = buildUsernameSeedFromDisplayName(user?.displayName) || "user";
   const normalizeResolvedUsername = (value) => {
     const normalized = normalizeUsernameForLookup(value);
-    if (!normalized) return "";
     if (isGoogleAccount && emailLocalIdentity && normalized === emailLocalIdentity) return "";
     return normalized;
   };
@@ -1405,7 +1414,19 @@ document.addEventListener("click", (event) => {
   if (!clickedInside) closeAccountPanel();
 });
 
+const handleArrowKeyScroll = (event) => {
+  if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+  if (isEditableElementActive()) return;
+  const direction = event.key === "ArrowDown" ? 1 : -1;
+  const delta = Math.max(120, Math.round(window.innerHeight * 0.12));
+  event.preventDefault();
+  window.scrollBy({ top: direction * delta, left: 0, behavior: "smooth" });
+};
+
+window.addEventListener("keydown", handleArrowKeyScroll, { capture: true });
+
 document.addEventListener("keydown", (event) => {
+  handleArrowKeyScroll(event);
   if (event.key !== "Escape") return;
   closeAccountPanel();
   closeAddFriendModal();
@@ -1470,6 +1491,14 @@ if (addFriendEmailInput) {
   });
 }
 
+if (futureTask) {
+  futureTask.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+    event.preventDefault();
+    void timeTraveller();
+  });
+}
+
 function getReminderAmountInputValue() {
   if (!reminderMinutes) return 0;
   const rawValue = String(reminderMinutes.value || "").trim();
@@ -1478,6 +1507,40 @@ function getReminderAmountInputValue() {
   if (!Number.isFinite(parsed)) return 0;
   return parsed;
 }
+
+const FINANCE_CURRENCY_OPTIONS = {
+  usd: { label: "USD", symbol: "$" },
+  eur: { label: "EUR", symbol: "€" },
+  inr: { label: "INR", symbol: "₹" },
+  gbp: { label: "GBP", symbol: "£" },
+  jpy: { label: "JPY", symbol: "¥" },
+  cad: { label: "CAD", symbol: "$" },
+  aud: { label: "AUD", symbol: "$" },
+  cny: { label: "CNY", symbol: "¥" }
+};
+const FINANCE_CURRENCY_STORAGE_KEY = "novaFix.financeCurrency";
+
+function initializeFinanceCurrency() {
+  if (!gCurrency) return;
+  let selected = "usd";
+  try {
+    const saved = String(localStorage.getItem(FINANCE_CURRENCY_STORAGE_KEY) || "").trim().toLowerCase();
+    if (saved && Object.prototype.hasOwnProperty.call(FINANCE_CURRENCY_OPTIONS, saved)) {
+      selected = saved;
+    }
+  } catch (_) {}
+  gCurrency.value = selected;
+  gCurrency.addEventListener("change", () => {
+    const nextValue = String(gCurrency.value || "").trim().toLowerCase();
+    if (!Object.prototype.hasOwnProperty.call(FINANCE_CURRENCY_OPTIONS, nextValue)) return;
+    try {
+      localStorage.setItem(FINANCE_CURRENCY_STORAGE_KEY, nextValue);
+    } catch (_) {}
+    if (financeResult?.innerText) calculateFinance();
+  });
+}
+
+initializeFinanceCurrency();
 
 function setReminderInputError(message = "") {
   if (!reminderLimitError) return;
@@ -1705,13 +1768,11 @@ async function clearAllAccountData() {
     ];
 
     await Promise.all(targetCollections.map((name) => clearUserCollection(user.uid, name)));
-    await fsDeleteDoc(doc(db, "users", user.uid, "settings", "water")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/settings/water` }));
     await fsDeleteDoc(doc(db, "users", user.uid, "settings", "sleep")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/settings/sleep` }));
     await fsDeleteDoc(doc(db, "users", user.uid, "settings", "dailyChallenge")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/settings/dailyChallenge` }));
     await fsDeleteDoc(doc(db, "users", user.uid, "settings", "weeklyTargets")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/settings/weeklyTargets` }));
     await fsDeleteDoc(doc(db, "users", user.uid, "settings", "habitQuest")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/settings/habitQuest` }));
     await fsDeleteDoc(doc(db, "users", user.uid, "settings", "startupPack")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/settings/startupPack` }));
-    await fsDeleteDoc(doc(db, "users", user.uid, "insights", "current")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/insights/current` }));
     await fsDeleteDoc(doc(db, "users", user.uid, "insights", "barGraphs")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/insights/barGraphs` }));
     await fsDeleteDoc(doc(db, "users", user.uid, "social", "profile")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/social/profile` }));
     persistedBarGraphs = null;
@@ -1885,12 +1946,7 @@ try {
         if (signupFlowInProgress) {
           return;
         }
-        const hasGoogleProvider = isGoogleProviderUser(user);
-        let skipEmailVerificationGate = hasGoogleProvider;
-        if (!skipEmailVerificationGate && !user.emailVerified) {
-          skipEmailVerificationGate = await isGoogleRegisteredEmail(user.email);
-        }
-        if (!user.emailVerified && !skipEmailVerificationGate) {
+        if (!user.emailVerified && !isGoogleProviderUser(user)) {
           await user.reload().catch((err) => structuredLog('warn', 'auth.reload.1', err?.message || String(err)));
           const suppressUnverifiedPrompt = Date.now() < Number(suppressUnverifiedSigninPromptUntilMs || 0);
           if (suppressUnverifiedPrompt) {
@@ -1929,12 +1985,9 @@ try {
           return;
         }
         // Only close TOS modal if it's not in a pending acceptance state
-        if (!tosPendingUserId) {
-          closeTosModal(true);
-          resolveTosPendingWaiters(false);
-          showTosError("");
-        }
-        stopSentRequestExpiryTicker();
+        closeTosModal(true);
+        resolveTosPendingWaiters(false);
+        showTosError("");
         stopDailyChallengeWatcher();
         stopFriendInsightsWatcher();
         clearDailyChallengeResetSchedule();
@@ -2333,7 +2386,9 @@ function scheduleLiveUsernameAvailabilityCheck() {
       if (localSeq !== usernameLiveCheckSequence || authMode !== "signup") return;
 
       if (exists) {
-        showAuthModalError("This username already exists. Choose a different username.", "username_exists");
+        if (canOverrideAuthUsernameMessage()) {
+          showAuthModalError("This username already exists. Choose a different username.", "username_exists");
+        }
       } else if (canOverrideAuthUsernameMessage()) {
         showAuthModalError("Username is available.", "username_available", "#7CFFB2");
       }
@@ -2549,12 +2604,10 @@ function scheduleGoogleIdentityUsernameAvailabilityCheck() {
 
       if (!exists) {
         showGoogleIdentityError("Username is available.", "#7CFFB2");
-        return;
       }
 
       const activeUid = String(auth.currentUser?.uid || "").trim();
       const resolvedUsername = await resolveUserDirectoryByUsername(usernameKey, {
-        forceRefresh: true,
         preferServer: true
       }).catch(() => null);
       if (localSeq !== googleIdentityUsernameLiveCheckSequence || !googleIdentitySetupInProgress) return;
@@ -2683,12 +2736,12 @@ function forceDashboardCardLoad(sessionUserId) {
   dashboard.style.display = "grid";
   dashboard.classList.remove("preload-shell");
 
-  forceCardContainerLoad(chat, ".chat-message", "No conversations yet. Start the first one to get AI help.");
-  forceCardContainerLoad(reminders, ".item-row", "No reminders yet. Add one to keep things moving.");
-  forceCardContainerLoad(taskList, ".item-row", "No tasks yet. Add one small task to start.");
-  forceCardContainerLoad(moodLogs, ".mood-item", "No mood logs yet. Add today’s check-in.");
-  forceCardContainerLoad(gratitudeLogs, ".item-row", "No gratitude notes yet. Add your first one.");
-  forceCardContainerLoad(questListEl, ".quest-item", "No quests yet. Log today’s stats to generate quests.");
+  forceCardContainerLoad(chat, ".chat-message", getRandomEmptyMessage("chat", "No conversations yet. Start the first one to get AI help."));
+  forceCardContainerLoad(reminders, ".item-row", getRandomEmptyMessage("reminders", "No reminders yet. Add one to keep things moving."));
+  forceCardContainerLoad(taskList, ".item-row", getRandomEmptyMessage("tasks", "No tasks yet. Add one small task to start."));
+  forceCardContainerLoad(moodLogs, ".mood-item", getRandomEmptyMessage("mood", "No mood logs yet. Add today’s check-in."));
+  forceCardContainerLoad(gratitudeLogs, ".item-row", getRandomEmptyMessage("gratitude", "No gratitude notes yet. Add your first one."));
+  forceCardContainerLoad(questListEl, ".quest-item", getRandomEmptyMessage("quests", "No quests yet. Log today’s stats to generate quests."));
 
   updateWeeklyReview();
   refreshStartupFeatures();
@@ -3733,14 +3786,19 @@ function scrollCardToViewportCenterReliably(card, options = {}) {
   const target = card;
   if (!target || typeof target.getBoundingClientRect !== "function") return;
 
+  if (dashboard && dashboard.style.display === "none") {
+    dashboard.style.display = "grid";
+    dashboard.classList.remove("preload-shell");
+  }
+
   const repeats = Math.max(1, Number(options.repeats) || 5);
   const delayMs = Math.max(40, Number(options.delayMs) || 120);
-  const viewportHeight = Math.max(window.innerHeight || 0, 1);
-  const targetRect = target.getBoundingClientRect();
-  const absoluteTop = targetRect.top + window.scrollY;
-  const desiredTop = Math.max(0, absoluteTop - ((viewportHeight - targetRect.height) / 2));
 
   const runScroll = (behavior) => {
+    const viewportHeight = Math.max(window.innerHeight || 0, 1);
+    const targetRect = target.getBoundingClientRect();
+    const absoluteTop = targetRect.top + window.scrollY;
+    const desiredTop = Math.max(0, absoluteTop - ((viewportHeight - targetRect.height) / 2));
     try {
       window.scrollTo({ top: desiredTop, behavior });
     } catch (_) {
@@ -3748,6 +3806,9 @@ function scrollCardToViewportCenterReliably(card, options = {}) {
     }
   };
 
+  try {
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+  } catch (_) {}
   runScroll("smooth");
   for (let i = 1; i < repeats; i += 1) {
     setTimeout(() => runScroll(i === repeats - 1 ? "auto" : "smooth"), i * delayMs);
@@ -4285,6 +4346,14 @@ async function handleAuth() {
       return;
     } else {
       markPendingRequestLoginAlertForNextSessionStart();
+      const signInMethods = await fetchSignInMethodsForEmail(auth, email).catch(() => []);
+      if (signInMethods.includes("google.com") && !signInMethods.includes("password")) {
+        clearPendingRequestLoginAlertFlag();
+        error.style.display = "block";
+        error.style.color = "#ff6b6b";
+        error.innerText = "This email uses Google sign-in. Use Google login instead of a password.";
+        return;
+      }
       const credential = await signInWithEmailAndPassword(auth, email, password);
       await credential.user.reload();
       clearAuthBackoffState("signin", email);
@@ -4779,7 +4848,7 @@ async function getActiveFriendCount(userId, userEmail = "") {
 
   const acceptedFriends = new Set();
   try {
-    const friendsSnap = await fsGetDocs(collection(db, "users", safeUserId, "friends"), 'friend');
+    const friendsSnap = await getDocs(collection(db, "users", safeUserId, "friends"));
     friendsSnap.docs.forEach((docSnap) => {
       const data = docSnap.data() || {};
       const status = String(data.status || "accepted").trim().toLowerCase();
@@ -6038,8 +6107,17 @@ function renderFriendMetricCardInsights() {
 function renderFriendRequests(rows) {
   const safeRows = Array.isArray(rows) ? rows : [];
 
-  const hasUnseen = safeRows.length > 0;
-  if (accountBtn) accountBtn.classList.toggle("has-pending-request", hasUnseen);
+  const accountOpen = !!(accountPanel && accountPanel.style.display === "block");
+  if (acknowledgeFriendRequestsOnNextRender || accountOpen) {
+    safeRows.forEach((entry) => {
+      const key = buildFriendRequestSeenKey(entry);
+      if (!seenFriendRequestKeys.has(key)) seenFriendRequestKeys.add(key);
+    });
+    acknowledgeFriendRequestsOnNextRender = false;
+  }
+
+  const unseenCount = safeRows.filter((entry) => !seenFriendRequestKeys.has(buildFriendRequestSeenKey(entry))).length;
+  if (accountBtn) accountBtn.classList.toggle("has-pending-request", unseenCount > 0 && !accountOpen);
   if (!friendRequestsList) return;
   if (!safeRows.length) {
     friendRequestsList.innerHTML = `<div class="friend-row"><small>No pending requests yet.</small></div>`;
@@ -6119,10 +6197,12 @@ function renderFriendsInsights(rows, myProfile) {
 function renderCurrentFriends(rows) {
   if (!currentFriendsList) return;
   if (!rows.length) {
+    hasCurrentFriends = false;
     currentFriendsList.innerHTML = `<div class="friend-row"><small>No friends linked yet.</small></div>`;
     return;
   }
 
+  hasCurrentFriends = true;
   currentFriendsList.innerHTML = "";
   rows.forEach((entry) => {
     const row = document.createElement("div");
@@ -6350,20 +6430,20 @@ async function loadSentFriendRequests(userId) {
         const fallbackNonce = `legacy_${cleanTextValue(entry.id || "request")}_${Date.now().toString(36)}`;
         const toUid = cleanTextValue(entry.toUid);
         const toEmail = cleanLowerTextValue(entry.toEmail);
-        nonceBackfillUpdates.push(fsSetDoc(entry.ref, {
+        nonceBackfillUpdates.push(setDoc(entry.ref, {
           requestNonce: fallbackNonce,
           updatedAt: serverTimestamp(),
           updatedAtMs: Date.now()
-        }, 'friendRequestsSent', { merge: true }).catch((err) => structuredLog('warn', 'sent.nonce.backfill', err?.message || String(err))));
+        }, { merge: true }).catch(() => {}));
 
         getFriendRequestQueueDocIds(userId, toUid, toEmail).forEach((queueId) => {
-          nonceBackfillUpdates.push(fsSetDoc(doc(db, "friendRequestsQueue", queueId), {
+          nonceBackfillUpdates.push(setDoc(doc(db, "friendRequestsQueue", queueId), {
             requestNonce: fallbackNonce,
             updatedAt: serverTimestamp(),
             updatedAtMs: Date.now(),
             queueId,
             targetKey: queueId.split("__").slice(1).join("__")
-          }, 'friendRequestsQueue', { merge: true }).catch((err) => structuredLog('warn', 'queue.nonce', err?.message || String(err))));
+          }, { merge: true }).catch(() => {}));
         });
 
         return { ...entry, requestNonce: fallbackNonce };
@@ -6388,27 +6468,27 @@ async function loadSentFriendRequests(userId) {
         if (terminalQueueStatus
           && !nonceMismatch
           && !missingQueueNonceForKnownSent) {
-          statusSyncUpdates.push(fsSetDoc(entry.ref, {
+          statusSyncUpdates.push(setDoc(entry.ref, {
             status: queueStatus,
             updatedAt: serverTimestamp(),
             updatedAtMs: Date.now()
-          }, 'friendRequestsSent', { merge: true }).catch((err) => structuredLog('warn', 'sent.statusSync', err?.message || String(err))));
+          }, { merge: true }).catch(() => {}));
           return false;
         }
 
         const expired = isFriendRequestExpired(entry, nowMs);
         if (expired) {
           const requestNonce = cleanTextValue(entry.requestNonce);
-          expiryUpdates.push(fsSetDoc(entry.ref, {
+          expiryUpdates.push(setDoc(entry.ref, {
             status: "expired",
             expiredAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
             updatedAtMs: Date.now(),
             ...(requestNonce ? { requestNonce } : {})
-          }, 'friendRequestsSent', { merge: true }).catch((err) => structuredLog('warn', 'sent.expiry', err?.message || String(err))));
+          }, { merge: true }).catch(() => {}));
 
           getFriendRequestQueueDocIds(userId, toUid, toEmail).forEach((queueId) => {
-            expiryUpdates.push(fsSetDoc(doc(db, "friendRequestsQueue", queueId), {
+            expiryUpdates.push(setDoc(doc(db, "friendRequestsQueue", queueId), {
               status: "expired",
               expiredAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
@@ -6416,17 +6496,17 @@ async function loadSentFriendRequests(userId) {
               ...(requestNonce ? { requestNonce } : {}),
               queueId,
               targetKey: queueId.split("__").slice(1).join("__")
-            }, 'friendRequestsQueue', { merge: true }).catch((err) => structuredLog('warn', 'queue.expiry', err?.message || String(err))));
+            }, { merge: true }).catch(() => {}));
           });
 
           if (toUid) {
-            expiryUpdates.push(fsSetDoc(doc(db, "users", toUid, "friendRequests", userId), {
+            expiryUpdates.push(setDoc(doc(db, "users", toUid, "friendRequests", userId), {
               status: "expired",
               expiredAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
               updatedAtMs: Date.now(),
               ...(requestNonce ? { requestNonce } : {})
-            }, 'friendRequest', { merge: true }).catch((err) => structuredLog('warn', 'incoming.expiry', err?.message || String(err))));
+            }, { merge: true }).catch(() => {}));
           }
         }
         return !expired;
@@ -6488,13 +6568,40 @@ async function cancelSentFriendRequest(entry) {
 
   try {
     const requestNonce = cleanTextValue(entry?.requestNonce);
-    await fsSetDoc(doc(db, "users", user.uid, "friendRequestsSent", entryId), {
+    await setDoc(doc(db, "users", user.uid, "friendRequestsSent", entryId), {
       status: "cancelled",
       cancelledAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       updatedAtMs: Date.now(),
       ...(requestNonce ? { requestNonce } : {})
-    }, 'friendRequestsSent', { merge: true });
+    }, { merge: true });
+
+    const queueKeys = [];
+    if (toUid) queueKeys.push(toUid);
+    if (toEmail) queueKeys.push(`email_${encodeURIComponent(toEmail)}`);
+    const uniqueKeys = [...new Set(queueKeys)];
+    await Promise.all(uniqueKeys.map((key) => {
+      const queueId = `${user.uid}__${key}`;
+      return setDoc(doc(db, "friendRequestsQueue", queueId), {
+        status: "cancelled",
+        cancelledAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        updatedAtMs: Date.now(),
+        ...(requestNonce ? { requestNonce } : {}),
+        queueId,
+        targetKey: key
+      }, { merge: true }).catch(() => {});
+    }));
+
+    if (toUid) {
+      await setDoc(doc(db, "users", toUid, "friendRequests", user.uid), {
+        status: "cancelled",
+        cancelledAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        updatedAtMs: Date.now(),
+        ...(requestNonce ? { requestNonce } : {})
+      }, { merge: true }).catch(() => {});
+    }
 
     showToast("Sent request cancelled.");
     await loadSentFriendRequests(user.uid);
@@ -6531,13 +6638,13 @@ async function unfriendByUid(friendUid) {
     }, 'friendUnfriended', { merge: true }).catch((err) => structuredLog('warn', 'friend.unfriend.local', err?.message || String(err)));
 
     // Best-effort remote block so reverse-side recovery also stays blocked.
-    await fsSetDoc(doc(db, "users", safeFriendUid, "friendUnfriended", user.uid), {
+    await setDoc(doc(db, "users", safeFriendUid, "friendUnfriended", user.uid), {
       friendUid: user.uid,
       status: "unfriended",
       unfriendedBy: user.uid,
       unfriendedAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    }, 'friendUnfriended', { merge: true }).catch((err) => structuredLog('warn', 'friend.unfriend.remote', err?.message || String(err)));
+    }, { merge: true }).catch(() => {});
 
     // Local safety mark: if delete is blocked/transient, this keeps it hidden from accepted-only views.
     await fsSetDoc(doc(db, "users", user.uid, "friends", safeFriendUid), {
@@ -6556,25 +6663,25 @@ async function unfriendByUid(friendUid) {
       const sameUid = String(data.toUid || "") === safeFriendUid;
       const sameEmail = friendEmail && String(data.toEmail || "").trim().toLowerCase() === friendEmail;
       if (!sameUid && !sameEmail) return;
-      sentUpdates.push(fsSetDoc(docSnap.ref, {
+      sentUpdates.push(setDoc(docSnap.ref, {
         status: "unfriended",
         unfriendedAt: serverTimestamp(),
         updatedAt: serverTimestamp()
-      }, 'friendRequestsSent', { merge: true }).catch((err) => structuredLog('warn', 'sent.unfriend', err?.message || String(err))));
+      }, { merge: true }).catch(() => {}));
     });
     await Promise.all(sentUpdates);
 
-    await fsSetDoc(doc(db, "users", user.uid, "friendRequests", safeFriendUid), {
+    await setDoc(doc(db, "users", user.uid, "friendRequests", safeFriendUid), {
       status: "unfriended",
       unfriendedAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    }, 'friendRequest', { merge: true }).catch((err) => structuredLog('warn', 'incoming.unfriend', err?.message || String(err)));
+    }, { merge: true }).catch(() => {});
 
-    await fsSetDoc(doc(db, "users", user.uid, "friendRequestDecisions", safeFriendUid), {
+    await setDoc(doc(db, "users", user.uid, "friendRequestDecisions", safeFriendUid), {
       fromUid: safeFriendUid,
       status: "unfriended",
       updatedAt: serverTimestamp()
-    }, 'friendRequestDecisions', { merge: true }).catch((err) => structuredLog('warn', 'decision.unfriend', err?.message || String(err)));
+    }, { merge: true }).catch(() => {});
 
     // Mark queue relationship entries as unfriended on both directions when available.
     const [myToFriendQueue, friendToMeQueue, friendToMeByEmailQueue] = await Promise.all([
@@ -6600,34 +6707,34 @@ async function unfriendByUid(friendUid) {
       const sameUid = String(data.toUid || "") === safeFriendUid;
       const sameEmail = !!friendEmail && String(data.toEmail || "").trim().toLowerCase() === friendEmail;
       if (sameUid || sameEmail) {
-        queueUpdates.push(fsSetDoc(docSnap.ref, {
+        queueUpdates.push(setDoc(docSnap.ref, {
           status: "unfriended",
           unfriendedBy: user.uid,
           updatedAt: serverTimestamp()
-        }, 'friendRequestsQueue', { merge: true }));
+        }, { merge: true }).catch(() => {}));
       }
     });
     friendToMeQueue.docs.forEach((docSnap) => {
       const data = docSnap.data() || {};
       if (String(data.fromUid || "") === safeFriendUid) {
-        queueUpdates.push(fsSetDoc(docSnap.ref, {
+        queueUpdates.push(setDoc(docSnap.ref, {
           status: "unfriended",
           unfriendedBy: user.uid,
           updatedAt: serverTimestamp()
-        }, 'friendRequestsQueue', { merge: true }));
+        }, { merge: true }).catch(() => {}));
       }
     });
     friendToMeByEmailQueue.docs.forEach((docSnap) => {
       const data = docSnap.data() || {};
       if (String(data.fromUid || "") === safeFriendUid) {
-        queueUpdates.push(fsSetDoc(docSnap.ref, {
+        queueUpdates.push(setDoc(docSnap.ref, {
           status: "unfriended",
           unfriendedBy: user.uid,
           updatedAt: serverTimestamp()
-        }, 'friendRequestsQueue', { merge: true }));
+        }, { merge: true }).catch(() => {}));
       }
     });
-    await Promise.all(queueUpdates.map((promise) => promise.catch((err) => structuredLog('warn', 'queue.update', err?.message || String(err)))));
+    await Promise.all(queueUpdates.map((promise) => promise.catch(() => {})));
 
     showToast("Friend removed.");
     await loadSentFriendRequests(user.uid);
@@ -6668,12 +6775,12 @@ async function markFriendshipUnfriendedForAccountClear(user, friendUid, options 
       friendUid: safeFriendUid,
       ...unfriendedPayload
     }, 'friendUnfriended', { merge: true }),
-    fsSetDoc(doc(db, "users", safeFriendUid, "friendUnfriended", userId), {
+    setDoc(doc(db, "users", safeFriendUid, "friendUnfriended", userId), {
       friendUid: userId,
       ...unfriendedPayload
-    }, 'friendUnfriended', { merge: true }),
+    }, { merge: true }).catch(() => {}),
     fsSetDoc(doc(db, "users", userId, "friends", safeFriendUid), unfriendedPayload, 'friend', { merge: true }),
-    fsSetDoc(doc(db, "users", safeFriendUid, "friends", userId), unfriendedPayload, 'friend', { merge: true })
+    setDoc(doc(db, "users", safeFriendUid, "friends", userId), unfriendedPayload, { merge: true }).catch(() => {})
   ]);
 
   await Promise.allSettled([
@@ -6759,12 +6866,12 @@ async function markFriendshipUnfriendedForAccountClear(user, friendUid, options 
       unfriendedBy: userId,
       updatedAt: serverTimestamp()
     }, 'friendRequestDecisions', { merge: true }),
-    fsSetDoc(doc(db, "users", safeFriendUid, "friendRequestDecisions", userId), {
+    setDoc(doc(db, "users", safeFriendUid, "friendRequestDecisions", userId), {
       fromUid: userId,
       status: "unfriended",
       unfriendedBy: userId,
       updatedAt: serverTimestamp()
-    }, 'friendRequestDecisions', { merge: true })
+    }, { merge: true }).catch(() => {})
   ]);
 }
 
@@ -7113,6 +7220,32 @@ async function loadFriendRequests(userId, showLoginAlert = false) {
       };
     });
 
+    await loadSeenFriendRequestKeysForUser(userId);
+    const pendingKeys = new Set(rows.map((entry) => buildFriendRequestSeenKey(entry)));
+    let seenSetChanged = false;
+
+    [...seenFriendRequestKeys].forEach((key) => {
+      if (!pendingKeys.has(key)) {
+        seenFriendRequestKeys.delete(key);
+        seenSetChanged = true;
+      }
+    });
+
+    if (acknowledgeFriendRequestsOnNextRender || (accountPanel && accountPanel.style.display === "block")) {
+      rows.forEach((entry) => {
+        const key = buildFriendRequestSeenKey(entry);
+        if (!seenFriendRequestKeys.has(key)) {
+          seenFriendRequestKeys.add(key);
+          seenSetChanged = true;
+        }
+      });
+      acknowledgeFriendRequestsOnNextRender = false;
+    }
+
+    if (seenSetChanged) {
+      await persistSeenFriendRequestKeysForUser(userId);
+    }
+
     renderFriendRequests(rows);
     if (rows.length && showLoginAlert && !friendRequestLoginAlertShown) {
       friendRequestLoginAlertShown = true;
@@ -7187,6 +7320,13 @@ async function loadFriendsInsights(userId) {
           friendName: String(data.friendName || "").trim()
         };
       });
+    persistedFriends.forEach((entry) => {
+      const uid = String(entry.friendUid || "").trim();
+      const status = String(entry.status || "accepted").trim().toLowerCase();
+      if (uid && status === "accepted" && locallyUnfriendedFriendUids.has(uid)) {
+        locallyUnfriendedFriendUids.delete(uid);
+      }
+    });
     let friends = persistedFriends
       .filter((entry) => String(entry.status || "accepted") === "accepted" && !!entry.friendUid)
       .filter((entry) => !locallyUnfriendedFriendUids.has(String(entry.friendUid || "").trim()));
@@ -7220,7 +7360,7 @@ async function loadFriendsInsights(userId) {
         friendDisplayName: myDisplayName,
         status: "accepted",
         updatedAt: serverTimestamp()
-      }, 'friend', { merge: true }).catch(() => {});
+      }, 'friend', { merge: true, silentPermissionDenied: true }).catch(() => {});
     }));
 
     let queueFriends = [];
@@ -7396,7 +7536,7 @@ async function loadFriendsInsights(userId) {
           friendDisplayName: normalizeDisplayNameValue(entry.friendDisplayName || fallbackName) || fallbackName,
           status: "accepted",
           updatedAt: serverTimestamp()
-        }, 'friend', { merge: true }).catch(() => {});
+        }, 'friend', { merge: true, silentPermissionDenied: true }).catch(() => {});
       }));
       queueOnlyAccepted.forEach((entry) => {
         const uid = String(entry.friendUid || "").trim();
@@ -7469,7 +7609,7 @@ async function loadFriendsInsights(userId) {
           friendDisplayName: normalizeDisplayNameValue(entry.friendDisplayName || fallbackName) || fallbackName,
           status: "accepted",
           updatedAt: serverTimestamp()
-        }, 'friend', { merge: true }).catch(() => {});
+        }, 'friend', { merge: true, silentPermissionDenied: true }).catch(() => {});
       }));
 
       historicalOnlyAccepted.forEach((entry) => {
@@ -7790,21 +7930,21 @@ async function submitAddFriendRequest() {
       const sentUpdatedAtMs = getFriendRequestTimestampMs(data);
       const terminalQueueStatus = isTerminalFriendRequestStatus(queueStatus);
       if (terminalQueueStatus && queueStatusUpdatedAtMs > 0 && queueStatusUpdatedAtMs >= sentUpdatedAtMs) {
-        sentStatusSyncUpdates.push(fsSetDoc(docSnap.ref, {
+        sentStatusSyncUpdates.push(setDoc(docSnap.ref, {
           status: queueStatus,
           updatedAt: serverTimestamp(),
           updatedAtMs: Date.now()
-        }, 'friendRequestsSent', { merge: true }).catch(() => {}));
+        }, { merge: true }).catch(() => {}));
         return;
       }
 
       if (isFriendRequestExpired(data)) {
-        sentExpiryUpdates.push(fsSetDoc(docSnap.ref, {
+        sentExpiryUpdates.push(setDoc(docSnap.ref, {
           status: "expired",
           expiredAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
           updatedAtMs: Date.now()
-        }, 'friendRequestsSent', { merge: true }).catch(() => {}));
+        }, { merge: true }).catch(() => {}));
         return;
       }
 
@@ -7868,11 +8008,11 @@ async function submitAddFriendRequest() {
         return;
       }
       if (reverseData && String(reverseData.status || "") === "pending" && isFriendRequestExpired(reverseData)) {
-        await fsSetDoc(doc(db, "users", user.uid, "friendRequests", targetUid), {
+        await setDoc(doc(db, "users", user.uid, "friendRequests", targetUid), {
           status: "expired",
           expiredAt: serverTimestamp(),
           updatedAt: serverTimestamp()
-        }, 'friendRequest', { merge: true }).catch(() => {});
+        }, { merge: true }).catch(() => {});
       }
     }
 
@@ -7956,20 +8096,86 @@ async function submitAddFriendRequest() {
       requestNonce
     };
 
-    const sentRequestDocId = targetUid || `email_${targetEmail}`;
 
-    await fsSetDoc(doc(db, "users", user.uid, "friendRequestsSent", sentRequestDocId), {
+    const incomingRef = targetUid ? doc(db, "users", targetUid, "friendRequests", user.uid) : null;
+    if (incomingRef) {
+      try {
+        const incomingSnap = await getDoc(incomingRef);
+        if (incomingSnap.exists() && String(incomingSnap.data()?.status || "") === "pending") {
+          setAddFriendError("Request already sent and pending.");
+          return;
+        }
+      } catch (_) {}
+    }
+
+    const sentRequestDocId = targetUid || `email_${targetEmail}`;
+    const sentRequestRef = doc(db, "users", user.uid, "friendRequestsSent", sentRequestDocId);
+
+    await setDoc(sentRequestRef, {
       ...requestPayload,
       status: "pending",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       createdAtMs: requestNowMs,
       updatedAtMs: requestNowMs
-    }, 'friendRequestsSent', { merge: true });
+    }, { merge: true });
+
+    let deliveredToInbox = false;
+    let queuedFallback = false;
+
+    const queueKeys = [];
+    if (targetUid) queueKeys.push(targetUid);
+    if (targetEmail) queueKeys.push(`email_${encodeURIComponent(targetEmail)}`);
+    const uniqueQueueKeys = [...new Set(queueKeys)];
+    if (uniqueQueueKeys.length) {
+      const queueResults = await Promise.allSettled(uniqueQueueKeys.map((key) => {
+        const queueId = `${user.uid}__${key}`;
+        return setDoc(doc(db, "friendRequestsQueue", queueId), {
+          ...requestPayload,
+          queueId,
+          delivery: "queued",
+          targetKey: key,
+          updatedAt: serverTimestamp(),
+          updatedAtMs: requestNowMs,
+          createdAtMs: requestNowMs
+        }, { merge: true });
+      }));
+      queuedFallback = queueResults.some((result) => result.status === "fulfilled");
+    }
+
+    try {
+      if (incomingRef) {
+        await setDoc(incomingRef, {
+          ...requestPayload,
+          updatedAtMs: requestNowMs,
+          createdAtMs: requestNowMs
+        }, { merge: true });
+        deliveredToInbox = true;
+      }
+    } catch (err) {
+      const code = String(err?.code || "");
+      const permissionDenied = code.includes("permission-denied") || code.includes("unauthenticated");
+      if (!permissionDenied) throw err;
+    }
+
+    if (!deliveredToInbox && !queuedFallback) {
+      await setDoc(sentRequestRef, {
+        status: "cancelled",
+        cancelledAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        updatedAtMs: Date.now(),
+        deliveryError: "firestore-rules-blocked"
+      }, { merge: true }).catch(() => deleteDoc(sentRequestRef).catch(() => {}));
+      setAddFriendError("Friend request was not sent. Firestore rules currently block both receiver delivery and the shared friendRequestsQueue path.");
+      await loadSentFriendRequests(user.uid).catch(() => {});
+      return;
+    }
 
     closeAddFriendModal(null, true);
     await loadSentFriendRequests(user.uid);
-    showToast("Friend request sent.");
+    showToast(deliveredToInbox
+      ? "Friend request sent. They will see it in-app on next login."
+      : "Friend request queued in-app. They will see it on next login.");
   } catch (err) {
     notifyFirestoreError(err);
     setAddFriendError(
@@ -8006,9 +8212,9 @@ async function respondToFriendRequest(requestEntry, action) {
       : doc(db, "users", user.uid, "friendRequests", fromUid);
     let requestData = entry || {};
     if (source !== "sentFeed") {
-      const requestRes = await fsGetDoc(requestRef, 'friendRequest');
-      if (!requestRes.exists) return;
-      requestData = requestRes.data || {};
+      const requestSnap = await getDoc(requestRef);
+      if (!requestSnap.exists()) return;
+      requestData = requestSnap.data() || {};
     }
 
     if (accepted) {
@@ -8093,7 +8299,7 @@ async function respondToFriendRequest(requestEntry, action) {
           generatedAtMs: Date.now()
         };
 
-      await fsSetDoc(doc(db, "users", user.uid, "friends", fromUid), {
+      await setDoc(doc(db, "users", user.uid, "friends", fromUid), {
         friendUid: fromUid,
         friendEmail,
         friendName,
@@ -8103,9 +8309,9 @@ async function respondToFriendRequest(requestEntry, action) {
         status: "accepted",
         since: serverTimestamp(),
         updatedAt: serverTimestamp()
-      }, 'friend', { merge: true });
+      }, { merge: true });
 
-      await fsSetDoc(doc(db, "users", fromUid, "friends", user.uid), {
+      await setDoc(doc(db, "users", fromUid, "friends", user.uid), {
         friendUid: user.uid,
         friendEmail: String(user.email || "").trim().toLowerCase(),
         friendName: myDisplayName,
@@ -8115,42 +8321,125 @@ async function respondToFriendRequest(requestEntry, action) {
         status: "accepted",
         since: serverTimestamp(),
         updatedAt: serverTimestamp()
-      }, 'friend', { merge: true }).catch((err) => structuredLog('warn', 'friend.accept.update', err?.message || String(err)));
+      }, { merge: true }).catch(() => {});
 
       requestData.fromProfile = senderProfileSnapshot;
       requestData.toProfile = myProfileSnapshot;
 
       // Explicit accept re-opens this relationship after a previous unfriend block.
-      await fsDeleteDoc(doc(db, "users", user.uid, "friendUnfriended", fromUid), { silent: true }).catch((err) => structuredLog('warn', 'friend.unblock.local', err?.message || String(err)));
-      await fsDeleteDoc(doc(db, "users", fromUid, "friendUnfriended", user.uid), { silent: true }).catch((err) => structuredLog('warn', 'friend.unblock.remote', err?.message || String(err)));
+      await deleteDoc(doc(db, "users", user.uid, "friendUnfriended", fromUid)).catch(() => {});
+      await deleteDoc(doc(db, "users", fromUid, "friendUnfriended", user.uid)).catch(() => {});
+      await setDoc(doc(db, "users", user.uid, "friendUnfriended", fromUid), {
+        status: "accepted",
+        updatedAt: serverTimestamp()
+      }, { merge: true }).catch(() => {});
+      await setDoc(doc(db, "users", fromUid, "friendUnfriended", user.uid), {
+        status: "accepted",
+        updatedAt: serverTimestamp()
+      }, { merge: true }).catch(() => {});
     }
 
-    await fsSetDoc(requestRef, {
+    const senderEmail = String(requestData.fromEmail || "").trim().toLowerCase();
+    const senderUsername = getNormalizedUsernameIdentity(
+      requestData.fromUsername || requestData?.fromProfile?.username || requestData.fromName,
+      senderEmail
+    ) || getEmailLocalIdentity(senderEmail)
+      || "friend";
+    const senderDisplayName = normalizeDisplayNameValue(requestData.fromDisplayName)
+      || normalizeDisplayNameValue(requestData?.fromProfile?.displayName)
+      || normalizeDisplayNameValue(requestData.fromName)
+      || senderUsername;
+    const senderName = senderDisplayName;
+    const recipientEmail = String(user.email || requestData.toEmail || "").trim().toLowerCase();
+    const recipientCandidateUsername = normalizeUsernameForLookup(accountName?.innerText || requestData.toUsername || requestData.toName);
+    const resolvedRecipientUsername = normalizeUsernameForLookup(await resolveUsernameFromDirectoryEmail(recipientEmail));
+    const recipientUsername = resolvedRecipientUsername
+      || getSafeUsernameForAuthenticatedUser(user, recipientCandidateUsername, recipientEmail);
+    const recipientDisplayName = normalizeDisplayNameValue(accountDisplayName?.innerText || "")
+      || normalizeDisplayNameValue(user.displayName)
+      || normalizeDisplayNameValue(requestData.toDisplayName)
+      || normalizeDisplayNameValue(requestData.toName)
+      || recipientUsername;
+    const recipientName = recipientDisplayName;
+    const queueToUid = cleanTextValue(requestData.toUid || user.uid);
+    const queueToEmail = cleanLowerTextValue(requestData.toEmail || recipientEmail);
+    const queueMutablePayload = {
+      fromUid,
+      fromEmail: senderEmail,
+      fromName: senderName,
+      fromUsername: senderUsername,
+      fromDisplayName: senderDisplayName,
+      fromProfile: requestData.fromProfile || null,
+      toUid: queueToUid,
+      toEmail: queueToEmail,
+      toName: recipientName,
+      toUsername: recipientUsername,
+      toDisplayName: recipientDisplayName,
+      toProfile: requestData.toProfile || null,
+      status: accepted ? "accepted" : "declined",
+      respondedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      updatedAtMs: Date.now(),
+      requestNonce: cleanTextValue(requestData.requestNonce)
+    };
+    const queueIds = getFriendRequestQueueDocIds(fromUid, queueToUid, queueToEmail);
+    try {
+      await Promise.all(queueIds.map((queueId) => {
+        return setDoc(doc(db, "friendRequestsQueue", queueId), {
+          ...queueMutablePayload,
+          queueId,
+          targetKey: queueId.split("__").slice(1).join("__")
+        }, { merge: true }).catch(() => {});
+      }));
+    } catch (err) {
+      structuredLog('warn', 'friend.queue.update_failed', err?.message || String(err), {
+        fromUid,
+        queueToUid,
+        queueToEmail
+      });
+    }
+
+    await setDoc(requestRef, {
       status: accepted ? "accepted" : "declined",
       respondedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       updatedAtMs: Date.now()
-    }, 'friendRequest', { merge: true }).catch((err) => structuredLog('warn', 'respond.request', err?.message || String(err)));
+    }, { merge: true }).catch(() => {});
 
-    await fsSetDoc(doc(db, "users", user.uid, "friendRequestDecisions", fromUid), {
+    await setDoc(doc(db, "users", user.uid, "friendRequestDecisions", fromUid), {
       fromUid,
       status: accepted ? "accepted" : "declined",
       respondedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       updatedAtMs: Date.now()
-    }, 'friendRequestDecisions', { merge: true }).catch((err) => structuredLog('warn', 'respond.decision', err?.message || String(err)));
+    }, { merge: true }).catch(() => {});
 
-    await fsSetDoc(doc(db, "users", user.uid, "friendRequests", fromUid), {
+    await setDoc(doc(db, "users", user.uid, "friendRequests", fromUid), {
       status: accepted ? "accepted" : "declined",
       respondedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       updatedAtMs: Date.now()
-    }, 'friendRequest', { merge: true }).catch((err) => structuredLog('warn', 'respond.incoming', err?.message || String(err)));
+    }, { merge: true }).catch(() => {});
+
+    // Ensure sender-side sent doc reflects the terminal status via deterministic doc id.
+    try {
+      const senderToUid = cleanTextValue(queueToUid || requestData.toUid || user.uid);
+      const senderToEmail = cleanLowerTextValue(queueToEmail || requestData.toEmail || recipientEmail);
+      const senderSentDocId = senderToUid || (senderToEmail ? `email_${encodeURIComponent(senderToEmail)}` : "");
+      if (senderSentDocId) {
+        await setDoc(doc(db, "users", fromUid, "friendRequestsSent", senderSentDocId), {
+          status: accepted ? "accepted" : "declined",
+          respondedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          updatedAtMs: Date.now()
+        }, { merge: true }).catch(() => {});
+      }
+    } catch (_) {}
 
     // Ensure sender-side pending list clears regardless of sent doc ID strategy.
     const recipientEmailForSenderSync = recipientEmail;
     try {
-      const senderSentSnap = await fsGetDocs(collection(db, "users", fromUid, "friendRequestsSent"), 'friendRequestsSent');
+      const senderSentSnap = await getDocs(collection(db, "users", fromUid, "friendRequestsSent"));
       const senderUpdates = [];
       senderSentSnap.docs.forEach((docSnap) => {
         const data = docSnap.data() || {};
@@ -8158,12 +8447,12 @@ async function respondToFriendRequest(requestEntry, action) {
         const toEmailMatches = recipientEmailForSenderSync && cleanLowerTextValue(data.toEmail) === recipientEmailForSenderSync;
         if (!toUidMatches && !toEmailMatches) return;
 
-        senderUpdates.push(fsSetDoc(docSnap.ref, {
+        senderUpdates.push(setDoc(docSnap.ref, {
           status: accepted ? "accepted" : "declined",
           respondedAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
           updatedAtMs: Date.now()
-        }, 'friendRequestsSent', { merge: true }).catch(() => {}));
+        }, { merge: true }).catch(() => {}));
       });
       await Promise.all(senderUpdates);
     } catch (_) {}
@@ -8343,6 +8632,7 @@ let importBackoffCooldownEmail = "";
 let importBackoffCooldownIntervalId = null;
 let friendRequestLoginAlertShown = false;
 let friendInsightProfiles = [];
+let hasCurrentFriends = false;
 let lastFriendQueueProfileSyncAt = 0;
 let pendingFriendProfileSyncTimer = null;
 let pendingFriendProfileSnapshot = null;
@@ -8675,6 +8965,57 @@ function setEmptyState(containerEl, message) {
   containerEl.innerHTML = `<div class="status-empty">${message}</div>`;
 }
 
+const EMPTY_STATE_MESSAGE_POOLS = {
+  chat: [
+    "No AI chats yet — ask one question to get started.",
+    "Your AI space is empty. Ask anything to begin.",
+    "No conversations yet. Start with a quick question.",
+    "Blank slate — try one short prompt to kick things off.",
+    "AI chat is quiet. Drop a question to wake it up."
+  ],
+  reminders: [
+    "No reminders set yet — add one small prompt for today.",
+    "No reminders yet. Add one to keep things moving.",
+    "Your reminder list is empty. Set a quick nudge.",
+    "Nothing scheduled yet. Create a reminder to stay on track.",
+    "No reminders right now — add one and keep momentum."
+  ],
+  tasks: [
+    "No tasks yet — add one quick win to begin.",
+    "Your task list is empty. Add a small first step.",
+    "No tasks logged yet. Drop in one tiny action.",
+    "No tasks here yet — start with something easy.",
+    "Nothing on your list yet. Add a starter task."
+  ],
+  mood: [
+    "No mood logs yet — one check-in is enough to start.",
+    "No mood entries yet. Log a quick check-in.",
+    "Your mood log is empty. Add today’s check-in.",
+    "No mood notes yet — pick one feeling to start.",
+    "No moods logged yet. A quick check-in helps."
+  ],
+  gratitude: [
+    "No gratitude notes yet — add one small win from today.",
+    "No gratitude entries yet. Add a quick thank-you.",
+    "Your gratitude list is empty. Start with one line.",
+    "Nothing logged yet — add one thing you appreciate.",
+    "No gratitude notes yet. One small win is enough."
+  ],
+  quests: [
+    "No quests yet. Log today’s stats to generate quests.",
+    "No quests available yet — log a few entries to unlock them.",
+    "Quest list is empty. Add today’s logs to populate it.",
+    "No quests yet. A couple logs will generate them.",
+    "No quests right now — log your stats to get started."
+  ]
+};
+
+function getRandomEmptyMessage(kind, fallback) {
+  const pool = EMPTY_STATE_MESSAGE_POOLS[kind];
+  if (!Array.isArray(pool) || pool.length === 0) return fallback;
+  return pool[Math.floor(Math.random() * pool.length)] || fallback;
+}
+
 function setLoadingState(containerEl, message = "Loading...") {
   if (!containerEl) return;
   containerEl.innerHTML = `<div class="status-loading">${message}</div>`;
@@ -8717,6 +9058,7 @@ function hasAnyClearableData() {
   const hasRescueHistory = rescueEvents.length > 0;
   const hasQuestProgress = questXp > 0 || questStreakCount > 0 || !!questShieldAvailable || (questCompletedDateKeys || []).length > 0;
   const hasWaterGoal = (Number(waterGoal) || 0) > 0;
+  const hasFriends = hasCurrentFriends;
 
   return !!(
     hasAiChats ||
@@ -8729,7 +9071,8 @@ function hasAnyClearableData() {
     hasChallengeHistory ||
     hasRescueHistory ||
     hasQuestProgress ||
-    hasWaterGoal
+    hasWaterGoal ||
+    hasFriends
   );
 }
 
@@ -10389,7 +10732,7 @@ async function syncSocialProfileToFriendQueue(user, socialProfile) {
         fromDisplayName: safeProfile.displayName || safeProfile.name,
         fromProfile: safeProfile,
         updatedAt: serverTimestamp()
-      }, 'friendRequestsQueue', { merge: true }).catch(() => {}));
+      }, 'friendRequestsQueue', { merge: true, silentPermissionDenied: true }).catch(() => {}));
     });
     toSnap.docs.forEach((docSnap) => {
       updates.push(fsSetDoc(docSnap.ref, {
@@ -10398,7 +10741,7 @@ async function syncSocialProfileToFriendQueue(user, socialProfile) {
         toDisplayName: safeProfile.displayName || safeProfile.name,
         toProfile: safeProfile,
         updatedAt: serverTimestamp()
-      }, 'friendRequestsQueue', { merge: true }).catch(() => {}));
+      }, 'friendRequestsQueue', { merge: true, silentPermissionDenied: true }).catch(() => {}));
     });
     toEmailSnap.docs.forEach((docSnap) => {
       updates.push(fsSetDoc(docSnap.ref, {
@@ -10407,7 +10750,7 @@ async function syncSocialProfileToFriendQueue(user, socialProfile) {
         toDisplayName: safeProfile.displayName || safeProfile.name,
         toProfile: safeProfile,
         updatedAt: serverTimestamp()
-      }, 'friendRequestsQueue', { merge: true }).catch(() => {}));
+      }, 'friendRequestsQueue', { merge: true, silentPermissionDenied: true }).catch(() => {}));
     });
 
     await Promise.all(updates);
@@ -10470,7 +10813,7 @@ async function syncSocialProfileToFriendsMirror(user, socialProfile) {
         status: "accepted",
         sharedProfile: safeProfile,
         updatedAt: serverTimestamp()
-      }, 'friend', { merge: true }).catch(() => {}));
+      }, 'friend', { merge: true, silentPermissionDenied: true }).catch(() => {}));
     });
 
     await Promise.all(updates);
@@ -11919,10 +12262,22 @@ async function dismissCrashAlertBanner() {
 function updateCrashPreventionUI() {
   if (!crashRiskValue || !crashRiskLevel || !crashRiskReason || !crashAlertBanner || !crashBannerText) return;
 
+  if (document.body.classList.contains("splash-active")) {
+    crashAlertBanner.style.display = "none";
+    return;
+  }
+
   const snapshot = getCrashRiskSnapshot();
   crashRiskValue.innerText = `${snapshot.risk}/100`;
   crashRiskLevel.innerText = snapshot.level;
-  if (crashRiskFill) crashRiskFill.style.width = `${snapshot.risk}%`;
+  if (crashRiskFill) {
+    crashRiskFill.style.width = `${snapshot.risk}%`;
+    crashRiskFill.classList.remove("is-low", "is-mid", "is-high", "is-critical");
+    if (snapshot.risk >= 75) crashRiskFill.classList.add("is-critical");
+    else if (snapshot.risk >= 55) crashRiskFill.classList.add("is-high");
+    else if (snapshot.risk >= 30) crashRiskFill.classList.add("is-mid");
+    else crashRiskFill.classList.add("is-low");
+  }
   crashRiskReason.innerText = snapshot.reasons[0] || "Keep your streaks active to maintain resilience.";
 
   const shortReason = snapshot.reasons.slice(0, 2).join(" • ") || "Stay consistent with your health basics.";
@@ -13000,7 +13355,7 @@ const AI_REMINDER_ADDED_BASE = [
 ];
 
 const AI_MOOD_LOGGED_BASE = [
-  "Logged Mood [{mood}]",
+  "Logged Mood {mood}",
   "Mood logged: {mood}.",
   "Mood saved: {mood}.",
   "Checked in: {mood}.",
@@ -13014,7 +13369,7 @@ const AI_MOOD_LOGGED_BASE = [
 
 const AI_MOOD_LOGGED_FRAMES = [
   (text) => text,
-  (text) => `Logged Mood [${text}]`,
+  (text) => `Logged Mood ${text}`,
   (text) => `Mood log: ${text}`,
   (text) => `Mood check-in saved: ${text}`,
   (text) => `Mood update saved: ${text}`,
@@ -16435,7 +16790,7 @@ async function loadAiChats(userId) {
       renderChatPair(entry);
     });
     if (!docs.length) {
-      setEmptyState(chat, "No AI chats yet — ask one question to get started.");
+      setEmptyState(chat, getRandomEmptyMessage("chat", "No AI chats yet — ask one question to get started."));
     }
     setAiClearButtonState(docs.length > 0);
     updateAiLimitUI();
@@ -16479,7 +16834,7 @@ async function clearAiChats(options = {}) {
   try {
     const snapshot = await getDocs(collection(db, "users", user.uid, "aiChats"));
     if (!snapshot.docs.length) {
-      setEmptyState(chat, "No AI chats yet — ask one question to get started.");
+      setEmptyState(chat, getRandomEmptyMessage("chat", "No AI chats yet — ask one question to get started."));
       showToast("There was nothing to clear.");
       setAiClearButtonState(false);
       updateClearDataButtonState();
@@ -16511,7 +16866,7 @@ async function clearAiChats(options = {}) {
         notifyFirestoreError(err);
       }
       pendingAiClearOperation = null;
-      scheduleEmptyState(chat, ".chat-message", "No AI chats yet — ask one question to get started.");
+      scheduleEmptyState(chat, ".chat-message", getRandomEmptyMessage("chat", "No AI chats yet — ask one question to get started."));
       setAiClearButtonState(false);
       updateClearDataButtonState();
     };
@@ -16833,7 +17188,7 @@ async function loadReminders(userId) {
 
     docs.forEach((entry) => renderReminder(entry, { insertAtTop: false }));
     if (!docs.length) {
-      setEmptyState(reminders, "No reminders set yet — add one small prompt for today.");
+      setEmptyState(reminders, getRandomEmptyMessage("reminders", "No reminders set yet — add one small prompt for today."));
     }
     await updateReminderLimitUI(userId);
     updateClearDataButtonState();
@@ -16938,7 +17293,7 @@ function renderTaskList() {
   taskList.innerHTML = "";
   const sortedTasks = sortTasksForDisplay(taskEntries);
   if (!sortedTasks.length) {
-    setEmptyState(taskList, "No tasks yet — add one quick win to begin.");
+    setEmptyState(taskList, getRandomEmptyMessage("tasks", "No tasks yet — add one quick win to begin."));
     return;
   }
   sortedTasks.forEach((entry) => renderTask(entry, { insertAtTop: false }));
@@ -17120,11 +17475,12 @@ function calculateFinance(){
   const cost = parseFloat(gCost.value) || 0;
   const months = parseFloat(gMonths.value) || 1;
   const buf = parseFloat(buffer.value) || 0;
+  const currency = FINANCE_CURRENCY_OPTIONS[gCurrency?.value] || FINANCE_CURRENCY_OPTIONS.usd;
 
   const total = cost * months * (1 + buf/100);
   const monthly = total / months;
 
-  financeResult.innerText = `Total: ₹${total.toFixed(0)} | Monthly: ₹${monthly.toFixed(0)}`;
+  financeResult.innerText = `Total: ${currency.symbol}${total.toFixed(0)} | Monthly: ${currency.symbol}${monthly.toFixed(0)}`;
 }
 
 // Mood
@@ -17185,7 +17541,7 @@ async function loadMoods(userId) {
       }
     });
     if (!renderedCount) {
-      setEmptyState(moodLogs, "No mood logs yet — one check-in is enough to start.");
+      setEmptyState(moodLogs, getRandomEmptyMessage("mood", "No mood logs yet — one check-in is enough to start."));
     }
     updateMoodLimitUI();
     updateInsights();
@@ -17235,7 +17591,7 @@ async function saveMood() {
       moodHistory.push(moodValue);
       moodDates.push(getServerNowDate());
       renderMoodLog({ id: moodRef.id, mood: moodValue, time: getServerNowDate() });
-      const moodMsg = `Logged Mood [${moodValue}]`;
+      const moodMsg = `Logged Mood ${moodValue}`;
       showToast(moodMsg);
       updateInsights();
       await trimCollectionToMaxEntries(user.uid, "moods", MAX_MOOD_ENTRIES, (entry) => toDateSafe(entry.time)?.getTime?.() || 0);
@@ -18915,7 +19271,7 @@ async function loadGratitude(userId) {
       }
     });
     if (!renderedCount) {
-      setEmptyState(gratitudeLogs, "No gratitude notes yet — add one small win from today.");
+      setEmptyState(gratitudeLogs, getRandomEmptyMessage("gratitude", "No gratitude notes yet — add one small win from today."));
     }
     updateGratitudeLimitUI();
     updateInsights();

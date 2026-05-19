@@ -10,10 +10,12 @@
   --surface-dark:rgba(9,20,38,0.28);
   --border-soft:rgba(255,255,255,0.22);
   --text:#ffffff;
-  --motion-fast:.22s;
-  --motion-medium:.34s;
+  --motion-fast:.26s;
+  --motion-medium:.44s;
+  --motion-slow:.6s;
   --ease-smooth:cubic-bezier(.22,.61,.36,1);
   --ease-soft:cubic-bezier(.25,.46,.45,.94);
+  --ease-gentle:cubic-bezier(.18,.8,.22,1);
 }
 
 html,body{
@@ -66,9 +68,23 @@ html,body{
   max-width:80%;
   animation:popIn 1.2s ease;
 }
+
+body.splash-active .crash-banner{
+  display:none !important;
+}
 @keyframes popIn{
   from{opacity:0;transform:scale(.85)}
   to{opacity:1;transform:scale(1)}
+}
+
+@keyframes modalIn{
+  from{opacity:0;transform:translateY(12px) scale(.98)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+
+@keyframes panelIn{
+  from{opacity:0;transform:translate(-50%,-48%) scale(.98)}
+  to{opacity:1;transform:translate(-50%,-50%) scale(1)}
 }
 
 /* SIGN-IN / SIGN-UP MODAL */
@@ -130,6 +146,7 @@ html,body{
   max-width: 400px;
   color: #fff;
   box-shadow: 0 12px 30px rgba(0,0,0,0.3);
+  animation:modalIn var(--motion-medium) var(--ease-gentle);
 }
 .modal-content input {
   display:block;
@@ -233,6 +250,7 @@ html,body{
   padding:16px;
   backdrop-filter:blur(14px);
   box-shadow:0 14px 34px rgba(0,0,0,.35);
+  animation:modalIn var(--motion-medium) var(--ease-gentle);
 }
 
 .import-transfer-card h3{

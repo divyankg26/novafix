@@ -349,7 +349,17 @@
 <!-- Grocery Finance -->
 <div class="card">
 <h2>🧾 Grocery Financing</h2>
-<input id="gCost" placeholder="Monthly ₹">
+<input id="gCost" placeholder="Monthly amount">
+<select id="gCurrency" aria-label="Currency">
+  <option value="usd">USD ($)</option>
+  <option value="eur">EUR (€)</option>
+  <option value="inr">INR (₹)</option>
+  <option value="gbp">GBP (£)</option>
+  <option value="jpy">JPY (¥)</option>
+  <option value="cad">CAD ($)</option>
+  <option value="aud">AUD ($)</option>
+  <option value="cny">CNY (¥)</option>
+</select>
 <input id="gMonths" placeholder="Months">
 <input id="buffer" placeholder="Buffer %">
 <button onclick="calculateFinance()">Plan</button>

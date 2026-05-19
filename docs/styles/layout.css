@@ -108,6 +108,7 @@
   background:rgba(0,0,0,.55);
   display:none;
   z-index:10020;
+  animation:modalIn var(--motion-medium) var(--ease-gentle);
 }
 
 #accountPanel{
@@ -134,6 +135,7 @@
   overscroll-behavior:contain;
   scrollbar-width:thin;
   scrollbar-color:var(--primary) transparent;
+  animation:panelIn var(--motion-medium) var(--ease-gentle);
 }
 
 #accountPanel::-webkit-scrollbar{
@@ -386,9 +388,9 @@
   flex-direction:column;
   border:1px solid var(--border-soft);
   transform:translateZ(0);
-  transition:transform var(--motion-medium) var(--ease-smooth), box-shadow var(--motion-medium) var(--ease-smooth), border-color var(--motion-medium) var(--ease-smooth);
+  transition:transform var(--motion-medium) var(--ease-gentle), box-shadow var(--motion-medium) var(--ease-gentle), border-color var(--motion-medium) var(--ease-gentle);
   will-change:transform;
-  animation:cardRise .45s var(--ease-smooth);
+  animation:cardRise var(--motion-slow) var(--ease-gentle);
 }
 .card:hover{
   transform:translateY(-3px) scale(1.008);
