@@ -44,6 +44,22 @@
   </div>
 </div>
 
+<div id="wellnessScoreInfoModal" onclick="closeWellnessScoreInfoModal(event)">
+  <div class="import-transfer-card" role="dialog" aria-modal="true" aria-labelledby="wellnessInfoTitle" onclick="event.stopPropagation()">
+    <h3 id="wellnessInfoTitle">Wellness Score Details</h3>
+    <div class="friends-list-box">
+      <div class="friend-row wellness-info-row">
+        <strong id="wellnessInfoCategory">Very Low</strong>
+        <small id="wellnessInfoScore">Score: 0/100</small>
+        <small id="wellnessInfoStatus">Status: Needs Focus</small>
+      </div>
+    </div>
+    <div class="import-transfer-actions">
+      <button class="import-transfer-cancel" type="button" onclick="closeWellnessScoreInfoModal(null, true)">Dismiss</button>
+    </div>
+  </div>
+</div>
+
 <div id="googleIdentityModal">
   <div class="modal-content" onclick="event.stopPropagation()">
     <h2 id="googleIdentityTitle">Set Your Profile</h2>
@@ -467,9 +483,12 @@
 </div>
 
 <!-- Daily Wellness Score -->
-<div class="card">
+<div class="card wellness-score-card">
 <h2>⭐ Daily Wellness Score</h2>
-<div id="wellnessScore" class="wellness-badge">0/100</div>
+<div class="wellness-score-row">
+  <div id="wellnessScore" class="wellness-badge" data-score="0" data-status="Needs Focus">Very Low</div>
+  <button id="wellnessScoreInfoBtn" class="wellness-info-btn" type="button" aria-label="Show wellness score details" onclick="openWellnessScoreInfoModal()">i</button>
+</div>
 <p id="wellnessStatus" class="wellness-status">Needs Focus</p>
 <p id="wellnessScoreResetCountdown" class="reset-hint reset-countdown-alert"></p>
 <p id="wellnessReassurance" class="soft-note">Log one check-in to start momentum today.</p>
@@ -553,6 +572,7 @@
 <div id="burnoutRisk" class="burnout-risk">0/100</div>
 <p id="burnoutWindow" class="wellness-status">Low Risk • Stable window</p>
 <p id="burnoutReason" class="burnout-sub">Forecast appears stable right now.</p>
+<p id="burnoutDoNow" class="wellness-do-now burnout-do-now"><b>DO NOW:</b> Keep one simple recovery action visible.</p>
 <ul id="burnoutSchedule" class="burnout-list"></ul>
 <button class="burnout-btn" onclick="applyRecoverySchedule()">Start Simple Recovery Plan</button>
 </div>
@@ -600,7 +620,7 @@
   <button id="startupApplyPlanBtn" onclick="applyStartupPlanAsTasks()" disabled>Apply as Tasks</button>
 </div>
 <p id="startupPlanResetCountdown" class="insight-reset-note"></p>
-<p id="startupPlanMeta" class="startup-mini">Plan updates automatically when your logs change.</p>
+<p id="startupPlanMeta" class="startup-mini">Plan refreshes daily or when you regenerate it.</p>
 </div>
 
 <!-- Weekly Startup Report -->

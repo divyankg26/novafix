@@ -229,6 +229,17 @@ body.splash-active .crash-banner{
   padding:16px;
 }
 
+#wellnessScoreInfoModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.78);
+  justify-content:center;
+  align-items:center;
+  z-index:10038;
+  padding:16px;
+}
+
 #reportRedirectConfirmModal{
   display:none;
   position:fixed;
@@ -353,6 +364,10 @@ body.splash-active .crash-banner{
 }
 
 #bedtimeReminderModal .import-transfer-actions .import-transfer-cancel{
+  background:linear-gradient(135deg,var(--primary),var(--accent)) !important;
+}
+
+#wellnessScoreInfoModal .import-transfer-actions .import-transfer-cancel{
   background:linear-gradient(135deg,var(--primary),var(--accent)) !important;
 }
 

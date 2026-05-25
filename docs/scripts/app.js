@@ -1,3 +1,40 @@
+// Keep the wellness score info popup usable even before Firebase finishes loading.
+(() => {
+  function getWellnessScoreMetaFallback(scoreValue = 0) {
+    const score = Math.max(0, Math.min(100, Math.round(Number(scoreValue) || 0)));
+    if (score >= 80) return { score, category: "Very High", status: "Excellent" };
+    if (score >= 60) return { score, category: "High", status: "Good" };
+    if (score >= 40) return { score, category: "Ok", status: "Building" };
+    if (score >= 20) return { score, category: "Low", status: "Needs Focus" };
+    return { score, category: "Very Low", status: "Needs Focus" };
+  }
+
+  window.openWellnessScoreInfoModal = function openWellnessScoreInfoModalFallback() {
+    const modal = document.getElementById("wellnessScoreInfoModal");
+    if (!modal) return;
+
+    const scoreEl = document.getElementById("wellnessScore");
+    const statusEl = document.getElementById("wellnessStatus");
+    const categoryEl = document.getElementById("wellnessInfoCategory");
+    const scoreLineEl = document.getElementById("wellnessInfoScore");
+    const statusLineEl = document.getElementById("wellnessInfoStatus");
+    const score = Number(scoreEl?.dataset?.score) || 0;
+    const meta = getWellnessScoreMetaFallback(score);
+    const status = scoreEl?.dataset?.status || statusEl?.textContent?.trim() || meta.status;
+
+    if (categoryEl) categoryEl.innerText = meta.category;
+    if (scoreLineEl) scoreLineEl.innerText = `Score: ${meta.score}/100`;
+    if (statusLineEl) statusLineEl.innerText = `Status: ${status}`;
+    modal.style.display = "flex";
+  };
+
+  window.closeWellnessScoreInfoModal = function closeWellnessScoreInfoModalFallback(event) {
+    const modal = document.getElementById("wellnessScoreInfoModal");
+    if (event && event.currentTarget === modal && event.target !== modal) return;
+    if (modal) modal.style.display = "none";
+  };
+})();
+
 // Firebase imports are loaded dynamically so the split app can run as a classic script.
 (async () => {
 "use strict";
@@ -1012,6 +1049,7 @@ const questListEl = document.getElementById("questList");
 const burnoutRiskEl = document.getElementById("burnoutRisk");
 const burnoutWindowEl = document.getElementById("burnoutWindow");
 const burnoutReasonEl = document.getElementById("burnoutReason");
+const burnoutDoNowEl = document.getElementById("burnoutDoNow");
 const burnoutScheduleEl = document.getElementById("burnoutSchedule");
 const accountName = document.getElementById("accountName");
 const accountDisplayName = document.getElementById("accountDisplayName");
@@ -1087,6 +1125,10 @@ const dailyChallengeResetCountdown = document.getElementById("dailyChallengeRese
 const dailyChallengeFriendInsight = document.getElementById("dailyChallengeFriendInsight");
 const wellnessScoreEl = document.getElementById("wellnessScore");
 const wellnessStatusEl = document.getElementById("wellnessStatus");
+const wellnessScoreInfoModal = document.getElementById("wellnessScoreInfoModal");
+const wellnessInfoCategory = document.getElementById("wellnessInfoCategory");
+const wellnessInfoScore = document.getElementById("wellnessInfoScore");
+const wellnessInfoStatus = document.getElementById("wellnessInfoStatus");
 const wellnessScoreResetCountdown = document.getElementById("wellnessScoreResetCountdown");
 const wellnessReassuranceEl = document.getElementById("wellnessReassurance");
 const wellnessDoNowEl = document.getElementById("wellnessDoNow");
@@ -2040,7 +2082,9 @@ try {
         setTimeMirrorClearButtonState(false);
         if (bedtimeTimeInput) bedtimeTimeInput.value = "";
         setBedtimeInputError("");
-        wellnessScoreEl.innerText = "0/100";
+        wellnessScoreEl.innerText = "Very Low";
+        wellnessScoreEl.dataset.score = "0";
+        wellnessScoreEl.dataset.status = "Needs Focus";
         wellnessStatusEl.innerText = "Needs Focus";
         wellnessActionsEl.innerHTML = "<li>Log your first check-in for today.</li><li>Set your water target and drink one glass.</li><li>Add one gratitude note tonight.</li>";
         if (crashAlertBanner) crashAlertBanner.style.display = "none";
@@ -2873,6 +2917,7 @@ async function initializeAuthenticatedSession(user) {
   void Promise.allSettled(initialDataLoadPromises).then(async () => {
     const activeUser = auth.currentUser;
     if (!activeUser?.uid || activeUser.uid !== user.uid) return;
+    await ensureStartupPlanAuto(activeUser.uid);
     updateCrashPreventionUI();
     await forceSyncFriendProfileFromLocalSnapshot(activeUser);
     await loadFriendsInsights(activeUser.uid);
@@ -8478,6 +8523,209 @@ const gratitudeEntries=[];
 const rescueEvents=[];
 const habitQuests=[];
 const burnoutRecoveryPlan=[];
+let burnoutPlanActive=false;
+const burnoutRecoveryCompletedSteps=new Set();
+
+const CRASH_RESCUE_PROTOCOLS = [
+  {
+    title: "60-second downshift",
+    focus: "lower the body alarm first, then choose one tiny next action",
+    steps: [
+      "Do 6 slow breathing rounds: inhale 4s, hold 2s, exhale 6s.",
+      "Drop your shoulders, unclench your jaw, and look away from the screen for 20 seconds.",
+      "Drink water before deciding what to do next.",
+      "Pick one 10-minute task that is easy to finish.",
+      "After 20 minutes, log your mood again."
+    ]
+  },
+  {
+    title: "grounding rescue",
+    focus: "get out of the spiral by naming what is real and controllable",
+    steps: [
+      "Name 5 things you can see and 3 things you can physically feel.",
+      "Take one slow breath after each item you name.",
+      "Write the next useful action in one short sentence.",
+      "Do only that action for 10 minutes.",
+      "Check back in after 20 minutes and log your mood."
+    ]
+  },
+  {
+    title: "low-energy rescue",
+    focus: "reduce friction instead of forcing intensity",
+    steps: [
+      "Sit or stand somewhere more comfortable and take 3 steady breaths.",
+      "Drink water or eat a small snack if you have not eaten recently.",
+      "Shrink your next task until it can be started in 2 minutes.",
+      "Set a 10-minute finish line, not a perfect-finish line.",
+      "Log mood again after the 20-minute check-in."
+    ]
+  },
+  {
+    title: "overwhelm rescue",
+    focus: "remove pressure before choosing the next move",
+    steps: [
+      "Write down the top 3 things pulling your attention.",
+      "Circle only one that matters before tonight.",
+      "Park the other two for later; do not solve them now.",
+      "Do a 10-minute first pass on the circled item.",
+      "Come back after 20 minutes and log your mood."
+    ]
+  },
+  {
+    title: "anger reset",
+    focus: "discharge tension before responding or deciding",
+    steps: [
+      "Step away from the trigger for one minute if you can.",
+      "Exhale longer than you inhale for 6 breaths.",
+      "Write what you want to avoid making worse.",
+      "Choose one neutral action: water, walk, or tidy one small thing.",
+      "Re-check mood after 20 minutes."
+    ]
+  },
+  {
+    title: "control rebuild",
+    focus: "create one visible win so the day stops feeling lost",
+    steps: [
+      "Clear one tiny surface, tab, or notification.",
+      "Drink water and take 3 slower breaths.",
+      "Choose a task that can be finished in one small checkbox.",
+      "Work for 10 minutes and stop when the timer ends.",
+      "Log your mood again after the check-in."
+    ]
+  }
+];
+
+const BURNOUT_RADAR_PLAN_POOLS = {
+  high: [
+    {
+      focus: "Reduce load now",
+      reason: "Your recovery signals need a smaller day. Protect capacity before adding effort.",
+      steps: [
+        "Stop adding new tasks for today; finish or park one current task only.",
+        "Take a 5-minute no-screen reset: stand, loosen shoulders, look away from the device.",
+        "Pick one closure action that would make the day feel less heavy.",
+        "Move one optional task to later so recovery has space."
+      ]
+    },
+    {
+      focus: "Stabilize first",
+      reason: "The fastest win is lowering pressure, not pushing harder.",
+      steps: [
+        "Choose the one task that actually matters before tonight.",
+        "Delay every optional task until tomorrow or after a real break.",
+        "Do a 3-minute reset: water, slow breathing, and unclenched shoulders.",
+        "Write a shutdown line for anything you are not doing today."
+      ]
+    },
+    {
+      focus: "Protect energy",
+      reason: "Your load looks heavier than your recovery buffer. Make the plan smaller.",
+      steps: [
+        "Convert one big task into a 10-minute first pass.",
+        "Remove one commitment that is not urgent.",
+        "Take a short walk or stretch before the next screen block.",
+        "End with a done/waiting/tomorrow note."
+      ]
+    }
+  ],
+  moderate: [
+    {
+      focus: "Simplify today",
+      reason: "Early fatigue signs are showing. A lighter plan will protect momentum.",
+      steps: [
+        "Choose one priority task and make it half-size.",
+        "Do one short movement reset before the next focus block.",
+        "Remove one non-urgent item from today’s list.",
+        "Write a 2-line shutdown note: done today, next tomorrow."
+      ]
+    },
+    {
+      focus: "Keep it finishable",
+      reason: "Your best move is a clean finish, not a bigger push.",
+      steps: [
+        "Pick one task that can visibly finish today.",
+        "Set a 20-minute work block with one clear endpoint.",
+        "Drink water before starting the block.",
+        "Move one low-value task out of today."
+      ]
+    },
+    {
+      focus: "Reduce switching",
+      reason: "Too much task switching can turn moderate pressure into burnout pressure.",
+      steps: [
+        "Close or hide one distracting tab/app.",
+        "Batch small tasks into one short block.",
+        "Do a 2-minute body reset before the next block.",
+        "Choose the next task only after the current block ends."
+      ]
+    }
+  ],
+  low: [
+    {
+      focus: "Keep steady",
+      reason: "Burnout pressure is low. Protect that by keeping the day simple.",
+      steps: [
+        "Keep working in one-task blocks instead of multitasking.",
+        "Take a short screen break before fatigue builds.",
+        "Close the day with a simple done/waiting list."
+      ]
+    },
+    {
+      focus: "Maintain buffer",
+      reason: "You have room to stay consistent without overloading the day.",
+      steps: [
+        "Finish one useful task before adding another.",
+        "Drink water or stretch between work blocks.",
+        "Leave one small recovery gap before bedtime."
+      ]
+    },
+    {
+      focus: "Protect momentum",
+      reason: "Your signals look stable. Keep the plan repeatable and calm.",
+      steps: [
+        "Do one visible task in a single focused block.",
+        "Check water and sleep basics before taking on extra work.",
+        "End with one clear next step for tomorrow."
+      ]
+    }
+  ]
+};
+
+const BURNOUT_RECOVERY_FALLBACK_PLANS = [
+  {
+    label: "reset and simplify",
+    steps: [
+      "Choose one priority task and cut it in half.",
+      "Take a 3-minute no-screen reset: breathe slow, drop shoulders.",
+      "Close the loop with a done/waiting/tomorrow note."
+    ]
+  },
+  {
+    label: "ground and move",
+    steps: [
+      "Drink one glass of water before starting anything else.",
+      "Do a 5-minute stretch or walk to reset your body.",
+      "Pick the smallest task and finish it in 10 minutes."
+    ]
+  },
+  {
+    label: "focus and finish",
+    steps: [
+      "Set a 15-minute timer and work on one single task.",
+      "Clear one small distraction (tab, notification, or message).",
+      "End with one clear next step for later today."
+    ]
+  },
+  {
+    label: "lower pressure",
+    steps: [
+      "Remove one non-urgent task from today.",
+      "Take 6 slow breaths and relax your jaw.",
+      "Do one tiny win and stop when it is done."
+    ]
+  }
+];
+
 const aiRecentPrompts=[];
 const aiRecentResponseSignatures=[];
 const aiVariantHistory = new Map();
@@ -8725,7 +8973,10 @@ const AI_ABUSE_COOLDOWN_MS = 2 * 60 * 1000;
 const AI_ABUSE_TERMS = ["fuck", "fuk", "fucc", "shit", "bitch", "asshole", "bastard", "motherfucker", "niga", "fucker"];
 
 function getDefaultStartupFeatureState() {
-  return {};
+  return {
+    dailyPlanItems: [],
+    dailyPlanKey: ""
+  };
 }
 
 let startupFeatureState = getDefaultStartupFeatureState();
@@ -8840,6 +9091,35 @@ const SUCCESS_CHEERS = [
   "Good job, you’re on track.",
   "Small step done, big win later."
 ];
+
+const APP_BOOT_MESSAGE_SEED = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+const bootStableMessageChoices = new Map();
+
+function getBootStablePoolIndex(pool, key = "default") {
+  const list = Array.isArray(pool) ? pool : [];
+  if (!list.length) return 0;
+
+  const cacheKey = `${key}|${list.length}`;
+  if (bootStableMessageChoices.has(cacheKey)) {
+    return bootStableMessageChoices.get(cacheKey);
+  }
+
+  const seed = `${APP_BOOT_MESSAGE_SEED}|${key}`;
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = ((hash * 31) + seed.charCodeAt(index)) % 2147483647;
+  }
+
+  const poolIndex = Math.abs(hash) % list.length;
+  bootStableMessageChoices.set(cacheKey, poolIndex);
+  return poolIndex;
+}
+
+function pickBootStablePoolItem(pool, key = "default", fallback = null) {
+  const list = Array.isArray(pool) ? pool : [];
+  if (!list.length) return fallback;
+  return list[getBootStablePoolIndex(list, key)] || fallback;
+}
 
 function getRandomCheer() {
   const index = Math.floor(Math.random() * SUCCESS_CHEERS.length);
@@ -9013,7 +9293,7 @@ const EMPTY_STATE_MESSAGE_POOLS = {
 function getRandomEmptyMessage(kind, fallback) {
   const pool = EMPTY_STATE_MESSAGE_POOLS[kind];
   if (!Array.isArray(pool) || pool.length === 0) return fallback;
-  return pool[Math.floor(Math.random() * pool.length)] || fallback;
+  return pickBootStablePoolItem(pool, `empty:${kind}`, fallback);
 }
 
 function setLoadingState(containerEl, message = "Loading...") {
@@ -9174,7 +9454,10 @@ function getAiAbuseCooldownRemainingMs() {
 }
 
 function buildAiAbuseCooldownMessage(remainingMs = getAiAbuseCooldownRemainingMs()) {
-  return `AI chat is temporarily paused for abusive language. Try again in ${formatCountdownClock(remainingMs)}.`;
+  const remaining = formatCountdownClock(remainingMs);
+  const template = pickNonRepeatingVariant(AI_ABUSE_COOLDOWN_POOL, "abuse_cooldown")
+    || AI_ABUSE_COOLDOWN_BASE[0];
+  return template.replaceAll("{remaining}", remaining);
 }
 
 function stopAiAbuseCooldownTicker() {
@@ -10574,6 +10857,92 @@ function ensureHabitQuestCurrent() {
   renderHabitQuestUI();
 }
 
+function getPoolIndex(pool, seedValue = "") {
+  const list = Array.isArray(pool) ? pool : [];
+  if (!list.length) return 0;
+  const seed = String(seedValue || Date.now());
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = ((hash * 31) + seed.charCodeAt(index)) % 2147483647;
+  }
+  return Math.abs(hash) % list.length;
+}
+
+function pickPoolItem(pool, seedValue = "") {
+  const list = Array.isArray(pool) ? pool : [];
+  return list[getPoolIndex(list, seedValue)] || list[0] || null;
+}
+
+function getNextBurnoutStep() {
+  return burnoutRecoveryPlan.find((item) => !burnoutRecoveryCompletedSteps.has(item)) || "";
+}
+
+function updateBurnoutDoNowText() {
+  if (!burnoutDoNowEl) return;
+  const nextStep = getNextBurnoutStep();
+  if (burnoutPlanActive && burnoutRecoveryPlan.length && !nextStep) {
+    burnoutDoNowEl.innerHTML = "<b>DO NOW:</b> Recovery plan complete. Keep the rest of today smaller.";
+    return;
+  }
+  const fallback = nextStep || burnoutRecoveryPlan[0] || "Keep one simple recovery action visible.";
+  burnoutDoNowEl.innerHTML = `<b>DO NOW:</b> ${escapeHtml(fallback)}`;
+}
+
+function renderBurnoutRecoveryPlan(options = {}) {
+  if (!burnoutScheduleEl) return;
+  const interactive = options.interactive ?? burnoutPlanActive;
+  const rows = interactive
+    ? [...burnoutRecoveryPlan].sort((a, b) => {
+      const aDone = burnoutRecoveryCompletedSteps.has(a);
+      const bDone = burnoutRecoveryCompletedSteps.has(b);
+      if (aDone !== bDone) return aDone ? 1 : -1;
+      return burnoutRecoveryPlan.indexOf(a) - burnoutRecoveryPlan.indexOf(b);
+    })
+    : [...burnoutRecoveryPlan];
+
+  burnoutScheduleEl.classList.toggle("is-checklist", !!interactive);
+  burnoutScheduleEl.innerHTML = "";
+  rows.forEach((item) => {
+    const li = document.createElement("li");
+    if (!interactive) {
+      li.textContent = item;
+      burnoutScheduleEl.appendChild(li);
+      return;
+    }
+
+    const done = burnoutRecoveryCompletedSteps.has(item);
+    li.className = "burnout-step-row";
+
+    const toggleBtn = document.createElement("button");
+    toggleBtn.type = "button";
+    toggleBtn.className = "burnout-step-toggle";
+    toggleBtn.textContent = done ? "✅" : "⬜";
+    toggleBtn.title = done ? "Mark recovery step pending" : "Mark recovery step done";
+    toggleBtn.onclick = () => {
+      if (burnoutRecoveryCompletedSteps.has(item)) burnoutRecoveryCompletedSteps.delete(item);
+      else burnoutRecoveryCompletedSteps.add(item);
+      renderBurnoutRecoveryPlan({ interactive: true });
+    };
+
+    const text = document.createElement("span");
+    text.className = `burnout-step-text${done ? " is-done" : ""}`;
+    text.textContent = item;
+
+    li.append(toggleBtn, text);
+    burnoutScheduleEl.appendChild(li);
+  });
+  updateBurnoutDoNowText();
+  if (burnoutPlanActive && burnoutRecoveryPlan.length) {
+    const allDone = burnoutRecoveryPlan.every((step) => burnoutRecoveryCompletedSteps.has(step));
+    if (allDone) {
+      showToast("Recovery plan complete. Resetting the radar card.");
+      burnoutPlanActive = false;
+      burnoutRecoveryCompletedSteps.clear();
+      updateBurnoutRadarUI();
+    }
+  }
+}
+
 function updateBurnoutRadarUI() {
   const crash = getCrashRiskSnapshot();
   const moodMeta = getMoodStateMeta(getTodayMood());
@@ -10597,49 +10966,28 @@ function updateBurnoutRadarUI() {
   forecast = Math.max(0, Math.min(100, forecast));
 
   const level = forecast >= 75 ? "High Risk" : forecast >= 50 ? "Moderate Risk" : "Low Risk";
-  const planFocus =
-    forecast >= 75 ? "Reduce load now" :
-    forecast >= 50 ? "Simplify today" :
-    "Keep steady";
-  let reason =
-    forecast >= 75 ? "Your workload and stress signals are high. Cut pressure before adding anything new." :
-    forecast >= 50 ? "Early fatigue signs are showing. Keep the day smaller and easier to finish." :
-    "Burnout pressure is low. Stay steady and protect a clean finish.";
+  const poolKey = forecast >= 75 ? "high" : forecast >= 50 ? "moderate" : "low";
+  const variant = pickBootStablePoolItem(
+    BURNOUT_RADAR_PLAN_POOLS[poolKey],
+    `burnoutRadar:${poolKey}`,
+    BURNOUT_RADAR_PLAN_POOLS.low[0]
+  ) || BURNOUT_RADAR_PLAN_POOLS.low[0];
+
+  const planFocus = variant.focus;
+  let reason = variant.reason;
   if (moodMeta.label === "Angry" || moodMeta.label === "Stressed") {
     reason += ` ${moodMeta.label} mood means your next step should be lighter, not bigger.`;
   }
 
+  burnoutPlanActive = false;
+  burnoutRecoveryCompletedSteps.clear();
   burnoutRecoveryPlan.length = 0;
-  if (forecast >= 75) {
-    burnoutRecoveryPlan.push(
-      "Stop adding new tasks for today; finish or park one current task only.",
-      "Take a 5-minute no-screen reset: stand, loosen shoulders, look away from the device.",
-      "Pick one closure action that would make the day feel less heavy.",
-      "Move one optional task to later so recovery has space."
-    );
-  } else if (forecast >= 50) {
-    burnoutRecoveryPlan.push(
-      "Choose one priority task and make it half-size.",
-      "Do one short movement reset before the next focus block.",
-      "Remove one non-urgent item from today’s list.",
-      "Write a 2-line shutdown note: done today, next tomorrow."
-    );
-  } else {
-    burnoutRecoveryPlan.push(
-      "Keep working in one-task blocks instead of multitasking.",
-      "Take a short screen break before fatigue builds.",
-      "Close the day with a simple done/waiting list."
-    );
-  }
+  burnoutRecoveryPlan.push(...variant.steps);
 
   if (burnoutRiskEl) burnoutRiskEl.innerText = `${forecast}/100`;
   if (burnoutWindowEl) burnoutWindowEl.innerText = `${level} • ${planFocus}`;
   if (burnoutReasonEl) burnoutReasonEl.innerText = reason;
-  if (burnoutScheduleEl) {
-    burnoutScheduleEl.innerHTML = burnoutRecoveryPlan
-      .map((item) => `<li>${escapeHtml(item)}</li>`)
-      .join("");
-  }
+  renderBurnoutRecoveryPlan({ interactive: false });
 }
 
 async function applyRecoverySchedule() {
@@ -10650,9 +10998,13 @@ async function applyRecoverySchedule() {
   }
 
   if (!burnoutRecoveryPlan.length) updateBurnoutRadarUI();
+  const fallbackPlan = pickNonRepeatingPoolItem(
+    BURNOUT_RECOVERY_FALLBACK_PLANS,
+    `burnout_recovery_fallback_${getTodayKey()}`
+  ) || BURNOUT_RECOVERY_FALLBACK_PLANS[0];
   const activePlan = burnoutRecoveryPlan.length
     ? [...burnoutRecoveryPlan]
-    : ["Choose one priority task and make it smaller.", "Take a short screen break.", "Close with a simple done/waiting list."];
+    : [...(fallbackPlan?.steps || [])];
 
   wellnessActionBoost = Math.min(20, (Number(wellnessActionBoost) || 0) + 2);
   crashRiskActionRelief = Math.min(30, (Number(crashRiskActionRelief) || 0) + 4);
@@ -10661,15 +11013,13 @@ async function applyRecoverySchedule() {
 
   burnoutRecoveryPlan.length = 0;
   burnoutRecoveryPlan.push(...activePlan);
+  burnoutRecoveryCompletedSteps.clear();
+  burnoutPlanActive = true;
   if (burnoutWindowEl) burnoutWindowEl.innerText = "Recovery plan active • Keep it simple";
-  if (burnoutReasonEl) burnoutReasonEl.innerText = "Follow these steps inside this card before adding more work. No reminders were created.";
-  if (burnoutScheduleEl) {
-    burnoutScheduleEl.innerHTML = burnoutRecoveryPlan
-      .map((item) => `<li>${escapeHtml(item)}</li>`)
-      .join("");
-  }
+  if (burnoutReasonEl) burnoutReasonEl.innerText = "Tick off these steps inside this card before adding more work. No reminders were created.";
+  renderBurnoutRecoveryPlan({ interactive: true });
 
-  alert("✅ Simple recovery plan started inside this card. No reminders were created.");
+  alert("✅ Simple recovery plan started inside this card. Check off each step here.");
 }
 
 function pickChallengeForDate(dateKey) {
@@ -11894,6 +12244,41 @@ function scheduleMoodDailyReset(userId) {
   moodDailyResetTimeoutId = setTimeout(runReset, getMillisecondsUntilNextMidnight());
 }
 
+function getWellnessScoreMeta(scoreValue = 0) {
+  const score = Math.max(0, Math.min(100, Math.round(Number(scoreValue) || 0)));
+  if (score >= 80) return { score, category: "Very High", status: "Excellent" };
+  if (score >= 60) return { score, category: "High", status: "Good" };
+  if (score >= 40) return { score, category: "Ok", status: "Building" };
+  if (score >= 20) return { score, category: "Low", status: "Needs Focus" };
+  return { score, category: "Very Low", status: "Needs Focus" };
+}
+
+function setWellnessScoreDisplay(scoreValue = 0) {
+  if (!wellnessScoreEl || !wellnessStatusEl) return getWellnessScoreMeta(scoreValue);
+  const meta = getWellnessScoreMeta(scoreValue);
+  wellnessScoreEl.innerText = meta.category;
+  wellnessScoreEl.dataset.score = String(meta.score);
+  wellnessScoreEl.dataset.status = meta.status;
+  wellnessStatusEl.innerText = meta.status;
+  return meta;
+}
+
+function openWellnessScoreInfoModal() {
+  if (!wellnessScoreInfoModal) return;
+  const score = Number(wellnessScoreEl?.dataset?.score) || calculateWellnessScoreValue();
+  const meta = getWellnessScoreMeta(score);
+  const status = String(wellnessScoreEl?.dataset?.status || wellnessStatusEl?.innerText || meta.status || "Needs Focus");
+  if (wellnessInfoCategory) wellnessInfoCategory.innerText = meta.category;
+  if (wellnessInfoScore) wellnessInfoScore.innerText = `Score: ${meta.score}/100`;
+  if (wellnessInfoStatus) wellnessInfoStatus.innerText = `Status: ${status}`;
+  wellnessScoreInfoModal.style.display = "flex";
+}
+
+function closeWellnessScoreInfoModal(event) {
+  if (event && event.currentTarget === wellnessScoreInfoModal && event.target !== wellnessScoreInfoModal) return;
+  if (wellnessScoreInfoModal) wellnessScoreInfoModal.style.display = "none";
+}
+
 function updateWellnessScore() {
   const todayKey = getTodayKey();
 
@@ -11959,16 +12344,11 @@ function updateWellnessScore() {
   );
   const waterIsBiggestGap = waterGapSeverity > 0 && waterGapSeverity >= biggestOtherGapSeverity;
 
-  wellnessScoreEl.innerText = `${totalScore}/100`;
-
-  let status = "Needs Focus";
-  if (totalScore >= 80) status = "Excellent";
-  else if (totalScore >= 60) status = "Good";
-  wellnessStatusEl.innerText = status;
+  const wellnessMeta = setWellnessScoreDisplay(totalScore);
   if (wellnessReassuranceEl) {
     wellnessReassuranceEl.innerText =
-      totalScore >= 80 ? "You’re on track today — protect this rhythm." :
-      totalScore >= 60 ? "You’re moving well — one more check-in can lift this further." :
+      wellnessMeta.score >= 80 ? "You’re on track today — protect this rhythm." :
+      wellnessMeta.score >= 60 ? "You’re moving well — one more check-in can lift this further." :
       "A small action now can shift your whole day upward.";
   }
 
@@ -12167,7 +12547,7 @@ function getCrashRiskSnapshot() {
   if (!gratitudeToday) risk += 6;
   if (!dailyChallengeCompleted) risk += 4;
 
-  const wellnessScore = Number((wellnessScoreEl?.innerText || "0/100").split("/")[0]) || 0;
+  const wellnessScore = calculateWellnessScoreValue();
   if (wellnessScore < 50) {
     risk += 10;
     reasons.push("Wellness score currently low");
@@ -12295,7 +12675,7 @@ function updateCrashPreventionUI() {
 function renderProgressMilestones() {
   if (!progressMilestones) return;
 
-  const currentScore = Number((wellnessScoreEl?.innerText || "0/100").split("/")[0]) || 0;
+  const currentScore = calculateWellnessScoreValue();
   const completedTasks = taskEntries.filter((entry) => !!entry.completed).length;
   const moodStreak = calcStreak(moodDates);
   const waterStreak = calcStreak(waterDates);
@@ -12334,19 +12714,18 @@ async function runCrashRescueFlow(options = {}) {
   }
 
   const snapshot = getCrashRiskSnapshot();
-  const steps = [
-    "Do 6 breathing rounds (inhale 4s • hold 4s • exhale 6s).",
-    "Drink 1 glass of water now.",
-    "Start one 10-minute micro-task.",
-    "Check in after 20 minutes and log your mood again."
-  ];
+  const protocol = pickPoolItem(
+    CRASH_RESCUE_PROTOCOLS,
+    `${Date.now()}|${snapshot.risk}|${rescueEvents.length}|${getTodayKey()}`
+  ) || CRASH_RESCUE_PROTOCOLS[0];
+  const steps = protocol.steps;
 
   if (crashRescuePlan) {
-    crashRescuePlan.innerHTML = steps.map((step) => `<li>${step}</li>`).join("");
+    crashRescuePlan.innerHTML = steps.map((step) => `<li>${escapeHtml(step)}</li>`).join("");
   }
 
   try {
-    const reminderLabel = `Rescue check-in (${snapshot.level})`;
+    const reminderLabel = `${protocol.title} check-in (${snapshot.level})`;
     const targetAtMs = getServerNowDate().getTime() + (20 * 60 * 1000);
     const ref = await addDoc(collection(db, "users", user.uid, "reminders"), {
       text: reminderLabel,
@@ -12356,24 +12735,28 @@ async function runCrashRescueFlow(options = {}) {
     });
     renderReminder({ id: ref.id, text: reminderLabel, minutes: 20, targetAtMs }, { insertAtTop: true });
 
+    const rescueReason = (snapshot.reasons && snapshot.reasons[0]) || protocol.focus || "General resilience support";
     const rescueRef = await addDoc(collection(db, "users", user.uid, "rescueEvents"), {
       level: snapshot.level,
-      reason: (snapshot.reasons && snapshot.reasons[0]) || "",
+      reason: rescueReason,
+      protocol: protocol.title,
       time: serverTimestamp()
     });
-    rescueEvents.push({ id: rescueRef.id, time: getServerNowDate(), level: snapshot.level });
+    rescueEvents.push({ id: rescueRef.id, time: getServerNowDate(), level: snapshot.level, protocol: protocol.title });
 
     wellnessActionBoost = Math.min(20, (Number(wellnessActionBoost) || 0) + 2);
     updateWellnessScore();
     updateCrashPreventionUI();
     updateWeeklyReview();
     if (showAlert) {
-      alert("✅ Rescue protocol started. A 20-minute recovery reminder is now set.");
+      alert(`✅ ${protocol.title} started. A 20-minute recovery reminder is now set.`);
     }
     return {
       ok: true,
       level: snapshot.level,
-      reason: (snapshot.reasons && snapshot.reasons[0]) || "General resilience support"
+      reason: rescueReason,
+      title: protocol.title,
+      focus: protocol.focus
     };
   } catch (err) {
     notifyFirestoreError(err);
@@ -12499,7 +12882,7 @@ function updateInsights() {
 
   const weekStartKey = weekRange.weekStartKey;
   const weekEndKey = weekRange.weekEndKey;
-  const currentScore = Number((wellnessScoreEl?.innerText || "0/100").split("/")[0]) || 0;
+  const currentScore = calculateWellnessScoreValue();
   const patternMemory = buildBehaviorPatternMemoryFromLocal(35);
   const socialProfile = buildUserSocialProfileSnapshot(auth.currentUser);
   queueInsightsPersist({
@@ -12544,7 +12927,17 @@ function updateInsights() {
 }
 
 function normalizeStartupFeatureState(input) {
-  return getDefaultStartupFeatureState();
+  const source = input && typeof input === "object" ? input : {};
+  const rawItems = Array.isArray(source.dailyPlanItems) ? source.dailyPlanItems : [];
+  const dailyPlanItems = rawItems
+    .map((item) => String(item || "").trim())
+    .filter(Boolean)
+    .slice(0, 5);
+  const dailyPlanKey = String(source.dailyPlanKey || "").trim();
+  return {
+    dailyPlanItems,
+    dailyPlanKey
+  };
 }
 
 async function saveStartupFeatureState(userId) {
@@ -12573,6 +12966,12 @@ async function loadStartupFeatureState(userId) {
     }
   } catch (err) {
     notifyFirestoreError(err);
+  }
+
+  const todayKey = getTodayKey();
+  if (startupFeatureState.dailyPlanKey === todayKey && startupFeatureState.dailyPlanItems.length) {
+    startupCurrentPlan = [...startupFeatureState.dailyPlanItems];
+    startupPlanGeneratedOnce = true;
   }
 
   refreshStartupFeatures();
@@ -12764,9 +13163,44 @@ async function refreshStartupPlan() {
   startupPlanGeneratedOnce = true;
   startupCurrentPlan = buildStartupPlanItems();
   startupUsageState.planCount += 1;
+  startupFeatureState.dailyPlanItems = [...startupCurrentPlan];
+  startupFeatureState.dailyPlanKey = getTodayKey();
   await saveStartupUsageState(user.uid);
+  await saveStartupFeatureState(user.uid);
   renderStartupPlan();
   refreshStartupFeatures();
+}
+
+async function ensureStartupPlanAuto(userId) {
+  const safeUserId = String(userId || "").trim();
+  if (!safeUserId) return;
+  await ensureStartupUsageCurrent(safeUserId);
+
+  const todayKey = getTodayKey();
+  const hasStoredPlan = startupFeatureState.dailyPlanKey === todayKey
+    && Array.isArray(startupFeatureState.dailyPlanItems)
+    && startupFeatureState.dailyPlanItems.length > 0;
+  if (hasStoredPlan) {
+    startupCurrentPlan = [...startupFeatureState.dailyPlanItems];
+    startupPlanGeneratedOnce = true;
+    renderStartupPlan();
+    return;
+  }
+
+  if (startupUsageState.planCount >= STARTUP_PLAN_DAILY_LIMIT) {
+    return;
+  }
+
+  startupPlanGeneratedOnce = true;
+  startupCurrentPlan = buildStartupPlanItems();
+  startupUsageState.planCount += 1;
+  startupFeatureState.dailyPlanItems = [...startupCurrentPlan];
+  startupFeatureState.dailyPlanKey = todayKey;
+  await Promise.allSettled([
+    saveStartupUsageState(safeUserId),
+    saveStartupFeatureState(safeUserId)
+  ]);
+  renderStartupPlan();
 }
 
 async function applyStartupPlanAsTasks() {
@@ -13062,6 +13496,37 @@ function pickNonRepeatingVariant(pool, key = "default") {
   return picked.value;
 }
 
+function pickNonRepeatingPoolIndex(poolLength, key = "default") {
+  const length = Math.max(0, Number(poolLength) || 0);
+  if (length <= 1) return 0;
+
+  const history = Array.isArray(aiVariantHistory.get(key))
+    ? aiVariantHistory.get(key)
+    : [];
+  const avoidCount = length >= AI_RESPONSE_VARIANT_MIN
+    ? Math.min(length - 1, Math.ceil(length * 0.6), AI_RESPONSE_REPEAT_HISTORY_LIMIT)
+    : Math.min(length - 1, 3);
+  const recent = history.slice(-avoidCount);
+
+  const candidates = Array.from({ length }, (_, index) => index)
+    .filter((index) => !recent.includes(index));
+  const source = candidates.length ? candidates : Array.from({ length }, (_, index) => index);
+  const picked = source[Math.floor(Math.random() * source.length)] ?? 0;
+  const historyLimit = length >= AI_RESPONSE_VARIANT_MIN
+    ? Math.min(AI_RESPONSE_REPEAT_HISTORY_LIMIT, Math.max(8, length - 1))
+    : 8;
+  const nextHistory = [...history, picked].slice(-historyLimit);
+  aiVariantHistory.set(key, nextHistory);
+  return picked;
+}
+
+function pickNonRepeatingPoolItem(pool, key = "default") {
+  const list = Array.isArray(pool) ? pool.filter(Boolean) : [];
+  if (!list.length) return null;
+  const index = pickNonRepeatingPoolIndex(list.length, key);
+  return list[index] || list[0] || null;
+}
+
 const AI_NAME_BLACKLIST = new Set([
   "stressed", "stress", "anxious", "anxiety", "overwhelmed", "sad", "depressed", "down", "angry", "frustrated", "tired", "drained", "burnt", "burnout", "hopeless", "empty", "lost", "confused", "low", "meh", "fine", "good", "okay", "ok"
 ]);
@@ -13281,6 +13746,15 @@ const AI_RESPONSE_VARIANT_FRAMES = [
   (text) => `Start here: ${lowerFirstAiVariantText(text)}`
 ];
 
+const AI_ACTION_RESPONSE_FRAMES = [
+  (text) => text,
+  (text) => `Done — ${lowerFirstAiVariantText(text)}`,
+  (text) => `All set: ${lowerFirstAiVariantText(text)}`,
+  (text) => `Saved: ${lowerFirstAiVariantText(text)}`,
+  (text) => `Locked in: ${lowerFirstAiVariantText(text)}`,
+  (text) => `Confirmed: ${lowerFirstAiVariantText(text)}`
+];
+
 function expandAiResponsePool(basePool, options = {}) {
   const baseList = Array.isArray(basePool)
     ? basePool.map((entry) => String(entry || "").trim()).filter(Boolean)
@@ -13322,6 +13796,57 @@ const AI_SHORT_THANKS_REPLIES = [
   "Got you.",
   "Happy to help.",
   "Always."
+];
+
+const AI_COMMAND_HELP_BASE = [
+  "I can help with logging tasks, water, mood, sleep, reminders, and quick account actions.",
+  "I can log tasks, water, mood, sleep, set reminders, and run quick app actions.",
+  "I can help you log tasks, water, mood, sleep, set reminders, and handle quick app actions.",
+  "I can log tasks, mood, water, sleep, and reminders, plus quick account actions."
+];
+
+const AI_INTENT_CLARIFY_BASE = [
+  "Want quick help with {first} or {second}? You can also ask directly like: \"make me a plan\", \"log mood happy\", or \"set reminder call mom in 20 min\".",
+  "Need {first} or {second}? Or say: \"make me a plan\", \"log mood happy\", or \"set reminder call mom in 20 min\".",
+  "Quick help with {first} or {second}? You can also say: \"make me a plan\", \"log mood happy\", or \"set reminder call mom in 20 min\".",
+  "I can do {first} or {second}. Try: \"make me a plan\", \"log mood happy\", or \"set reminder call mom in 20 min\"."
+];
+
+const AI_IDENTITY_BASE = [
+  "I am NovaFix AI. I can help you plan, log, and stay on track.",
+  "I am NovaFix AI — here to help you plan, log, and stay consistent.",
+  "NovaFix AI here. I can help you plan, log, and stay on track.",
+  "I am NovaFix AI. I help you plan, log, and stay on track."
+];
+
+const AI_CAPABILITIES_BASE = [
+  "I can help with tasks, water, mood, sleep, reminders, and quick app actions. Tell me what to do in one line.",
+  "I can log tasks, water, mood, sleep, set reminders, and run quick app actions. Tell me what to do.",
+  "I can help you log tasks, mood, water, sleep, set reminders, and handle quick app actions. Tell me what to do.",
+  "I can handle tasks, mood, water, sleep, reminders, and quick app actions. Tell me what to do in one line."
+];
+
+const AI_FALLBACK_BASE = [
+  "Got you 😌 quick move right now: {move}",
+  "Alright — quick move to start: {move}",
+  "I got you. Try this now: {move}",
+  "Here is a quick move to start: {move}",
+  "Quick move to keep momentum: {move}"
+];
+
+const AI_LOW_EMOTION_BASE = [
+  "hey, be kind to yourself for a sec. tiny step now: {move}",
+  "go gentle for a minute — tiny step now: {move}",
+  "soft reset: one tiny step now: {move}",
+  "keep it light right now: {move}",
+  "small and kind: {move}"
+];
+
+const AI_ABUSE_COOLDOWN_BASE = [
+  "AI chat is temporarily paused for abusive language. Try again in {remaining}.",
+  "AI chat is paused for abusive language. You can try again in {remaining}.",
+  "Abusive language detected — AI chat is paused. Try again in {remaining}.",
+  "AI chat is on cooldown for abusive language. Try again in {remaining}."
 ];
 
 // Base pools for common quick actions. These are expanded into 100-150
@@ -13441,11 +13966,18 @@ const FRIEND_MOTIVATION_BEHIND_BASE = [
 ];
 
 // Expand pools to target 100-150 variants for diverse replies
-const AI_TASK_ADDED_POOL = expandAiResponsePool(AI_TASK_ADDED_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX });
-const AI_REMINDER_ADDED_POOL = expandAiResponsePool(AI_REMINDER_ADDED_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX });
+const AI_TASK_ADDED_POOL = expandAiResponsePool(AI_TASK_ADDED_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX, frames: AI_ACTION_RESPONSE_FRAMES });
+const AI_REMINDER_ADDED_POOL = expandAiResponsePool(AI_REMINDER_ADDED_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX, frames: AI_ACTION_RESPONSE_FRAMES });
 const AI_MOOD_LOGGED_POOL = expandAiResponsePool(AI_MOOD_LOGGED_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX, frames: AI_MOOD_LOGGED_FRAMES });
-const AI_WATER_LOGGED_POOL = expandAiResponsePool(AI_WATER_LOGGED_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX });
+const AI_WATER_LOGGED_POOL = expandAiResponsePool(AI_WATER_LOGGED_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX, frames: AI_ACTION_RESPONSE_FRAMES });
 const AI_GREETING_POOL = expandAiResponsePool(AI_GREETING_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX });
+const AI_COMMAND_HELP_POOL = expandAiResponsePool(AI_COMMAND_HELP_BASE, { min: 8, max: 48 });
+const AI_INTENT_CLARIFY_POOL = expandAiResponsePool(AI_INTENT_CLARIFY_BASE, { min: 8, max: 48 });
+const AI_IDENTITY_POOL = expandAiResponsePool(AI_IDENTITY_BASE, { min: 8, max: 48 });
+const AI_CAPABILITIES_POOL = expandAiResponsePool(AI_CAPABILITIES_BASE, { min: 8, max: 48 });
+const AI_FALLBACK_POOL = expandAiResponsePool(AI_FALLBACK_BASE, { min: 12, max: 64 });
+const AI_LOW_EMOTION_POOL = expandAiResponsePool(AI_LOW_EMOTION_BASE, { min: 10, max: 48 });
+const AI_ABUSE_COOLDOWN_POOL = expandAiResponsePool(AI_ABUSE_COOLDOWN_BASE, { min: 6, max: 24 });
 
 const FRIEND_MOTIVATION_TIED_POOL = expandAiResponsePool(FRIEND_MOTIVATION_TIED_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX });
 const FRIEND_MOTIVATION_LEADING_POOL = expandAiResponsePool(FRIEND_MOTIVATION_LEADING_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX });
@@ -13809,7 +14341,11 @@ function shouldAskIntentClarification(intentInfo, rawInput) {
 function buildIntentClarificationMessage(intentInfo) {
   const first = getIntentLabel(intentInfo?.key || "fallback");
   const second = getIntentLabel(intentInfo?.secondaryKey || "plan");
-  return `Want quick help with ${first} or ${second}? You can also ask directly like: \"make me a plan\", \"log mood happy\", or \"set reminder call mom in 20 min\".`;
+  const template = pickNonRepeatingVariant(AI_INTENT_CLARIFY_POOL, "intent_clarify")
+    || AI_INTENT_CLARIFY_BASE[0];
+  return template
+    .replaceAll("{first}", first)
+    .replaceAll("{second}", second);
 }
 
 function buildAdaptiveTone(userEmotion, turnCount) {
@@ -14157,13 +14693,15 @@ function buildCasualAiResponse(context) {
     case "identity":
       return {
         lastIntent: key,
-        response: "I am NovaFix AI. I can help you plan, log, and stay on track.",
+        response: pickNonRepeatingVariant(AI_IDENTITY_POOL, "identity") || AI_IDENTITY_BASE[0],
         isHtml: false
       };
     case "capabilities":
       return {
         lastIntent: key,
-        response: "I can help with tasks, water, mood, sleep, reminders, and quick app actions. Tell me what to do in one line.",
+        response: pickNonRepeatingVariant(AI_CAPABILITIES_POOL, "capabilities")
+          || pickNonRepeatingVariant(AI_COMMAND_HELP_POOL, "command_help")
+          || AI_CAPABILITIES_BASE[0],
         isHtml: false
       };
     default:
@@ -14179,17 +14717,20 @@ function buildCasualAiResponse(context) {
         };
       }
       if (emotion === "low") {
+        const lowTemplate = pickNonRepeatingVariant(AI_LOW_EMOTION_POOL, "fallback_low")
+          || AI_LOW_EMOTION_BASE[0];
         return {
           lastIntent: "emotional-support",
           advice: coachingMoves.slice(0, 1),
-          response: `hey, be kind to yourself for a sec. tiny step now: ${coachingMoves[0]}`,
+          response: lowTemplate.replaceAll("{move}", coachingMoves[0]),
           isHtml: false
         };
       }
+      const fallbackTemplate = pickNonRepeatingVariant(AI_FALLBACK_POOL, "fallback") || AI_FALLBACK_BASE[0];
       return {
         lastIntent: "fallback",
         advice: coachingMoves.slice(0, 2),
-        response: `Got you 😌 quick move right now: ${coachingMoves[0]}`,
+        response: fallbackTemplate.replaceAll("{move}", coachingMoves[0]),
         isHtml: false
       };
   }
@@ -15478,7 +16019,7 @@ async function tryAiAction(input, user, options = {}) {
     if (!rescueResult?.ok) {
       return withGreeting(`ℹ️ ${rescueResult?.message || "Could not start rescue right now."}`);
     }
-    return withGreeting(`🛟 Mood crash rescue started (${rescueResult.level}). A 20-minute recovery reminder is now set. Focus now: ${rescueResult.reason}.`);
+    return withGreeting(`🛟 ${escapeHtml(rescueResult.title || "Mood crash rescue")} started (${rescueResult.level}). A 20-minute recovery reminder is now set. Focus now: ${escapeHtml(rescueResult.focus || rescueResult.reason)}.`);
   }
 
   let taskText = "";
@@ -15562,31 +16103,48 @@ async function tryAiAction(input, user, options = {}) {
     return `✅ Water goal updated to ${nextGoal} glasses.`;
   }
 
-  const waterLogMatch = lower.match(/(?:log|add|track|drink|drank|had|have\s+had)\s+(\d+(?:\.\d+)?)\s*(?:glass|glasses|cup|cups)?\s*(?:of\s+)?(?:water)?(?:\s+just\s+now)?/i)
-    || lower.match(/\bi\s+(?:just\s+)?(?:drank|drink|had)\s+(\d+(?:\.\d+)?)\s*(?:glass|glasses|cup|cups)(?:\s+of\s+water)?/i);
+  const parseWaterAmountToken = (value) => {
+    const token = String(value || "").trim().toLowerCase();
+    if (!token) return 0;
+    const numeric = Number(token);
+    if (Number.isFinite(numeric)) return numeric;
+    const wordMap = {
+      a: 1,
+      an: 1,
+      one: 1,
+      two: 2,
+      three: 3,
+      four: 4,
+      five: 5,
+      six: 6,
+      seven: 7,
+      eight: 8,
+      nine: 9,
+      ten: 10,
+      couple: 2,
+      half: 0.5
+    };
+    return wordMap[token] || 0;
+  };
+  const waterAmountPattern = "(\\d+(?:\\.\\d+)?|a|an|one|two|three|four|five|six|seven|eight|nine|ten|couple|half)";
+  const waterLogMatch = lower.match(new RegExp(`(?:log|add|track|drink|drank|had|have\\s+had)\\s+${waterAmountPattern}\\s*(?:glass|glasses|cup|cups)?\\s*(?:of\\s+)?(?:water)?(?:\\s+just\\s+now|\\s+rn|\\s+right\\s+now)?`, "i"))
+    || lower.match(new RegExp(`\\bi\\s+(?:just\\s+)?(?:drank|drink|had)\\s+${waterAmountPattern}\\s*(?:glass|glasses|cup|cups)(?:\\s+of\\s+water)?(?:\\s+just\\s+now|\\s+rn|\\s+right\\s+now)?`, "i"))
+    || lower.match(new RegExp(`\\b${waterAmountPattern}\\s*(?:glass|glasses|cup|cups)\\s*(?:of\\s+water)?(?:\\s+just\\s+now|\\s+rn|\\s+right\\s+now)?\\b`, "i"));
   const waterSignal = /\b(water|hydrate|hydration|glass|glasses|cup|cups|drink|drank)\b/.test(lower);
   if (waterLogMatch && waterSignal && !isReminderIntent) {
-    const loggedAmount = Math.max(0, Number(waterLogMatch[1]) || 0);
-    const isIncrementCommand = /\b(more|additional|another)\b/.test(lower);
-    const latestTodayValue = (() => {
-      const todayKey = getTodayKey();
-      for (let index = waterHistory.length - 1; index >= 0; index -= 1) {
-        if (dateToKey(waterDates[index]) !== todayKey) continue;
-        return Number(waterHistory[index]) || 0;
-      }
-      return 0;
-    })();
-
-    const nextWaterValue = isIncrementCommand
-      ? Number((latestTodayValue + loggedAmount).toFixed(1))
-      : loggedAmount;
-    waterInput.value = String(nextWaterValue);
-    await saveWater();
-    if (isIncrementCommand) {
-      const incMsg = pickNonRepeatingVariant(AI_WATER_LOGGED_POOL, 'water_logged').replaceAll('{amount}', String(loggedAmount)).replaceAll('{total}', String(nextWaterValue));
-      return withGreeting(incMsg);
+    const loggedAmount = Math.max(0, parseWaterAmountToken(waterLogMatch[1]));
+    if (!loggedAmount) {
+      return "ℹ️ Tell me how much water, like: I drank 2 cups just now.";
     }
-    const singleMsg = pickNonRepeatingVariant(AI_WATER_LOGGED_POOL, 'water_logged').replaceAll('{amount}', String(nextWaterValue)).replaceAll('{total}', String(nextWaterValue));
+    const beforeCount = waterHistory.length;
+    waterInput.value = String(loggedAmount);
+    await saveWater();
+    if (waterHistory.length <= beforeCount) {
+      return withGreeting("ℹ️ Could not log water right now. Please try again.");
+    }
+    const singleMsg = pickNonRepeatingVariant(AI_WATER_LOGGED_POOL, 'water_logged')
+      .replaceAll('{amount}', String(loggedAmount))
+      .replaceAll('{total}', String(loggedAmount));
     return withGreeting(singleMsg);
   }
   if (waterSignal && /\b(log|add|track|drink|drank|had)\b/.test(lower) && !waterLogMatch && !isReminderIntent) {
@@ -15729,7 +16287,7 @@ async function tryAiAction(input, user, options = {}) {
       await Promise.all(snapshot.docs.map((docSnap) => deleteDoc(docSnap.ref)));
       clearAllReminderTimers();
       reminders.innerHTML = "";
-      scheduleEmptyState(reminders, ".item-row", "No reminders set yet — add one small prompt for today.");
+      scheduleEmptyState(reminders, ".item-row", getRandomEmptyMessage("reminders", "No reminders set yet — add one small prompt for today."));
       updateClearDataButtonState();
       return "✅ Cleared all reminders.";
     } catch (err) {
@@ -17134,7 +17692,7 @@ function renderReminder(entry, options = {}) {
       }
     }
     li.remove();
-    scheduleEmptyState(reminders, ".item-row", "No reminders set yet — add one small prompt for today.");
+    scheduleEmptyState(reminders, ".item-row", getRandomEmptyMessage("reminders", "No reminders set yet — add one small prompt for today."));
     updateClearDataButtonState();
 
     if (user) {
@@ -19224,7 +19782,7 @@ function renderGratitude(entry) {
       if (fallbackIndex >= 0) gratitudeEntries.splice(fallbackIndex, 1);
       updateInsights();
       row.remove();
-      scheduleEmptyState(gratitudeLogs, ".item-row", "No gratitude notes yet — add one small win from today.");
+      scheduleEmptyState(gratitudeLogs, ".item-row", getRandomEmptyMessage("gratitude", "No gratitude notes yet — add one small win from today."));
       return;
     }
 
@@ -19235,7 +19793,7 @@ function renderGratitude(entry) {
       updateInsights();
       updateGratitudeLimitUI();
       row.remove();
-      scheduleEmptyState(gratitudeLogs, ".item-row", "No gratitude notes yet — add one small win from today.");
+      scheduleEmptyState(gratitudeLogs, ".item-row", getRandomEmptyMessage("gratitude", "No gratitude notes yet — add one small win from today."));
     } catch (err) {
       notifyFirestoreError(err);
     }
@@ -20382,6 +20940,8 @@ Object.assign(window, {
   clearAllAccountData,
   runCrashRescueFlow,
   dismissCrashAlertBanner,
+  openWellnessScoreInfoModal,
+  closeWellnessScoreInfoModal,
   setNextWeekTargets,
   applyRecoverySchedule,
   nextInsightMetric,

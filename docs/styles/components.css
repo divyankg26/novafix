@@ -246,6 +246,30 @@ textarea:focus-visible{
   overflow:hidden;
 }
 
+.wellness-score-card{
+  height:430px;
+  max-height:430px;
+  overflow-y:auto;
+  overflow-x:hidden;
+  scrollbar-width:thin;
+  scrollbar-color:var(--primary) transparent;
+}
+
+.wellness-score-card::-webkit-scrollbar{
+  width:6px;
+}
+
+.wellness-score-card::-webkit-scrollbar-track{
+  background:rgba(255,255,255,.08);
+  border-radius:999px;
+}
+
+.wellness-score-card::-webkit-scrollbar-thumb{
+  background:var(--primary);
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.18);
+}
+
 .sleep-card{
   height:430px;
   max-height:430px;

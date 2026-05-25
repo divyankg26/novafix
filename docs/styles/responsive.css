@@ -18,11 +18,36 @@
 .export-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .export-note{font-size:13px;opacity:.9;margin-top:8px}
 
+.wellness-score-row{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  margin:6px 0;
+}
+
 .wellness-badge{
   font-size:34px;
   font-weight:800;
   text-align:center;
-  margin:6px 0;
+  margin:0;
+}
+
+.wellness-info-btn{
+  display:grid;
+  place-items:center;
+  width:28px;
+  height:28px;
+  min-height:28px;
+  padding:0;
+  border-radius:999px;
+  font-size:15px;
+  font-weight:800;
+  line-height:1;
+  background:rgba(255,255,255,.16);
+  border:1px solid rgba(255,255,255,.3);
+  color:#fff;
+  box-shadow:none;
 }
 
 .wellness-status{
@@ -486,8 +511,41 @@
 }
 
 .burnout-sub{margin:0;font-size:13px;opacity:.92}
+.burnout-do-now{text-align:left}
 .burnout-list{margin:8px 0 0;padding-left:18px}
 .burnout-list li{margin:4px 0}
+.burnout-list.is-checklist{
+  list-style:none;
+  padding-left:0;
+}
+.burnout-step-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:6px 0;
+}
+.burnout-step-toggle{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:34px;
+  height:34px;
+  min-height:34px;
+  padding:0;
+  flex:0 0 34px;
+  line-height:1;
+  font-size:18px;
+}
+.burnout-step-text{
+  flex:1;
+  min-width:0;
+  line-height:1.4;
+  word-break:break-word;
+}
+.burnout-step-text.is-done{
+  text-decoration:line-through;
+  opacity:.72;
+}
 .burnout-btn{margin-top:10px}
 
 #gCost,#gMonths,#buffer{
