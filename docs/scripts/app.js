@@ -1,6 +1,13 @@
 // Keep the wellness score info popup usable even before Firebase finishes loading.
 (() => {
-  function getWellnessScoreMetaFallback(scoreValue = 0) {
+  function getWellnessScoreMetaFallback(scoreValue = 0, calculated = true) {
+    if (!calculated) {
+      return {
+        score: null,
+        category: "Not Yet Calculated",
+        status: "Log one item to calculate today’s score."
+      };
+    }
     const score = Math.max(0, Math.min(100, Math.round(Number(scoreValue) || 0)));
     if (score >= 80) return { score, category: "Very High", status: "Excellent" };
     if (score >= 60) return { score, category: "High", status: "Good" };
@@ -18,12 +25,13 @@
     const categoryEl = document.getElementById("wellnessInfoCategory");
     const scoreLineEl = document.getElementById("wellnessInfoScore");
     const statusLineEl = document.getElementById("wellnessInfoStatus");
-    const score = Number(scoreEl?.dataset?.score) || 0;
-    const meta = getWellnessScoreMetaFallback(score);
+    const calculated = scoreEl?.dataset?.calculated !== "false";
+    const score = calculated ? (Number(scoreEl?.dataset?.score) || 0) : null;
+    const meta = getWellnessScoreMetaFallback(score, calculated);
     const status = scoreEl?.dataset?.status || statusEl?.textContent?.trim() || meta.status;
 
     if (categoryEl) categoryEl.innerText = meta.category;
-    if (scoreLineEl) scoreLineEl.innerText = `Score: ${meta.score}/100`;
+    if (scoreLineEl) scoreLineEl.innerText = calculated ? `Score: ${meta.score}/100` : "Score: waiting for today’s first log";
     if (statusLineEl) statusLineEl.innerText = `Status: ${status}`;
     modal.style.display = "flex";
   };
@@ -2082,10 +2090,7 @@ try {
         setTimeMirrorClearButtonState(false);
         if (bedtimeTimeInput) bedtimeTimeInput.value = "";
         setBedtimeInputError("");
-        wellnessScoreEl.innerText = "Very Low";
-        wellnessScoreEl.dataset.score = "0";
-        wellnessScoreEl.dataset.status = "Needs Focus";
-        wellnessStatusEl.innerText = "Needs Focus";
+        setWellnessScorePendingDisplay();
         wellnessActionsEl.innerHTML = "<li>Log your first check-in for today.</li><li>Set your water target and drink one glass.</li><li>Add one gratitude note tonight.</li>";
         if (crashAlertBanner) crashAlertBanner.style.display = "none";
         if (crashRiskValue) crashRiskValue.innerText = "0/100";
@@ -9130,7 +9135,7 @@ function showToast(message, options = {}) {
   if (!uxToast || !uxToastText || !uxToastAction) return;
 
   const duration = Math.max(1200, Number(options.duration) || 2600);
-  uxToastText.innerText = String(message || "");
+  uxToastText.innerText = polishGeneratedMessage(message);
 
   if (uxToastTimer) {
     clearTimeout(uxToastTimer);
@@ -11434,6 +11439,7 @@ async function ensureDailyUsageCurrent(userId, options = {}) {
 
 async function ensureWaterDayCurrent(userId, todayKey = getTodayKey()) {
   if (!userId) return;
+  await ensureServerClockCurrent(userId);
 
   try {
     const waterRef = doc(db, "users", userId, "settings", "water");
@@ -12177,8 +12183,10 @@ async function resetWaterDayData(userId, dateKey = getTodayKey()) {
   }
 }
 
-function scheduleWaterGoalReset(userId) {
+async function scheduleWaterGoalReset(userId) {
   clearWaterGoalResetSchedule();
+  if (!userId) return;
+  await ensureServerClockCurrent(userId);
 
   const runReset = async () => {
     const activeUser = auth.currentUser;
@@ -12253,24 +12261,72 @@ function getWellnessScoreMeta(scoreValue = 0) {
   return { score, category: "Very Low", status: "Needs Focus" };
 }
 
+function hasWellnessScoreInputToday(todayKey = getTodayKey()) {
+  const hasWaterToday = waterDates.some((entry) => dateToKey(entry) === todayKey);
+  const hasSleepToday = sleepDates.some((entry) => dateToKey(entry) === todayKey);
+  const hasMoodToday = moodDates.some((entry) => dateToKey(entry) === todayKey);
+  const hasGratitudeToday = gratitudeEntries.some((entry) => dateToKey(entry.time) === todayKey);
+  const hasTaskActivityToday = taskEntries.some((entry) => (
+    dateToKey(entry.time) === todayKey
+    || dateToKey(entry.completedAt) === todayKey
+  ));
+  return hasWaterToday
+    || hasSleepToday
+    || hasMoodToday
+    || hasGratitudeToday
+    || hasTaskActivityToday
+    || !!dailyChallengeCompleted;
+}
+
+function setWellnessScorePendingDisplay() {
+  if (wellnessScoreEl) {
+    wellnessScoreEl.innerText = "Not Yet Calculated";
+    wellnessScoreEl.dataset.score = "";
+    wellnessScoreEl.dataset.status = "Waiting";
+    wellnessScoreEl.dataset.calculated = "false";
+  }
+  if (wellnessStatusEl) {
+    wellnessStatusEl.innerText = "Log one item to calculate today’s score.";
+  }
+  if (wellnessReassuranceEl) {
+    wellnessReassuranceEl.innerText = "Today’s score will appear after your first new log.";
+  }
+  if (wellnessDoNowEl) {
+    wellnessDoNowEl.innerHTML = "<b>DO NOW:</b> Add one mood, water, sleep, task, gratitude, or challenge log.";
+  }
+  if (wellnessActionsEl) {
+    wellnessActionsEl.innerHTML = [
+      "Log your mood or a quick check-in.",
+      "Track one glass of water.",
+      "Add one small task or complete one pending task.",
+      "Write one gratitude note."
+    ].map((item) => `<li class="wellness-secondary-task">${escapeHtml(item)}</li>`).join("");
+  }
+  return { score: null, category: "Not Yet Calculated", status: "Waiting", calculated: false };
+}
+
 function setWellnessScoreDisplay(scoreValue = 0) {
   if (!wellnessScoreEl || !wellnessStatusEl) return getWellnessScoreMeta(scoreValue);
   const meta = getWellnessScoreMeta(scoreValue);
   wellnessScoreEl.innerText = meta.category;
   wellnessScoreEl.dataset.score = String(meta.score);
   wellnessScoreEl.dataset.status = meta.status;
+  wellnessScoreEl.dataset.calculated = "true";
   wellnessStatusEl.innerText = meta.status;
   return meta;
 }
 
 function openWellnessScoreInfoModal() {
   if (!wellnessScoreInfoModal) return;
-  const score = Number(wellnessScoreEl?.dataset?.score) || calculateWellnessScoreValue();
-  const meta = getWellnessScoreMeta(score);
-  const status = String(wellnessScoreEl?.dataset?.status || wellnessStatusEl?.innerText || meta.status || "Needs Focus");
+  const calculated = wellnessScoreEl?.dataset?.calculated !== "false";
+  const score = calculated ? (Number(wellnessScoreEl?.dataset?.score) || calculateWellnessScoreValue()) : null;
+  const meta = calculated ? getWellnessScoreMeta(score) : { category: "Not Yet Calculated", score: null, status: "Waiting" };
+  const status = String(wellnessScoreEl?.dataset?.status || wellnessStatusEl?.innerText || meta.status || "Waiting");
   if (wellnessInfoCategory) wellnessInfoCategory.innerText = meta.category;
-  if (wellnessInfoScore) wellnessInfoScore.innerText = `Score: ${meta.score}/100`;
-  if (wellnessInfoStatus) wellnessInfoStatus.innerText = `Status: ${status}`;
+  if (wellnessInfoScore) wellnessInfoScore.innerText = calculated ? `Score: ${meta.score}/100` : "Score: waiting for today’s first log";
+  if (wellnessInfoStatus) wellnessInfoStatus.innerText = calculated
+    ? `Status: ${status}`
+    : "Status: Log one mood, water, sleep, task, gratitude, or challenge item to calculate today’s score.";
   wellnessScoreInfoModal.style.display = "flex";
 }
 
@@ -12317,6 +12373,7 @@ function updateWellnessScore() {
 
   const actionBoost = Math.max(0, Number(wellnessActionBoost) || 0);
   const totalScore = Math.max(0, Math.min(100, waterPoints + sleepPoints + moodPoints + taskPoints + gratitudePoints + challengePoints + actionBoost));
+  const hasScoreInputToday = hasWellnessScoreInputToday(todayKey);
 
   const waterGap = Math.max(0, effectiveWaterGoal - waterToday);
   const waterGapSeverity = waterGap > 0 ? Math.min(1, waterGap / Math.max(1, effectiveWaterGoal)) : 0;
@@ -12343,6 +12400,11 @@ function updateWellnessScore() {
     challengeGapSeverity
   );
   const waterIsBiggestGap = waterGapSeverity > 0 && waterGapSeverity >= biggestOtherGapSeverity;
+
+  if (!hasScoreInputToday) {
+    setWellnessScorePendingDisplay();
+    return;
+  }
 
   const wellnessMeta = setWellnessScoreDisplay(totalScore);
   if (wellnessReassuranceEl) {
@@ -12506,6 +12568,23 @@ function getCrashRiskSnapshot() {
   const doneTasks = taskEntries.filter((entry) => !!entry.completed).length;
   const pendingRatio = totalTasks ? Math.max(0, (totalTasks - doneTasks) / totalTasks) : 0;
   const gratitudeToday = gratitudeEntries.some((entry) => dateToKey(entry.time) === todayKey);
+  const hasNonTaskLogToday = hasWaterLoggedToday
+    || hasSleepLoggedToday
+    || moodMeta.logged
+    || gratitudeToday
+    || dailyChallengeCompleted;
+
+  if (!hasNonTaskLogToday) {
+    return {
+      risk: 0,
+      level: "Low Risk",
+      reasons: ["Log your first entries to generate risk analysis."],
+      waterToday,
+      sleepToday,
+      wellnessScore: calculateWellnessScoreValue(),
+      hasNonTaskLogToday: false
+    };
+  }
 
   let risk = 0;
   const reasons = [];
@@ -12563,7 +12642,8 @@ function getCrashRiskSnapshot() {
     reasons,
     waterToday,
     sleepToday,
-    wellnessScore
+    wellnessScore,
+    hasNonTaskLogToday: true
   };
 }
 
@@ -13733,6 +13813,83 @@ function lowerFirstAiVariantText(text) {
   return safeText.charAt(0).toLowerCase() + safeText.slice(1);
 }
 
+function stripLeadingStatusIcon(text) {
+  return String(text || "").replace(/^\s*[^\w\s{]+(?:\s+)?/u, "").trim();
+}
+
+function getGeneratedMessagePayload(text) {
+  let next = stripLeadingStatusIcon(text);
+  next = next
+    .replace(/^(?:mood\s+(?:logged|saved|recorded|noted|update|log)|checked\s+in|saved|noted|task\s+recorded|reminder\s+(?:set|scheduled|queued|added)|hydration\s+(?:recorded|update)|water\s+logged)\s*:\s*/i, "")
+    .replace(/^(?:all\s+set|done|confirmed|locked\s+in)\s*[—:-]\s*/i, "")
+    .trim();
+  return next || stripLeadingStatusIcon(text);
+}
+
+function hasMeaningfulSentenceBody(text) {
+  const value = stripLeadingStatusIcon(text)
+    .replace(/\{[^}]+\}/g, "value")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .trim();
+  return value.split(/\s+/).filter(Boolean).length >= 3;
+}
+
+function appendActionFollowUp(text, followUp) {
+  const base = polishGeneratedMessage(text);
+  const extra = polishGeneratedMessage(followUp);
+  if (!base) return extra;
+  if (!extra) return base;
+  return `${base} ${extra}`;
+}
+
+function capitalizeSentenceStarts(text) {
+  let next = String(text || "");
+  next = next.replace(/(^|[.!?]\s+|<br>\s*|<\/?b>\s*)([a-z])/g, (match, prefix, letter) => `${prefix}${letter.toUpperCase()}`);
+  next = next.replace(/(^|\s)(i)(?=\s|['’]|$)/g, (match, prefix) => `${prefix}I`);
+  return next;
+}
+
+function polishGeneratedMessage(text, options = {}) {
+  let next = String(text || "").replace(/\s+/g, " ").trim();
+  if (!next) return "";
+
+  next = next
+    .replace(/\s+([.!?,;:])/g, "$1")
+    .replace(/([.!?]){2,}/g, "$1")
+    .replace(/:\s*([.!?])/g, "$1")
+    .replace(/\bLogged Mood\b/g, "Mood logged:")
+    .replace(/\bMood log:\s*(?:Mood logged:|Logged Mood)\s*/gi, "Mood logged: ")
+    .replace(/\bMood check-in saved:\s*(?:Mood logged:|Logged Mood)\s*/gi, "Mood check-in saved: ")
+    .replace(/\bMood update saved:\s*(?:Mood logged:|Logged Mood)\s*/gi, "Mood update saved: ")
+    .replace(/\bMood record:\s*(?:Mood logged:|Logged Mood)\s*/gi, "Mood recorded: ")
+    .replace(/\bSaved mood note:\s*(?:Mood logged:|Logged Mood)\s*/gi, "Mood saved: ")
+    .replace(/\bChecked mood:\s*(?:Mood logged:|Logged Mood)\s*/gi, "Mood checked: ")
+    .replace(/\bThanks for logging:\s*(?:Mood logged:|Logged Mood)\s*/gi, "Thanks for logging your mood: ")
+    .replace(/\bAll set:\s*(?:Mood logged:|Logged Mood)\s*/gi, "All set: mood logged as ")
+    .replace(/\bMood in the log:\s*(?:Mood logged:|Logged Mood)\s*/gi, "Mood logged: ")
+    .replace(/\bGood check-in:\s*(?:Mood logged:|Logged Mood)\s*/gi, "Good check-in: ")
+    .replace(/\bDone\s+[—-]\s*Done\s+[—-]\s*/gi, "Done — ")
+    .replace(/\bSaved:\s*Saved:\s*/gi, "Saved: ")
+    .replace(/\bAll set:\s*Set:\s*/gi, "All set: ")
+    .replace(/\bConfirmed:\s*Set:\s*/gi, "Confirmed: ")
+    .replace(/\bLocked in:\s*Set:\s*/gi, "Locked in: ")
+    .replace(/\bSaved:\s*Set:\s*/gi, "Saved: ")
+    .replace(/\bDone\s+[—-]\s*Set:\s*/gi, "Done — ")
+    .replace(/\s+([—-])\s+/g, " $1 ");
+
+  next = next.replace(/\b(mood logged:)\s*([^\s].*?)(?=$|[.!?])/gi, (match, label, value) => {
+    return `Mood logged: ${String(value || "").trim()}`;
+  });
+
+  next = capitalizeSentenceStarts(next);
+
+  if (options.ensureTerminal !== false && !/[.!?)]$/.test(next)) {
+    next += ".";
+  }
+
+  return next;
+}
+
 const AI_RESPONSE_VARIANT_FRAMES = [
   (text) => text,
   (text) => `Right now, ${lowerFirstAiVariantText(text)}`,
@@ -13746,13 +13903,25 @@ const AI_RESPONSE_VARIANT_FRAMES = [
   (text) => `Start here: ${lowerFirstAiVariantText(text)}`
 ];
 
-const AI_ACTION_RESPONSE_FRAMES = [
+const AI_TASK_RESPONSE_FRAMES = [
   (text) => text,
-  (text) => `Done — ${lowerFirstAiVariantText(text)}`,
-  (text) => `All set: ${lowerFirstAiVariantText(text)}`,
-  (text) => `Saved: ${lowerFirstAiVariantText(text)}`,
-  (text) => `Locked in: ${lowerFirstAiVariantText(text)}`,
-  (text) => `Confirmed: ${lowerFirstAiVariantText(text)}`
+  (text) => hasMeaningfulSentenceBody(text) ? appendActionFollowUp(text, "Momentum set.") : text,
+  (text) => hasMeaningfulSentenceBody(text) ? appendActionFollowUp(text, "Next win is ready.") : text,
+  (text) => hasMeaningfulSentenceBody(text) ? appendActionFollowUp(text, "Keep momentum steady.") : text
+];
+
+const AI_REMINDER_RESPONSE_FRAMES = [
+  (text) => text,
+  (text) => hasMeaningfulSentenceBody(text) ? appendActionFollowUp(text, "Reminder queued.") : text,
+  (text) => hasMeaningfulSentenceBody(text) ? appendActionFollowUp(text, "Scheduled and ready.") : text,
+  (text) => hasMeaningfulSentenceBody(text) ? appendActionFollowUp(text, "Reminder locked in.") : text
+];
+
+const AI_WATER_RESPONSE_FRAMES = [
+  (text) => text,
+  (text) => hasMeaningfulSentenceBody(text) ? appendActionFollowUp(text, "Hydration logged.") : text,
+  (text) => hasMeaningfulSentenceBody(text) ? appendActionFollowUp(text, "Hydration steady.") : text,
+  (text) => hasMeaningfulSentenceBody(text) ? appendActionFollowUp(text, "Water check-in saved.") : text
 ];
 
 function expandAiResponsePool(basePool, options = {}) {
@@ -13770,7 +13939,7 @@ function expandAiResponsePool(basePool, options = {}) {
   const seen = new Set();
 
   const addVariant = (value) => {
-    const cleanValue = String(value || "").replace(/\s+/g, " ").trim();
+    const cleanValue = polishGeneratedMessage(value, { ensureTerminal: false });
     const key = cleanValue.toLowerCase();
     if (!cleanValue || seen.has(key) || variants.length >= maxTarget) return;
     seen.add(key);
@@ -13880,7 +14049,6 @@ const AI_REMINDER_ADDED_BASE = [
 ];
 
 const AI_MOOD_LOGGED_BASE = [
-  "Logged Mood {mood}",
   "Mood logged: {mood}.",
   "Mood saved: {mood}.",
   "Checked in: {mood}.",
@@ -13894,17 +14062,16 @@ const AI_MOOD_LOGGED_BASE = [
 
 const AI_MOOD_LOGGED_FRAMES = [
   (text) => text,
-  (text) => `Logged Mood ${text}`,
-  (text) => `Mood log: ${text}`,
-  (text) => `Mood check-in saved: ${text}`,
-  (text) => `Mood update saved: ${text}`,
-  (text) => `Mood record: ${text}`,
-  (text) => `Saved mood note: ${text}`,
-  (text) => `Checked mood: ${text}`,
-  (text) => `Thanks for logging: ${text}`,
-  (text) => `All set: ${text}`,
-  (text) => `Mood in the log: ${text}`,
-  (text) => `Good check-in: ${text}`
+  (text) => `Mood log saved: ${getGeneratedMessagePayload(text)}`,
+  (text) => `Mood check-in saved: ${getGeneratedMessagePayload(text)}`,
+  (text) => `Mood update saved: ${getGeneratedMessagePayload(text)}`,
+  (text) => `Mood recorded: ${getGeneratedMessagePayload(text)}`,
+  (text) => `Saved mood note: ${getGeneratedMessagePayload(text)}`,
+  (text) => `Checked mood: ${getGeneratedMessagePayload(text)}`,
+  (text) => `Thanks for logging your mood: ${getGeneratedMessagePayload(text)}`,
+  (text) => `All set: mood logged as ${getGeneratedMessagePayload(text)}`,
+  (text) => `Mood in the log: ${getGeneratedMessagePayload(text)}`,
+  (text) => `Good check-in: ${getGeneratedMessagePayload(text)}`
 ];
 
 const AI_WATER_LOGGED_BASE = [
@@ -13916,7 +14083,7 @@ const AI_WATER_LOGGED_BASE = [
   "Water logged: {amount} cup(s). Keep it up.",
   "Recorded {amount} cup(s) — you hydrated.",
   "Added {amount} cup(s) to your water intake.",
-  "Saved: {amount} cup(s) of water.",
+  "{amount} cup(s) of water saved.",
   "Hydration update: {amount} cup(s) logged."
 ];
 
@@ -13966,10 +14133,10 @@ const FRIEND_MOTIVATION_BEHIND_BASE = [
 ];
 
 // Expand pools to target 100-150 variants for diverse replies
-const AI_TASK_ADDED_POOL = expandAiResponsePool(AI_TASK_ADDED_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX, frames: AI_ACTION_RESPONSE_FRAMES });
-const AI_REMINDER_ADDED_POOL = expandAiResponsePool(AI_REMINDER_ADDED_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX, frames: AI_ACTION_RESPONSE_FRAMES });
+const AI_TASK_ADDED_POOL = expandAiResponsePool(AI_TASK_ADDED_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX, frames: AI_TASK_RESPONSE_FRAMES });
+const AI_REMINDER_ADDED_POOL = expandAiResponsePool(AI_REMINDER_ADDED_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX, frames: AI_REMINDER_RESPONSE_FRAMES });
 const AI_MOOD_LOGGED_POOL = expandAiResponsePool(AI_MOOD_LOGGED_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX, frames: AI_MOOD_LOGGED_FRAMES });
-const AI_WATER_LOGGED_POOL = expandAiResponsePool(AI_WATER_LOGGED_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX, frames: AI_ACTION_RESPONSE_FRAMES });
+const AI_WATER_LOGGED_POOL = expandAiResponsePool(AI_WATER_LOGGED_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX, frames: AI_WATER_RESPONSE_FRAMES });
 const AI_GREETING_POOL = expandAiResponsePool(AI_GREETING_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX });
 const AI_COMMAND_HELP_POOL = expandAiResponsePool(AI_COMMAND_HELP_BASE, { min: 8, max: 48 });
 const AI_INTENT_CLARIFY_POOL = expandAiResponsePool(AI_INTENT_CLARIFY_BASE, { min: 8, max: 48 });
@@ -15909,8 +16076,9 @@ async function tryAiAction(input, user, options = {}) {
   const lower = commandMsg.toLowerCase();
   const isReminderIntent = /\b(remind|reminder)\b/.test(lower);
   const withGreeting = (text) => {
-    if (skipGreeting) return text;
-    return greetingInfo.hasGreeting ? `${greetingInfo.greeting}! ${text}` : text;
+    const polished = polishGeneratedMessage(text);
+    if (skipGreeting) return polished;
+    return greetingInfo.hasGreeting ? `${greetingInfo.greeting}! ${polished}` : polished;
   };
 
   if (!skipMultiSplit) {
@@ -18149,7 +18317,7 @@ async function saveMood() {
       moodHistory.push(moodValue);
       moodDates.push(getServerNowDate());
       renderMoodLog({ id: moodRef.id, mood: moodValue, time: getServerNowDate() });
-      const moodMsg = `Logged Mood ${moodValue}`;
+      const moodMsg = `Mood logged: ${moodValue}.`;
       showToast(moodMsg);
       updateInsights();
       await trimCollectionToMaxEntries(user.uid, "moods", MAX_MOOD_ENTRIES, (entry) => toDateSafe(entry.time)?.getTime?.() || 0);
@@ -18191,6 +18359,9 @@ function updateWaterClearButtonState() {
 
 async function setWaterGoal(){
   const user = auth.currentUser;
+  if (user?.uid) {
+    await ensureServerClockCurrent(user.uid);
+  }
   waterGoal = +waterGoalInput.value || 0;
   updateWaterProgress();
 
@@ -18219,6 +18390,7 @@ async function loadWaterData(userId) {
   waterDates.length = 0;
 
   try {
+    await ensureServerClockCurrent(userId);
     const todayKey = getTodayKey();
     let shouldResetDayData = false;
     const waterSettings = await fsGetDoc(doc(db, "users", userId, "settings", "water"), 'water');

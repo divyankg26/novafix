@@ -49,9 +49,9 @@
     <h3 id="wellnessInfoTitle">Wellness Score Details</h3>
     <div class="friends-list-box">
       <div class="friend-row wellness-info-row">
-        <strong id="wellnessInfoCategory">Very Low</strong>
-        <small id="wellnessInfoScore">Score: 0/100</small>
-        <small id="wellnessInfoStatus">Status: Needs Focus</small>
+        <strong id="wellnessInfoCategory">Not Yet Calculated</strong>
+        <small id="wellnessInfoScore">Score: waiting for today’s first log</small>
+        <small id="wellnessInfoStatus">Status: Log one item to calculate today’s score.</small>
       </div>
     </div>
     <div class="import-transfer-actions">
@@ -486,12 +486,12 @@
 <div class="card wellness-score-card">
 <h2>⭐ Daily Wellness Score</h2>
 <div class="wellness-score-row">
-  <div id="wellnessScore" class="wellness-badge" data-score="0" data-status="Needs Focus">Very Low</div>
+  <div id="wellnessScore" class="wellness-badge" data-score="" data-status="Waiting" data-calculated="false">Not Yet Calculated</div>
   <button id="wellnessScoreInfoBtn" class="wellness-info-btn" type="button" aria-label="Show wellness score details" onclick="openWellnessScoreInfoModal()">i</button>
 </div>
-<p id="wellnessStatus" class="wellness-status">Needs Focus</p>
+<p id="wellnessStatus" class="wellness-status">Log one item to calculate today’s score.</p>
 <p id="wellnessScoreResetCountdown" class="reset-hint reset-countdown-alert"></p>
-<p id="wellnessReassurance" class="soft-note">Log one check-in to start momentum today.</p>
+<p id="wellnessReassurance" class="soft-note">Today’s score will appear after your first new log.</p>
 <p id="wellnessDoNow" class="wellness-do-now"><b>DO NOW:</b> Log your first check-in for today.</p>
 <ul id="wellnessActions" class="wellness-actions">
   <li class="wellness-secondary-task">Log your mood or a quick check-in.</li>
