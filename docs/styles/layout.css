@@ -16,6 +16,12 @@
   transform:translateY(0);
   transition:top .28s ease, transform .28s ease, background .28s ease, box-shadow .28s ease, border-color .28s ease;
   display:none;
+  animation:accountButtonEnter .55s var(--ease-gentle) both;
+}
+
+@keyframes accountButtonEnter{
+  from{opacity:0;transform:translateY(-8px) scale(.94)}
+  to{opacity:1;transform:translateY(0) scale(1)}
 }
 
 #tosModal{
@@ -116,7 +122,7 @@
   left:50%;
   top:50%;
   transform:translate(-50%,-50%);
-  width:min(420px, calc(100vw - 32px));
+  width:min(560px, calc(100vw - 32px));
   max-width:calc(100vw - 40px);
   height:min(80vh, 640px);
   overflow-y:auto;
@@ -198,6 +204,8 @@
   font-size:12px;
 }
 
+.account-tab-btn[data-account-tab="customisation"]{font-size:12px}
+
 .account-tab-btn.active{
   color:#fff;
   text-decoration:underline;
@@ -219,6 +227,20 @@
 
 .account-tab-panel.active{
   display:block;
+}
+
+.account-tab-panel button:not(.theme-choice){
+  border:1px solid rgba(255,255,255,.42);
+  background:linear-gradient(135deg,var(--primary),var(--accent));
+  color:#fff;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.24), 0 4px 12px rgba(0,0,0,.14);
+}
+
+.account-tab-panel button:not(.theme-choice):hover:not(:disabled),
+.account-tab-panel button:not(.theme-choice):focus-visible{
+  border-color:rgba(255,255,255,.7);
+  background:linear-gradient(135deg,var(--primary),var(--accent));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22), 0 8px 18px rgba(0,0,0,.16);
 }
 
 .account-row{
@@ -326,13 +348,13 @@
 .keyboard-shortcuts-toggle{
   margin-top:8px;
   width:100%;
-  border:1px solid rgba(255,255,255,.28);
-  border-radius:10px;
-  background:rgba(255,255,255,.12);
+  border:1px solid rgba(255,255,255,.42);
+  border-radius:12px;
+  background:linear-gradient(135deg,var(--primary),var(--accent));
   color:#fff;
-  font-size:12px;
+  font-size:14px;
   font-weight:700;
-  padding:8px 10px;
+  padding:10px;
 }
 
 .support-email-highlight{
@@ -377,6 +399,10 @@
   display:none;
 }
 
+.dashboard{
+  perspective:1200px;
+}
+
 /* CARD */
 .card{
   background:linear-gradient(180deg,var(--surface-2),var(--surface-1));
@@ -387,6 +413,7 @@
   display:flex;
   flex-direction:column;
   border:1px solid var(--border-soft);
+  position:relative;
   transform:translateZ(0);
   transition:transform var(--motion-medium) var(--ease-gentle), box-shadow var(--motion-medium) var(--ease-gentle), border-color var(--motion-medium) var(--ease-gentle);
   will-change:transform;
@@ -397,6 +424,19 @@
   box-shadow:0 20px 42px rgba(0,0,0,.33);
   border-color:rgba(255,255,255,.35);
 }
+
+.card::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  pointer-events:none;
+  opacity:0;
+  background:linear-gradient(120deg,rgba(255,255,255,.16),transparent 34%,transparent 68%,rgba(255,255,255,.08));
+  transition:opacity var(--motion-medium) var(--ease-soft);
+}
+
+.card:hover::before{opacity:1}
 
 .card.shortcut-focus{
   border-color:rgba(164, 225, 255, .95);
@@ -420,6 +460,18 @@
 .dashboard .card:nth-child(7){animation-delay:.18s}
 .dashboard .card:nth-child(8){animation-delay:.21s}
 .dashboard .card:nth-child(9){animation-delay:.24s}
+.dashboard .card:nth-child(10){animation-delay:.27s}
+.dashboard .card:nth-child(11){animation-delay:.30s}
+.dashboard .card:nth-child(12){animation-delay:.33s}
+.dashboard .card:nth-child(13){animation-delay:.36s}
+.dashboard .card:nth-child(14){animation-delay:.39s}
+.dashboard .card:nth-child(15){animation-delay:.42s}
+.dashboard .card:nth-child(16){animation-delay:.45s}
+.dashboard .card:nth-child(17){animation-delay:.48s}
+.dashboard .card:nth-child(18){animation-delay:.51s}
+.dashboard .card:nth-child(19){animation-delay:.54s}
+.dashboard .card:nth-child(20){animation-delay:.57s}
+.dashboard .card:nth-child(21){animation-delay:.60s}
 
 @keyframes cardRise{
   from{opacity:0;transform:translateY(8px)}
@@ -524,7 +576,22 @@ button:hover:not(:disabled){
 
 button:active:not(:disabled){
   transform:translateY(0);
+  transition-duration:.08s;
 }
+
+button:not(:disabled)::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  pointer-events:none;
+  background:linear-gradient(115deg,rgba(255,255,255,.18),transparent 42%);
+  opacity:0;
+  transition:opacity var(--motion-fast) var(--ease-soft);
+}
+
+button:hover:not(:disabled)::before,
+button:focus-visible:not(:disabled)::before{opacity:1}
 
 @media (min-width: 641px){
   .dashboard button{

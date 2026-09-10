@@ -121,6 +121,7 @@ const FIRESTORE_SCHEMAS = {
       lastSignInAtMs: 'number',
       googleLegacyPasswordRequired: 'boolean',
       googleImportPasswordEnabled: 'boolean',
+      theme: 'string',
       googleImportPasswordEnabledAt: 'timestamp',
       displayNameDashboardChangedAt: 'timestamp',
       displayNameDashboardChangedAtMs: 'number',
@@ -995,6 +996,9 @@ const accountPanel = document.getElementById("accountPanel");
 const accountTabButtons = Array.from(document.querySelectorAll(".account-tab-btn"));
 const accountTabPanels = Array.from(document.querySelectorAll(".account-tab-panel"));
 const friendsTabBtn = accountTabButtons.find((buttonEl) => String(buttonEl?.dataset?.accountTab || "").trim().toLowerCase() === "friends") || null;
+const themeSetupModal = document.getElementById("themeSetupModal");
+const themeSetupOptions = document.getElementById("themeSetupOptions");
+const accountThemeOptions = document.getElementById("accountThemeOptions");
 const reportRedirectConfirmModal = document.getElementById("reportRedirectConfirmModal");
 const importTransferModal = document.getElementById("importTransferModal");
 const importSourceEmailInput = document.getElementById("importSourceEmail");
@@ -1029,6 +1033,139 @@ const guideStepText = document.getElementById("guideStepText");
 const guideStepTip = document.getElementById("guideStepTip");
 const guideDots = document.getElementById("guideDots");
 const guidePrevBtn = document.getElementById("guidePrevBtn");
+
+const NOVAFIX_THEMES = {
+  burgundy: {
+    label: "Burgundy",
+    description: "Warm, bold, and classic",
+    swatch: "linear-gradient(145deg,#D7B7D5,#7C3A62 72%)"
+  },
+  glacier: {
+    label: "Glacier",
+    description: "Cool and focused",
+    swatch: "linear-gradient(145deg,#E2F7FF,#7BB9DF 72%)"
+  },
+  nature: {
+    label: "Nature",
+    description: "Calm and grounded",
+    swatch: "linear-gradient(145deg,#E6F0D9,#7EA98D 72%)"
+  }
+};
+const DEFAULT_THEME = "burgundy";
+let themeSetupUserId = "";
+let themeSetupResolve = null;
+
+function normalizeTheme(theme) {
+  const normalized = String(theme || "").trim().toLowerCase();
+  return Object.prototype.hasOwnProperty.call(NOVAFIX_THEMES, normalized) ? normalized : "";
+}
+
+function getThemeStorageKey(userId) {
+  return `novafix_theme_${String(userId || "").trim()}`;
+}
+
+function applyTheme(theme, userId = "") {
+  const normalized = normalizeTheme(theme) || DEFAULT_THEME;
+  document.documentElement.dataset.theme = normalized;
+  try {
+    localStorage.setItem("novafix_theme_last", normalized);
+    if (userId) localStorage.setItem(getThemeStorageKey(userId), normalized);
+  } catch (_) {}
+  document.querySelectorAll(".theme-choice").forEach((choice) => {
+    choice.classList.toggle("selected", choice.dataset.theme === normalized);
+    choice.setAttribute("aria-checked", choice.dataset.theme === normalized ? "true" : "false");
+  });
+  return normalized;
+}
+
+function getStoredTheme(userId) {
+  try {
+    const key = userId ? getThemeStorageKey(userId) : "novafix_theme_last";
+    return normalizeTheme(localStorage.getItem(key));
+  } catch (_) {
+    return "";
+  }
+}
+
+function showThemeToast(message) {
+  if (!uxToast || !uxToastText) return;
+  showToast(message, { duration: 8000 });
+  uxToastText.innerText = String(message || "");
+  uxToast.setAttribute("aria-live", "polite");
+  uxToast.style.setProperty("display", "flex", "important");
+}
+
+function renderThemeChoices(container) {
+  if (!container) return;
+  container.innerHTML = Object.entries(NOVAFIX_THEMES).map(([themeKey, theme]) => `
+    <button type="button" class="theme-choice" data-theme="${themeKey}" role="radio" aria-label="${theme.label}">
+      <span class="theme-choice-swatch" style="background:${theme.swatch}"></span>
+      <span class="theme-choice-label">${theme.label}</span>
+      <span class="theme-choice-description">${theme.description}</span>
+    </button>
+  `).join("");
+}
+
+function closeThemeSetupModal(event, force = false) {
+  if (!themeSetupModal || (!force && event && event.target !== themeSetupModal)) return;
+  if (themeSetupResolve) return;
+  themeSetupModal.style.display = "none";
+}
+
+async function selectTheme(theme, options = {}) {
+  const normalized = normalizeTheme(theme);
+  if (!normalized) return false;
+  const userId = String(options.userId || auth.currentUser?.uid || themeSetupUserId || "").trim();
+  if (!userId) return false;
+  applyTheme(normalized, userId);
+  if (!options.silent) showThemeToast(`${NOVAFIX_THEMES[normalized].label} theme applied.`);
+  try {
+    const activeProviderIds = Array.isArray(auth.currentUser?.providerData)
+      ? auth.currentUser.providerData.map((entry) => String(entry?.providerId || "").trim().toLowerCase())
+      : [];
+    await safeSetDoc(doc(db, "users", userId, "settings", "profile"), {
+      theme: normalized,
+      googleIdentitySetupCompleted: activeProviderIds.includes("google.com"),
+      updatedAt: serverTimestamp()
+    }, "profile", { merge: true });
+    if (!options.silent) showThemeToast(`${NOVAFIX_THEMES[normalized].label} theme applied.`);
+    if (themeSetupResolve) {
+      const resolve = themeSetupResolve;
+      themeSetupResolve = null;
+      themeSetupModal.style.display = "none";
+      resolve(true);
+    }
+    return true;
+  } catch (err) {
+    structuredLog("warn", "theme.save", err?.message || String(err), { userId, theme: normalized });
+    if (!options.silent) showThemeToast("Theme applied here, but could not sync to your account.");
+    return false;
+  }
+}
+
+function openThemeSetupModal(userId = "") {
+  if (!themeSetupModal) return Promise.resolve(false);
+  themeSetupUserId = String(userId || auth.currentUser?.uid || "").trim();
+  themeSetupModal.style.display = "flex";
+  ensureAppBackGuardState("theme-setup", true);
+  return new Promise((resolve) => {
+    themeSetupResolve = resolve;
+  });
+}
+
+function bindThemeChoiceEvents(container) {
+  container?.addEventListener("click", (event) => {
+    const choice = event.target.closest(".theme-choice");
+    if (!choice) return;
+    void selectTheme(choice.dataset.theme, { userId: auth.currentUser?.uid || themeSetupUserId });
+  });
+}
+
+renderThemeChoices(themeSetupOptions);
+renderThemeChoices(accountThemeOptions);
+bindThemeChoiceEvents(themeSetupOptions);
+bindThemeChoiceEvents(accountThemeOptions);
+applyTheme(getStoredTheme(""));
 const guideNextBtn = document.getElementById("guideNextBtn");
 const crashAlertBanner = document.getElementById("crashAlertBanner");
 const crashBannerText = document.getElementById("crashBannerText");
@@ -1198,6 +1335,11 @@ function closeTopLayerForSystemBack() {
 
   if (welcomeGuideModal && welcomeGuideModal.style.display === "flex") {
     closeWelcomeGuide();
+    return true;
+  }
+
+  if (themeSetupModal && themeSetupModal.style.display === "flex" && !themeSetupResolve) {
+    closeThemeSetupModal(null, true);
     return true;
   }
 
@@ -1991,15 +2133,16 @@ try {
     authStateDelayTimer = setTimeout(async () => {
       authStateDelayTimer = null;
       if (currentAuthSequence !== authStateChangeSequence) return;
-      hideSplash();
       if (user) {
         if (signupFlowInProgress) {
+          hideSplash();
           return;
         }
         if (!user.emailVerified && !isGoogleProviderUser(user)) {
           await user.reload().catch((err) => structuredLog('warn', 'auth.reload.1', err?.message || String(err)));
           const suppressUnverifiedPrompt = Date.now() < Number(suppressUnverifiedSigninPromptUntilMs || 0);
           if (suppressUnverifiedPrompt) {
+            hideSplash();
             return;
           }
           const verificationError = document.getElementById("signInError");
@@ -2009,20 +2152,30 @@ try {
             verificationError.innerText = "Please verify your email before signing in.";
           }
           await signOut(auth);
+          hideSplash();
           return;
         }
 
         const googleIdentityReady = await ensureGoogleIdentitySetupIfNeeded(user);
         if (!googleIdentityReady) {
+          hideSplash();
           return;
         }
         if (currentAuthSequence !== authStateChangeSequence) return;
 
-        await initializeAuthenticatedSession(user);
+        try {
+          await initializeAuthenticatedSession(user);
+        } catch (err) {
+          structuredLog('error', 'auth.session_init', err?.message || String(err), { userId: user.uid });
+          recoverAuthenticatedShell(user);
+        }
+        hideSplash();
       } else {
+        hideSplash();
         if (lastAuthenticatedUserId) {
           clearCrashAlertDismissal(lastAuthenticatedUserId);
           lastAuthenticatedUserId = "";
+          authenticatedShellReadyAtMs = 0;
         }
         if (tosPendingUserId) {
           // During TOS-gate race conditions, keep auth modal hidden and preserve dashboard shell.
@@ -2758,7 +2911,6 @@ async function ensureGoogleIdentitySetupIfNeeded(user) {
   return false;
 }
 
-const DASHBOARD_CARD_LOAD_DELAY_MS = 1000;
 const DASHBOARD_CARD_LOAD_TIMEOUT_MS = 5000;
 let dashboardCardLoadTimeoutId = null;
 
@@ -2799,6 +2951,42 @@ function forceDashboardCardLoad(sessionUserId) {
   updateClearDataButtonState();
 }
 
+function recoverAuthenticatedShell(user) {
+  const activeUserId = String(user?.uid || '').trim();
+  if (!activeUserId || auth.currentUser?.uid !== activeUserId) return;
+  if (signInModal) signInModal.style.display = 'none';
+  if (dashboard) {
+    dashboard.style.display = 'grid';
+    dashboard.classList.remove('preload-shell');
+  }
+  if (accountBtn) accountBtn.style.display = 'block';
+  setPageTitle('dashboard');
+  updateAccountPanel(user);
+  setInitialLoadingStates();
+  forceDashboardCardLoad(activeUserId);
+}
+
+function recoverIfAuthenticatedShellIsStuck(reason, error) {
+  const user = auth.currentUser;
+  const dashboardIsPreloading = dashboard?.style?.display === 'none'
+    || dashboard?.classList?.contains('preload-shell');
+  const intentionalGateOpen = tosModal?.style?.display === 'flex'
+    || themeSetupModal?.style?.display === 'flex'
+    || googleIdentityModal?.style?.display === 'flex';
+  if (!user?.uid || !dashboardIsPreloading || intentionalGateOpen) return;
+  structuredLog('error', reason, error?.message || String(error || 'Startup failure'), { userId: user.uid });
+  recoverAuthenticatedShell(user);
+  hideSplash();
+}
+
+window.addEventListener('unhandledrejection', (event) => {
+  recoverIfAuthenticatedShellIsStuck('startup.unhandled_rejection', event.reason);
+});
+
+window.addEventListener('error', (event) => {
+  recoverIfAuthenticatedShellIsStuck('startup.runtime_error', event.error || event.message);
+});
+
 async function initializeAuthenticatedSession(user) {
   const sessionUserId = String(user?.uid || "").trim();
   if (!sessionUserId) return;
@@ -2816,14 +3004,20 @@ async function initializeAuthenticatedSession(user) {
     return;
   }
 
+  await ensureThemeSelection(sessionUserId).catch((err) => structuredLog('warn', 'theme.setup', err?.message || String(err)));
+
   dashboard.style.display = "grid";
   dashboard.classList.add("preload-shell");
   setPageTitle("dashboard");
   accountBtn.style.display = "block";
+  authenticatedShellReadyAtMs = Date.now();
   closeAccountPanel();
   closeGoogleIdentitySetupModal();
   updateAccountPanel(user);
   signInModal.style.display = "none";
+  dashboard.classList.remove("preload-shell");
+  setInitialLoadingStates();
+  updateClearDataButtonState();
   // Record last sign-in timestamp on the existing writable `timeSync` settings doc.
   (async function writeLastSignInSafe() {
     try {
@@ -2858,7 +3052,6 @@ async function initializeAuthenticatedSession(user) {
     }, 1500);
   })();
 
-  await new Promise((resolve) => setTimeout(resolve, DASHBOARD_CARD_LOAD_DELAY_MS));
   const activeUserAfterShell = auth.currentUser;
   if (!activeUserAfterShell?.uid || activeUserAfterShell.uid !== sessionUserId) {
     dashboard.classList.remove("preload-shell");
@@ -2867,7 +3060,6 @@ async function initializeAuthenticatedSession(user) {
   }
 
   dashboard.classList.remove("preload-shell");
-  setInitialLoadingStates();
   updateClearDataButtonState();
   const sessionPrepPromise = Promise.allSettled([
     migrateUserDocument(user.uid),
@@ -3303,6 +3495,23 @@ let tosPendingUserId = "";
 let authStateChangeSequence = 0;
 let authStateDelayTimer = null;
 let lastAuthenticatedUserId = "";
+let authenticatedShellReadyAtMs = 0;
+
+setInterval(() => {
+  const user = auth.currentUser;
+  if (!user?.uid || !authenticatedShellReadyAtMs || lastAuthenticatedUserId !== user.uid) return;
+  const intentionalGateOpen = tosModal?.style?.display === 'flex'
+    || themeSetupModal?.style?.display === 'flex'
+    || googleIdentityModal?.style?.display === 'flex';
+  if (intentionalGateOpen) return;
+  const shellMissing = dashboard?.style?.display === 'none'
+    || accountBtn?.style?.display === 'none';
+  if (shellMissing) {
+    recoverAuthenticatedShell(user);
+    hideSplash();
+  }
+}, 2000);
+
 const WELCOME_GUIDE_STEPS = [
   {
     title: "Dashboard Overview",
@@ -4158,6 +4367,26 @@ async function maybeShowWelcomeGuide(userId) {
     structuredLog('warn', 'welcome.init', err?.message || String(err), { userId: activeUserId });
     openWelcomeGuide(activeUserId);
   }
+}
+
+async function ensureThemeSelection(userId) {
+  const activeUserId = String(userId || "").trim();
+  if (!activeUserId) return;
+  const storedTheme = getStoredTheme(activeUserId);
+  if (storedTheme) applyTheme(storedTheme, activeUserId);
+
+  try {
+    const profileSnap = await fsGetDoc(doc(db, "users", activeUserId, "settings", "profile"), "profile");
+    const savedTheme = normalizeTheme(profileSnap.exists ? profileSnap.data?.theme : "");
+    if (savedTheme) {
+      applyTheme(savedTheme, activeUserId);
+      return;
+    }
+  } catch (err) {
+    structuredLog("warn", "theme.read", err?.message || String(err), { userId: activeUserId });
+  }
+
+  await openThemeSetupModal(activeUserId);
 }
 
 function toggleAuth(){
@@ -5868,16 +6097,25 @@ function buildNumericFriendComparisonText({
   const tieWithFriends = iAmTop && topFriendNames.length > 0;
 
   const closestGap = Math.abs(topComparableValue - myComparableValue);
+  const comparisonSeed = [
+    header,
+    unit,
+    myComparableValue,
+    ...friendComparableRows.map((entry) => `${entry.name}:${entry.comparableValue}`)
+  ].join("|");
   let motivation = "Comparison is close. Stay consistent and push one more small win.";
   if (tieWithFriends) {
-    const tpl = pickNonRepeatingVariant(FRIEND_MOTIVATION_TIED_POOL, 'friend_tied') || `You are tied with ${formatLeaderNames(topFriendNames)}. One small action now can put you ahead.`;
+    const tpl = pickPoolItem(FRIEND_MOTIVATION_TIED_POOL, `friend_tied|${comparisonSeed}`) || `You are tied with ${formatLeaderNames(topFriendNames)}. One small action now can put you ahead.`;
     motivation = tpl.replaceAll('{names}', formatLeaderNames(topFriendNames)).replaceAll('{gap}', formatValue(topComparableValue - myComparableValue));
   } else if (iAmTop) {
-    const tpl = pickNonRepeatingVariant(FRIEND_MOTIVATION_LEADING_POOL, 'friend_leading') || "You are leading. Keep the momentum going.";
+    const tpl = pickPoolItem(FRIEND_MOTIVATION_LEADING_POOL, `friend_leading|${comparisonSeed}`) || "You are leading. Keep the momentum going.";
     motivation = tpl.replaceAll('{names}', formatLeaderNames(topFriendNames)).replaceAll('{gap}', formatValue(topComparableValue - myComparableValue));
   } else if (closestGap > leadThreshold) {
-    const tpl = pickNonRepeatingVariant(FRIEND_MOTIVATION_BEHIND_POOL, 'friend_behind') || `${formatLeaderNames(topFriendNames)} ${topFriendNames.length > 1 ? "are" : "is"} currently ahead by ${formatValue(topComparableValue - myComparableValue)}. One focused push now can close the gap.`;
-    motivation = tpl.replaceAll('{names}', formatLeaderNames(topFriendNames)).replaceAll('{gap}', formatValue(topComparableValue - myComparableValue));
+    const tpl = pickPoolItem(FRIEND_MOTIVATION_BEHIND_POOL, `friend_behind|${comparisonSeed}`) || `{names} {verb} currently ahead by {gap}. One focused push now can close the gap.`;
+    motivation = tpl
+      .replaceAll('{names}', formatLeaderNames(topFriendNames))
+      .replaceAll('{verb}', topFriendNames.length > 1 ? "are" : "is")
+      .replaceAll('{gap}', formatValue(topComparableValue - myComparableValue));
   }
 
   return `${header}: You ${formatValue(mySafeValue)} ${unit}; ${friendSummary} ${unit}. ${motivation}`;
@@ -9132,7 +9370,7 @@ function getRandomCheer() {
 }
 
 function showToast(message, options = {}) {
-  if (!uxToast || !uxToastText || !uxToastAction) return;
+  if (!uxToast || !uxToastText) return;
 
   const duration = Math.max(1200, Number(options.duration) || 2600);
   uxToastText.innerText = polishGeneratedMessage(message);
@@ -9143,12 +9381,14 @@ function showToast(message, options = {}) {
   }
 
   uxToastActionHandler = typeof options.onAction === "function" ? options.onAction : null;
-  if (options.actionLabel && uxToastActionHandler) {
-    uxToastAction.style.display = "inline-flex";
-    uxToastAction.innerText = String(options.actionLabel);
-  } else {
-    uxToastAction.style.display = "none";
-    uxToastAction.innerText = "";
+  if (uxToastAction) {
+    if (options.actionLabel && uxToastActionHandler) {
+      uxToastAction.style.display = "inline-flex";
+      uxToastAction.innerText = String(options.actionLabel);
+    } else {
+      uxToastAction.style.display = "none";
+      uxToastAction.innerText = "";
+    }
   }
 
   uxToast.style.display = "flex";
@@ -14121,15 +14361,15 @@ const FRIEND_MOTIVATION_LEADING_BASE = [
   "Nice — you're ahead. Maintain momentum and set the pace.",
   "You're on top for now. One small consistent move keeps you there.",
   "Leading the pack — keep your routine steady to stay ahead.",
-  "Top performer — hold this advantage with a tiny repeatable habit."
+  "You are the top performer right now. Hold this advantage with a tiny, repeatable habit."
 ];
 
 const FRIEND_MOTIVATION_BEHIND_BASE = [
-  "{names} are ahead by {gap}. One focused push now can close the gap.",
-  "You're a bit behind {names} by {gap}. Try a short sprint to catch up.",
-  "{names} lead by {gap}. A quick reset and one task could close it.",
-  "Close gap: {names} are ahead by {gap}. Add one focused action to move up.",
-  "Slight gap vs {names} ({gap}). A small win brings you level."
+  "{names} {verb} ahead by {gap}. One focused push now can close the gap.",
+  "You're behind {names} by {gap}. Try a short sprint to catch up.",
+  "{names} {verb} ahead by {gap}. A quick reset and one task could close the gap.",
+  "Close the gap: {names} {verb} ahead by {gap}. Add one focused action to move up.",
+  "There is a slight gap with {names} ({gap}). A small win brings you level."
 ];
 
 // Expand pools to target 100-150 variants for diverse replies
@@ -14146,9 +14386,9 @@ const AI_FALLBACK_POOL = expandAiResponsePool(AI_FALLBACK_BASE, { min: 12, max: 
 const AI_LOW_EMOTION_POOL = expandAiResponsePool(AI_LOW_EMOTION_BASE, { min: 10, max: 48 });
 const AI_ABUSE_COOLDOWN_POOL = expandAiResponsePool(AI_ABUSE_COOLDOWN_BASE, { min: 6, max: 24 });
 
-const FRIEND_MOTIVATION_TIED_POOL = expandAiResponsePool(FRIEND_MOTIVATION_TIED_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX });
-const FRIEND_MOTIVATION_LEADING_POOL = expandAiResponsePool(FRIEND_MOTIVATION_LEADING_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX });
-const FRIEND_MOTIVATION_BEHIND_POOL = expandAiResponsePool(FRIEND_MOTIVATION_BEHIND_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX });
+const FRIEND_MOTIVATION_TIED_POOL = expandAiResponsePool(FRIEND_MOTIVATION_TIED_BASE, { min: FRIEND_MOTIVATION_TIED_BASE.length, max: FRIEND_MOTIVATION_TIED_BASE.length, frames: [(text) => text] });
+const FRIEND_MOTIVATION_LEADING_POOL = expandAiResponsePool(FRIEND_MOTIVATION_LEADING_BASE, { min: FRIEND_MOTIVATION_LEADING_BASE.length, max: FRIEND_MOTIVATION_LEADING_BASE.length, frames: [(text) => text] });
+const FRIEND_MOTIVATION_BEHIND_POOL = expandAiResponsePool(FRIEND_MOTIVATION_BEHIND_BASE, { min: FRIEND_MOTIVATION_BEHIND_BASE.length, max: FRIEND_MOTIVATION_BEHIND_BASE.length, frames: [(text) => text] });
 const AI_BENEFIT_PLAN_OPENERS = [
   "Direct plan based on your current data:",
   "No fluff — here is the best move stack:",
@@ -14963,6 +15203,26 @@ function buildKnowledgeAnswer(input) {
       topic: "burnout",
       triggers: ["burnout", "drained", "exhausted", "no energy", "crash"],
       answer: "For burnout signals, lower pressure first: stabilize with breathing and hydration, then complete one tiny, clear task to restore control before taking on complex work."
+    },
+    {
+      topic: "exercise",
+      triggers: ["exercise", "workout", "movement", "walk", "stretch", "fitness"],
+      answer: "Use movement as a small repeatable dose: take a 5–10 minute walk or do a short mobility routine, then reassess your energy. Consistency and recovery matter more than an intense session you cannot repeat."
+    },
+    {
+      topic: "nutrition",
+      triggers: ["food", "nutrition", "meal", "eat", "eating", "protein", "diet"],
+      answer: "Build a simple meal around protein, fiber-rich carbohydrates, and a fruit or vegetable. Eat slowly, drink water, and adjust portions to your hunger and activity rather than chasing a rigid rule."
+    },
+    {
+      topic: "money",
+      triggers: ["money", "budget", "finance", "finances", "spending", "expense", "save"],
+      answer: "Start with a clear monthly baseline: list fixed costs, estimate flexible spending, and give every remaining amount a job. Review the biggest category first because small repeated expenses usually matter more than one-off purchases."
+    },
+    {
+      topic: "learning",
+      triggers: ["learn", "learning", "study plan", "remember", "memory", "skill"],
+      answer: "Learn faster with retrieval: choose one small concept, recall it without notes, check the gaps, and explain it in your own words. Revisit it tomorrow instead of rereading passively."
     }
   ];
 
@@ -16884,7 +17144,12 @@ async function buildSmartAiResponse(input, user) {
 
   if (intent.key === "water") {
     const hydration = buildHydrationPaceInsight(snapshot);
-    const pick = pickNonRepeatingVariant(AI_SHORT_THANKS_REPLIES, "thanks_short") || "Anytime.";
+    const left = Math.max(0, snapshot.todayGoal - snapshot.waterToday);
+    const waterPatternHint = behaviorPatterns?.hydration?.summary
+      ? ` ${behaviorPatterns.hydration.summary}`
+      : "";
+    aiSessionState.lastIntent = "water";
+    aiSessionState.lastAdvice = [hydration.summary];
     return {
       response: `Hydration check 💧 ${hydration.summary}${waterPatternHint} You’re at ${snapshot.waterToday}/${snapshot.todayGoal}. Remaining: ${left} cup${left === 1 ? "" : "s"}. Want me to set a reminder right now?`,
       isHtml: false

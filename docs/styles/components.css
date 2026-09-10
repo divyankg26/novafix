@@ -97,7 +97,7 @@ textarea:focus-visible{
   background:rgba(0,0,0,.55);
   border:1px solid rgba(255,255,255,.26);
   backdrop-filter:blur(10px);
-  z-index:10050;
+  z-index:11000;
   box-shadow:0 12px 30px rgba(0,0,0,.3);
 }
 

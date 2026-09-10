@@ -13,6 +13,17 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="msapplication-navbutton-color" content="#ffffff">
 
+<script>
+  (function () {
+    try {
+      var theme = localStorage.getItem("novafix_theme_last");
+      if (theme === "glacier" || theme === "nature" || theme === "burgundy") {
+        document.documentElement.dataset.theme = theme;
+      }
+    } catch (_) {}
+  }());
+</script>
+
 <link rel="stylesheet" href="styles/base.css">
 <link rel="stylesheet" href="styles/layout.css">
 <link rel="stylesheet" href="styles/components.css">
@@ -24,7 +35,7 @@
 
 <!-- SPLASH -->
 <div id="splash">
-  <img src="https://i.postimg.cc/Y2g2bvkK/Whats-App-Image-2026-04-26-at-18-19-02-removebg-preview-2.png">
+  <img src="https://i.postimg.cc/mkS9cfP8/A06BAE0D-1F13-4DFD-8206-956AB07B379C.png">
 </div>
 
 <!-- SIGN-IN / SIGN-UP MODAL -->
@@ -72,6 +83,20 @@
       <button id="googleIdentityCancelBtn" onclick="cancelGoogleIdentitySetup()">Sign Out</button>
     </div>
     <p id="googleIdentityError"></p>
+  </div>
+</div>
+
+<div id="themeSetupModal" onclick="closeThemeSetupModal(event)">
+  <div class="theme-setup-card" role="dialog" aria-modal="true" aria-labelledby="themeSetupTitle" onclick="event.stopPropagation()">
+    <div class="theme-bubble theme-bubble-one"></div>
+    <div class="theme-bubble theme-bubble-two"></div>
+    <div class="theme-bubble theme-bubble-three"></div>
+    <div class="theme-setup-content">
+      <p class="theme-setup-eyebrow">Make NovaFix yours</p>
+      <h2 id="themeSetupTitle">Choose your theme</h2>
+      <p class="theme-setup-subtitle">Pick a color mood for your dashboard. You can change it any time.</p>
+      <div id="themeSetupOptions" class="theme-choice-grid"></div>
+    </div>
   </div>
 </div>
 
@@ -166,6 +191,7 @@
     <button type="button" class="account-tab-btn active" data-account-tab="general">General</button>
     <button type="button" class="account-tab-btn" data-account-tab="friends">Friends</button>
     <button type="button" class="account-tab-btn" data-account-tab="shortcuts">Shortcuts</button>
+    <button type="button" class="account-tab-btn" data-account-tab="customisation">Customisation</button>
     <button type="button" class="account-tab-btn" data-account-tab="help">Help</button>
   </div>
 
@@ -215,6 +241,14 @@
       <p class="export-note" id="keyboardShortcutsSubtitle" style="margin-top:0;margin-bottom:8px;text-align:left;"></p>
       <div id="keyboardShortcutsList" class="friends-list-box"></div>
       <button id="keyboardShortcutsToggleBtn" type="button" class="keyboard-shortcuts-toggle">Show all shortcuts</button>
+    </div>
+  </div>
+
+  <div class="account-tab-panel" data-account-panel="customisation">
+    <div class="account-transfer-box">
+      <h4 style="margin:0 0 8px;font-size:15px;color:#fff;">Theme</h4>
+      <p class="export-note" style="margin-top:0;text-align:left;">Choose the color mood for your NovaFix dashboard.</p>
+      <div id="accountThemeOptions" class="theme-choice-grid theme-choice-grid-account"></div>
     </div>
   </div>
 
@@ -308,6 +342,11 @@
     <button id="crashAlertDismissBtn" class="crash-dismiss-btn" type="button" onclick="dismissCrashAlertBanner()">Dismiss</button>
   </div>
 </div>
+</div>
+
+<div id="uxToast">
+  <span id="uxToastText"></span>
+  <button id="uxToastAction" style="display:none;"></button>
 </div>
 
 <div class="dashboard">
@@ -640,11 +679,6 @@
 <h2>🧬 Behavior Memory Graph</h2>
 <p class="micro-tip">Signals the patterns that most improve your next-day stability.</p>
 <ul id="startupBehaviorMemory" class="startup-list"></ul>
-</div>
-
-<div id="uxToast">
-  <span id="uxToastText"></span>
-  <button id="uxToastAction" style="display:none;"></button>
 </div>
 
 <script src="scripts/app.js"></script>
