@@ -1219,6 +1219,7 @@ const reminders = document.getElementById("reminders");
 const task = document.getElementById("task");
 const taskAddBtn = document.getElementById("taskAddBtn");
 const taskLimitError = document.getElementById("taskLimitError");
+const taskResetCountdown = document.getElementById("taskResetCountdown");
 const taskFriendInsight = document.getElementById("taskFriendInsight");
 const taskList = document.getElementById("taskList");
 const gCost = document.getElementById("gCost");
@@ -1810,6 +1811,7 @@ async function clearAllAccountData() {
     const previousChallengeText = String(currentChallengeText || "");
     await syncServerClock(user.uid);
     clearCrashAlertDismissal(user.uid);
+    clearCrashAlertTrigger(user.uid);
     clearAllReminderTimers();
 
     const aiUsageRef = doc(db, "users", user.uid, "settings", "aiUsage");
@@ -1961,10 +1963,12 @@ async function clearAllAccountData() {
 
     await Promise.all(targetCollections.map((name) => clearUserCollection(user.uid, name)));
     await fsDeleteDoc(doc(db, "users", user.uid, "settings", "sleep")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/settings/sleep` }));
+    await fsDeleteDoc(doc(db, "users", user.uid, "settings", "water")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/settings/water` }));
     await fsDeleteDoc(doc(db, "users", user.uid, "settings", "dailyChallenge")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/settings/dailyChallenge` }));
     await fsDeleteDoc(doc(db, "users", user.uid, "settings", "weeklyTargets")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/settings/weeklyTargets` }));
     await fsDeleteDoc(doc(db, "users", user.uid, "settings", "habitQuest")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/settings/habitQuest` }));
     await fsDeleteDoc(doc(db, "users", user.uid, "settings", "startupPack")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/settings/startupPack` }));
+    await fsDeleteDoc(doc(db, "users", user.uid, "settings", "startupUsage")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/settings/startupUsage` }));
     await fsDeleteDoc(doc(db, "users", user.uid, "insights", "barGraphs")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/insights/barGraphs` }));
     await fsDeleteDoc(doc(db, "users", user.uid, "social", "profile")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/social/profile` }));
     persistedBarGraphs = null;
@@ -2206,6 +2210,7 @@ try {
         clearWaterGoalResetSchedule();
         clearSleepDailyResetSchedule();
         clearMoodDailyResetSchedule();
+        clearTaskDailyResetSchedule();
         clearBedtimeReminderSchedule();
         closeBedtimeReminderModal(null, true);
         bedtimeSettings = { timeText: "", enabled: false };
@@ -3111,6 +3116,7 @@ async function initializeAuthenticatedSession(user) {
   scheduleWaterGoalReset(user.uid);
   scheduleSleepDailyReset(user.uid);
   scheduleMoodDailyReset(user.uid);
+  scheduleTaskDailyReset(user.uid);
   void Promise.allSettled(initialDataLoadPromises).then(async () => {
     const activeUser = auth.currentUser;
     if (!activeUser?.uid || activeUser.uid !== user.uid) return;
@@ -9008,6 +9014,8 @@ const AI_RESPONSE_SIGNATURE_HISTORY_LIMIT = 150;
 const AI_RESPONSE_SIGNATURE_COMPARE_WINDOW = 80;
 const CRASH_ALERT_BANNER_MIN_RISK = 45;
 const CRASH_ALERT_DISMISS_STORAGE_PREFIX = "novafixCrashAlertDismissedDate:";
+const CRASH_ALERT_TRIGGERED_STORAGE_PREFIX = "novafixCrashAlertTriggeredDate:";
+const CRASH_ALERT_RECOVERY_SCORE = 50;
 const challengeDates=[];
 let dailyChallengeCompleted=false;
 let currentChallengeText="";
@@ -9031,6 +9039,7 @@ let insightsPersistTimer=null;
 let waterGoalResetTimeoutId = null;
 let sleepDailyResetTimeoutId = null;
 let moodDailyResetTimeoutId = null;
+let taskDailyResetTimeoutId = null;
 let insightMetricIndex = 0;
 let questDateKey = "";
 let questXp = 0;
@@ -11269,7 +11278,8 @@ async function applyRecoverySchedule() {
 
 function pickChallengeForDate(dateKey) {
   const sum = [...dateKey].reduce((total, char) => total + char.charCodeAt(0), 0);
-  return dailyChallenges[sum % dailyChallenges.length];
+  const pool = getTimeAwareChallengePool();
+  return pool[sum % pool.length] || dailyChallenges[sum % dailyChallenges.length];
 }
 
 async function syncSocialProfileToFriendQueue(user, socialProfile) {
@@ -11974,7 +11984,7 @@ function startDailyChallengeWatcher() {
     const user = auth.currentUser;
     if (!user) return;
     const todayKey = getTodayKey();
-    if (todayKey !== currentChallengeDateKey) {
+    if (todayKey !== currentChallengeDateKey || !isChallengeTimeAppropriate(currentChallengeText)) {
       await loadDailyChallenge(user.uid);
     }
   }, 30000);
@@ -12270,6 +12280,11 @@ function updateStartupResetCountdownNotes() {
     moodResetCountdown.innerText = `Mood reset in ${formatCountdownClock(dailyRemaining)}`;
   }
 
+  if (taskResetCountdown) {
+    const dailyRemaining = getMillisecondsUntilNextMidnight();
+    taskResetCountdown.innerText = `Tasks reset in ${formatCountdownClock(dailyRemaining)}`;
+  }
+
   if (gratitudeResetCountdown) {
     const dailyRemaining = getMillisecondsUntilNextMidnight();
     gratitudeResetCountdown.innerText = `Gratitude reset in ${formatCountdownClock(dailyRemaining)}`;
@@ -12319,11 +12334,19 @@ function stopStartupResetCountdown() {
   if (waterGoalResetCountdown) waterGoalResetCountdown.innerText = "";
   if (sleepResetCountdown) sleepResetCountdown.innerText = "";
   if (moodResetCountdown) moodResetCountdown.innerText = "";
+  if (taskResetCountdown) taskResetCountdown.innerText = "";
   if (gratitudeResetCountdown) gratitudeResetCountdown.innerText = "";
   if (dailyChallengeResetCountdown) dailyChallengeResetCountdown.innerText = "";
   if (wellnessScoreResetCountdown) wellnessScoreResetCountdown.innerText = "";
   if (startupPlanResetCountdown) startupPlanResetCountdown.innerText = "";
   if (startupReportResetCountdown) startupReportResetCountdown.innerText = "";
+}
+
+function clearTaskDailyResetSchedule() {
+  if (taskDailyResetTimeoutId) {
+    clearTimeout(taskDailyResetTimeoutId);
+    taskDailyResetTimeoutId = null;
+  }
 }
 
 function startWeeklyGraphResetCountdown() {
@@ -12490,6 +12513,33 @@ function scheduleMoodDailyReset(userId) {
   };
 
   moodDailyResetTimeoutId = setTimeout(runReset, getMillisecondsUntilNextMidnight());
+}
+
+async function resetTaskDayData(userId) {
+  const activeUser = auth.currentUser;
+  if (!activeUser || activeUser.uid !== userId) return;
+  await Promise.allSettled([
+    loadTasks(userId),
+    ensureDailyUsageCurrent(userId, { skipReminderRefresh: true })
+  ]);
+  updateTaskLimitUI();
+}
+
+function scheduleTaskDailyReset(userId) {
+  clearTaskDailyResetSchedule();
+
+  const runReset = async () => {
+    const activeUser = auth.currentUser;
+    if (!activeUser || activeUser.uid !== userId) {
+      scheduleTaskDailyReset(userId);
+      return;
+    }
+
+    await resetTaskDayData(userId);
+    scheduleTaskDailyReset(userId);
+  };
+
+  taskDailyResetTimeoutId = setTimeout(runReset, getMillisecondsUntilNextMidnight());
 }
 
 function getWellnessScoreMeta(scoreValue = 0) {
@@ -12821,6 +12871,11 @@ function getCrashRiskSnapshot() {
       reasons: ["Log your first entries to generate risk analysis."],
       waterToday,
       sleepToday,
+      waterRatio,
+      hasWaterLoggedToday,
+      hasSleepLoggedToday,
+      moodLabel: moodMeta.label,
+      hasMoodLoggedToday: moodMeta.logged,
       wellnessScore: calculateWellnessScoreValue(),
       hasNonTaskLogToday: false
     };
@@ -12882,9 +12937,21 @@ function getCrashRiskSnapshot() {
     reasons,
     waterToday,
     sleepToday,
+    waterRatio,
+    hasWaterLoggedToday,
+    hasSleepLoggedToday,
+    moodLabel: moodMeta.label,
+    hasMoodLoggedToday: moodMeta.logged,
     wellnessScore,
     hasNonTaskLogToday: true
   };
+}
+
+function hasAdverseCrashInputToday(snapshot = {}) {
+  const hasLowWater = !!snapshot.hasWaterLoggedToday && Number(snapshot.waterRatio) < 0.7;
+  const hasLowSleep = !!snapshot.hasSleepLoggedToday && Number(snapshot.sleepToday) < 7;
+  const hasLowMood = !!snapshot.hasMoodLoggedToday && ["Angry", "Low", "Stressed"].includes(snapshot.moodLabel);
+  return hasLowWater || hasLowSleep || hasLowMood;
 }
 
 function getCrashAlertDismissStorageKey(userId = "") {
@@ -12924,6 +12991,56 @@ function clearCrashAlertDismissal(userId = "") {
   try {
     localStorage.removeItem(storageKey);
   } catch (_) {}
+}
+
+function getCrashAlertTriggeredStorageKey(userId = "") {
+  const safeUserId = String(userId || "").trim();
+  return safeUserId ? `${CRASH_ALERT_TRIGGERED_STORAGE_PREFIX}${safeUserId}` : "";
+}
+
+function getCrashAlertTriggeredDateKey(userId = "") {
+  const storageKey = getCrashAlertTriggeredStorageKey(userId);
+  if (!storageKey) return "";
+
+  try {
+    return String(localStorage.getItem(storageKey) || "");
+  } catch (_) {
+    return "";
+  }
+}
+
+function setCrashAlertTriggeredForToday(userId = "") {
+  const storageKey = getCrashAlertTriggeredStorageKey(userId);
+  if (!storageKey) return "";
+
+  const todayKey = getTodayKey();
+  try {
+    localStorage.setItem(storageKey, todayKey);
+  } catch (_) {}
+  return todayKey;
+}
+
+function clearCrashAlertTrigger(userId = "") {
+  const storageKey = getCrashAlertTriggeredStorageKey(userId);
+  if (!storageKey) return;
+
+  try {
+    localStorage.removeItem(storageKey);
+  } catch (_) {}
+}
+
+function isCrashAlertTriggeredForToday(userId = "") {
+  const safeUserId = String(userId || auth.currentUser?.uid || "").trim();
+  if (!safeUserId) return false;
+
+  const triggeredDateKey = getCrashAlertTriggeredDateKey(safeUserId);
+  if (!triggeredDateKey) return false;
+
+  const todayKey = getTodayKey();
+  if (triggeredDateKey === todayKey) return true;
+
+  clearCrashAlertTrigger(safeUserId);
+  return false;
 }
 
 function isCrashAlertDismissedForToday(userId = "") {
@@ -12983,7 +13100,22 @@ function updateCrashPreventionUI() {
   const shortReason = snapshot.reasons.slice(0, 2).join(" • ") || "Stay consistent with your health basics.";
   const userId = String(auth.currentUser?.uid || "").trim();
   const dismissed = isCrashAlertDismissedForToday(userId);
-  if (snapshot.risk >= CRASH_ALERT_BANNER_MIN_RISK && !dismissed) {
+  const recovered = snapshot.wellnessScore >= CRASH_ALERT_RECOVERY_SCORE;
+  const adverseInput = hasAdverseCrashInputToday(snapshot);
+
+  if (recovered) {
+    clearCrashAlertTrigger(userId);
+  } else if (snapshot.risk >= CRASH_ALERT_BANNER_MIN_RISK && adverseInput) {
+    setCrashAlertTriggeredForToday(userId);
+  }
+
+  const triggered = isCrashAlertTriggeredForToday(userId);
+  const shouldShow = !dismissed
+    && !recovered
+    && snapshot.hasNonTaskLogToday
+    && (triggered || (snapshot.risk >= CRASH_ALERT_BANNER_MIN_RISK && adverseInput));
+
+  if (shouldShow) {
     crashAlertBanner.style.display = "block";
     crashBannerText.innerText = `${snapshot.level}: ${shortReason}`;
   } else {
@@ -13507,20 +13639,10 @@ async function ensureStartupPlanAuto(userId) {
     return;
   }
 
-  if (startupUsageState.planCount >= STARTUP_PLAN_DAILY_LIMIT) {
-    return;
-  }
-
-  startupPlanGeneratedOnce = true;
-  startupCurrentPlan = buildStartupPlanItems();
-  startupUsageState.planCount += 1;
-  startupFeatureState.dailyPlanItems = [...startupCurrentPlan];
-  startupFeatureState.dailyPlanKey = todayKey;
-  await Promise.allSettled([
-    saveStartupUsageState(safeUserId),
-    saveStartupFeatureState(safeUserId)
-  ]);
+  startupPlanGeneratedOnce = false;
+  startupCurrentPlan = [];
   renderStartupPlan();
+  refreshStartupFeatures();
 }
 
 async function applyStartupPlanAsTasks() {
@@ -13848,7 +13970,8 @@ function pickNonRepeatingPoolItem(pool, key = "default") {
 }
 
 const AI_NAME_BLACKLIST = new Set([
-  "stressed", "stress", "anxious", "anxiety", "overwhelmed", "sad", "depressed", "down", "angry", "frustrated", "tired", "drained", "burnt", "burnout", "hopeless", "empty", "lost", "confused", "low", "meh", "fine", "good", "okay", "ok"
+  "stressed", "stress", "anxious", "anxiety", "overwhelmed", "sad", "depressed", "down", "angry", "frustrated", "tired", "drained", "burnt", "burnout", "hopeless", "empty", "lost", "confused", "low", "meh", "fine", "good", "okay", "ok",
+  "hey", "hi", "hello", "hiya", "yo", "hola", "sup", "wassup", "wsg", "thanks", "thank", "please", "there"
 ]);
 
 function isValidLearnedName(rawValue) {
@@ -13892,9 +14015,6 @@ function rememberUserFact(type, value) {
   if (!value) return;
 
   if (type === "name") {
-    const candidate = String(value || "").trim();
-    if (!isValidLearnedName(candidate)) return;
-    aiSessionState.userFacts.name = candidate;
     return;
   }
 
@@ -13949,12 +14069,8 @@ function learnFromUserInput(input) {
 }
 
 function buildUserContextLabel(defaultName) {
-  const memoryName = sanitizeAiAddressName(aiSessionState.userFacts.name, "");
-  if (!memoryName && aiSessionState.userFacts.name) {
-    aiSessionState.userFacts.name = "";
-  }
-  if (memoryName) return memoryName;
-  return defaultName;
+  aiSessionState.userFacts.name = "";
+  return defaultName || "there";
 }
 
 function sanitizeAiAddressName(nameValue, fallback = "there") {
@@ -14131,16 +14247,7 @@ function polishGeneratedMessage(text, options = {}) {
 }
 
 const AI_RESPONSE_VARIANT_FRAMES = [
-  (text) => text,
-  (text) => `Right now, ${lowerFirstAiVariantText(text)}`,
-  (text) => `Best next move: ${lowerFirstAiVariantText(text)}`,
-  (text) => `Keep it simple: ${lowerFirstAiVariantText(text)}`,
-  (text) => `No overthinking: ${lowerFirstAiVariantText(text)}`,
-  (text) => `Use this reset: ${lowerFirstAiVariantText(text)}`,
-  (text) => `For the next 10 minutes, ${lowerFirstAiVariantText(text)}`,
-  (text) => `Small win mode: ${lowerFirstAiVariantText(text)}`,
-  (text) => `Make it concrete: ${lowerFirstAiVariantText(text)}`,
-  (text) => `Start here: ${lowerFirstAiVariantText(text)}`
+  (text) => text
 ];
 
 const AI_TASK_RESPONSE_FRAMES = [
@@ -14390,29 +14497,34 @@ const FRIEND_MOTIVATION_TIED_POOL = expandAiResponsePool(FRIEND_MOTIVATION_TIED_
 const FRIEND_MOTIVATION_LEADING_POOL = expandAiResponsePool(FRIEND_MOTIVATION_LEADING_BASE, { min: FRIEND_MOTIVATION_LEADING_BASE.length, max: FRIEND_MOTIVATION_LEADING_BASE.length, frames: [(text) => text] });
 const FRIEND_MOTIVATION_BEHIND_POOL = expandAiResponsePool(FRIEND_MOTIVATION_BEHIND_BASE, { min: FRIEND_MOTIVATION_BEHIND_BASE.length, max: FRIEND_MOTIVATION_BEHIND_BASE.length, frames: [(text) => text] });
 const AI_BENEFIT_PLAN_OPENERS = [
-  "Direct plan based on your current data:",
-  "No fluff — here is the best move stack:",
-  "This is the short plan to feel better fast:",
-  "Here is the plan that compounds quickly:",
-  "This is your must-do plan for real benefit in 2-3 days:",
-  "Focus plan for steady improvement:",
-  "Simple, high-impact plan for the next 48 hours:"
+  "Here’s a plan based on what you’ve logged:",
+  "The clearest next steps are:",
+  "Here’s a simple plan for today:",
+  "I’d start with these steps:",
+  "Here’s what will help most right now:"
 ];
 
-// Strategic response base templates — include placeholders to be filled with live data.
 const AI_STRATEGIC_RESPONSE_BASE = [
-  `🧠 <b>Strategic Response</b><br>Hey {name}, here is your best move stack now:<br>1) {plan0}<br>2) {plan1}<br>3) {plan2}<br>4) {plan3}{goalLine}<br><br>Reply with <i>execute step 1</i>, <i>mode strict</i>, or ask a direct comparison like <i>A vs B</i>.{why}`,
-  `🧠 <b>Strategic Response</b><br>{name}, best move stack for right now:<br>1) {plan0}<br>2) {plan1}<br>3) {plan2}<br>4) {plan3}{goalLine}<br><br>Do: <i>execute step 1</i> or ask for <i>A vs B</i>.{why}`,
-  `Hey {name}, strategic stack:
+  `{name}, here are the next steps that fit your current data:
 1) {plan0}
 2) {plan1}
 3) {plan2}
-4) {plan3}{goalLine}
-
-Reply: execute step 1, mode strict, or ask A vs B.{why}`,
-  `{name}, quick high-leverage plan:\n1) {plan0}\n2) {plan1}\n3) {plan2}\n4) {plan3}{goalLine}\n\nDo now: execute step 1. {why}`,
-  `🧠 Strategic: {name} — immediate plan:\n• Do now (under 10 min): {plan0}\n• Expected by tonight: {outcomeTonight}\n• Tomorrow checkpoint: {tomorrowCheckpoint}{goalLine}\n\nReply with execute step 1, mode strict, or ask A vs B.{why}`,
-  `No fluff — {name}, here is the concise plan:\n1) {plan0}\n2) {plan1}\n3) {plan2}\n4) {plan3}{goalLine}\n\nWhy: {why}\nReply: execute step 1 or ask a comparison.`
+4) {plan3}{goalLine}{why}`,
+  `{name}, I’d do this next:
+1) {plan0}
+2) {plan1}
+3) {plan2}
+4) {plan3}{goalLine}{why}`,
+  `Here’s the most useful order for today:
+1) {plan0}
+2) {plan1}
+3) {plan2}
+4) {plan3}{goalLine}{why}`,
+  `{name}, start here:
+1) {plan0}
+2) {plan1}
+3) {plan2}
+4) {plan3}{goalLine}{why}`
 ];
 
 const AI_STRATEGIC_RESPONSE_POOL = expandAiResponsePool(AI_STRATEGIC_RESPONSE_BASE, { min: AI_RESPONSE_VARIANT_MIN, max: AI_RESPONSE_VARIANT_MAX });
@@ -14623,7 +14735,7 @@ function classifyIntent(input) {
 
   const intents = [
     { key: "greeting", score: /\b(hi|hello|hey|yo|hola)\b/.test(msg) ? 0.95 : 0 },
-    { key: "smalltalk-casual", score: /\b(lol|lmao|rofl|ikr|fr|frfr|omg|sup|wassup|wsg|bro|bruh|brb|ttyl|rn|haha+|hehe+)\b/.test(msg) ? 0.965 : 0 },
+    { key: "smalltalk-casual", score: /^(?:sup|wassup|wsg)$/.test(msg) ? 0.999 : (/\b(lol|lmao|rofl|ikr|fr|frfr|omg|sup|wassup|wsg|bro|bruh|brb|ttyl|rn|haha+|hehe+)\b/.test(msg) ? 0.965 : 0) },
     { key: "bored", score: /\b(i\s*am\s*)?bored\b|nothing\s+to\s+do|boring|i do not know\s+what\s+to\s+do/.test(msg) ? 0.97 : 0 },
     { key: "celebrate", score: /\b(yay+|woo+|let'?s\s+go|nice+|awesome+)\b/.test(msg) ? 0.955 : 0 },
     { key: "smalltalk-health", score: /\b(how are you|how are u|how's it going|how you doing|how r you|hru)\b/.test(msg) ? 0.98 : 0 },
@@ -14778,10 +14890,8 @@ function parseModeFromInput(input) {
 }
 
 function getMemorySummary() {
-  const safeName = sanitizeAiAddressName(aiSessionState.userFacts.name, "");
   const { goal, likes, dislikes } = aiSessionState.userFacts;
   const lines = [];
-  if (safeName) lines.push(`Name: ${safeName}`);
   if (goal) lines.push(`Goal: ${goal}`);
   if (likes.length) lines.push(`Likes: ${likes.slice(-3).join(", ")}`);
   if (dislikes.length) lines.push(`Dislikes: ${dislikes.slice(-3).join(", ")}`);
@@ -14824,14 +14934,7 @@ function buildComparisonResponse(left, right, snapshot) {
 }
 
 function buildModeAwarePrefix(tone) {
-  const preset = getAiModePreset();
-  if (preset.style === "strict") return "Direct answer: ";
-  if (preset.style === "coach") return "Coach mode: ";
-  if (preset.style === "creative") return "Creative mode: ";
-  if (preset.style === "ultra") return "Focused mode: ";
-  if (tone === "supportive") return "I’m with you. ";
-  if (tone === "compact") return "Quick answer: ";
-  return "Let’s go: ";
+  return "";
 }
 
 function getRequestedAdviceIndex(inputText, adviceLength) {
@@ -15148,7 +15251,7 @@ function buildUltraFallback(snapshot, name) {
   const goalLine = aiSessionState.userFacts.goal
     ? `<br>🎯 Goal alignment: <i>${escapeHtml(aiSessionState.userFacts.goal)}</i>`
     : "";
-  const tpl = pickNonRepeatingVariant(AI_STRATEGIC_RESPONSE_POOL, 'strategic_fallback') || "🧠 <b>Strategic Response</b><br>Hey {name}, here is your best move stack now:<br>1) {plan0}<br>2) {plan1}<br>3) {plan2}<br>4) {plan3}{goalLine}<br><br>Reply with <i>execute step 1</i>, <i>mode strict</i>, or ask a direct comparison like <i>A vs B</i>.";
+  const tpl = pickNonRepeatingVariant(AI_STRATEGIC_RESPONSE_POOL, 'strategic_fallback') || "Hey {name}, here is a practical plan:<br>1) {plan0}<br>2) {plan1}<br>3) {plan2}<br>4) {plan3}{goalLine}";
   return tpl
     .replaceAll('{name}', escapeHtml(name))
     .replaceAll('{plan0}', escapeHtml(plan[0] || ''))
@@ -16365,8 +16468,7 @@ async function tryAiAction(input, user, options = {}) {
   }
 
   if (greetingInfo.hasGreeting && !greetingInfo.actionText) {
-    const displayName = getPreferredAiDisplayName(user) || getUserName(user) || "there";
-    return `${greetingInfo.greeting} ${displayName}! Tell me what you want to do, for example: play music, add task, or set reminder.`;
+    return null;
   }
 
   if (/^(?:what(?:'s|\s+is)\s+my\s+name|who\s+am\s+i)(?:\?)?$/i.test(effectiveMsg)) {
@@ -16985,7 +17087,7 @@ async function buildSmartAiResponse(input, user) {
   if (intent.key === "identity") {
     aiSessionState.lastIntent = "identity";
     return {
-      response: "I am NovaFix AI — your strategic assistant. I reason over your live dashboard data, retain relevant memory, compare options, and execute supported actions directly.",
+      response: "I am NovaFix AI — your personal assistant. I use your live dashboard data, remember useful context, compare options, and execute supported actions directly.",
       isHtml: false
     };
   }
@@ -17231,7 +17333,7 @@ async function buildSmartAiResponse(input, user) {
   const riskDrivers = buildWhySummary(snapshot, trendSignals).slice(0, 3);
 
   return {
-    response: `🧠 <b>Strategic synthesis</b><br><b>State</b>: score ${snapshot.score}/100, tasks ${snapshot.doneTasks}/${snapshot.totalTasks}, water ${snapshot.waterToday}/${snapshot.todayGoal}, sleep ${snapshot.sleepToday || 0}h.<br><b>Main constraints</b>: ${riskDrivers.join(" • ")}<br><b>Execution order</b>:<br>1) ${coachingMoves[0]}<br>2) ${coachingMoves[1]}<br>3) ${coachingMoves[2]}${personalGoal}<br><br>Ask for <i>deeper reasoning</i>, <i>A vs B</i>, or a <i>step-by-step plan</i>.`,
+    response: `🧠 <b>Here’s what I’m seeing</b><br><b>State</b>: score ${snapshot.score}/100, tasks ${snapshot.doneTasks}/${snapshot.totalTasks}, water ${snapshot.waterToday}/${snapshot.todayGoal}, sleep ${snapshot.sleepToday || 0}h.<br><b>Main constraints</b>: ${riskDrivers.join(" • ")}<br><b>Order to try</b>:<br>1) ${coachingMoves[0]}<br>2) ${coachingMoves[1]}<br>3) ${coachingMoves[2]}${personalGoal}<br><br>Ask for <i>deeper reasoning</i>, <i>A vs B</i>, or a <i>step-by-step plan</i>.`,
     isHtml: true
   };
 }
@@ -17383,7 +17485,6 @@ function buildMustDoBenefitBlock(baseText, baseIsHtml, inputText) {
   const opener = pickNonRepeatingVariant(AI_BENEFIT_PLAN_OPENERS, "benefit_plan_openers")
     || "Direct plan based on your current data:";
 
-  // Use strategic response templates so replies sound varied but remain data-driven.
   const strategicTpl = pickNonRepeatingVariant(AI_STRATEGIC_RESPONSE_POOL, 'strategic_mustdo') || null;
   const goalLine = aiSessionState.userFacts.goal ? (baseIsHtml ? `<br>🎯 Goal alignment: <i>${escapeHtml(aiSessionState.userFacts.goal)}</i>` : `\n\n🎯 Goal alignment: ${escapeHtml(aiSessionState.userFacts.goal)}`) : "";
   if (strategicTpl) {
@@ -17473,6 +17574,8 @@ function enforceAiResponseQuality(inputText, responseText, isHtml = false) {
 }
 
 function buildWhySuggestionLine(isHtml = true, suggestionText = "") {
+  return "";
+  /*
   const snapshot = aiSessionState.lastSnapshot || getWellnessSnapshot();
   const trend = buildTrendSignals();
   const reasons = [];
@@ -17517,11 +17620,108 @@ function buildWhySuggestionLine(isHtml = true, suggestionText = "") {
     return `<br><br><b>Why this suggestion</b>: ${shortReasons.join(" • ")}`;
   }
   return `\n\nWhy this suggestion: ${shortReasons.join(" • ")}`;
+  */
 }
 
 function setChatText(textNode, text, isHtml) {
-  if (isHtml) textNode.innerHTML = text;
-  else textNode.textContent = text;
+  if (isHtml) {
+    const readableHtml = formatChatHtml(text);
+    textNode.innerHTML = readableHtml;
+  }
+  else {
+    textNode.textContent = formatChatPlainText(text);
+  }
+}
+
+function formatChatPlainText(text) {
+  return String(text || "").replace(/\s+([1-9][.)])\s+/g, "\n\n$1 ");
+}
+
+function formatChatHtml(text) {
+  return String(text || "").replace(/(\s|>)([1-9][.)])\s+/g, "$1<br><br>$2 ");
+}
+
+function getAiTypingPreview(messageText, isHtml) {
+  if (!isHtml) return formatChatPlainText(messageText);
+  const preview = document.createElement("div");
+  preview.innerHTML = String(messageText || "");
+  preview.querySelectorAll("br").forEach((lineBreak) => lineBreak.replaceWith("\n"));
+  return formatChatPlainText(preview.textContent || "");
+}
+
+function scrollChatRowIntoView(row) {
+  if (!chat || !row) return;
+  const reveal = () => {
+    const chatRect = chat.getBoundingClientRect();
+    const rowRect = row.getBoundingClientRect();
+    const targetTop = chat.scrollTop + (rowRect.top - chatRect.top) - 8;
+    chat.scrollTo({ top: Math.max(0, targetTop), behavior: "auto" });
+  };
+  reveal();
+  requestAnimationFrame(reveal);
+  setTimeout(reveal, 0);
+  setTimeout(reveal, 80);
+}
+
+function renderAiTypingMessage() {
+  clearStatusState(chat);
+  const row = document.createElement("div");
+  row.className = "chat-message is-ai ai-typing-message";
+  row.setAttribute("aria-live", "polite");
+  row.setAttribute("aria-label", "Thinking");
+
+  const textNode = document.createElement("div");
+  textNode.className = "chat-text";
+  const indicator = document.createElement("span");
+  indicator.className = "ai-typing-indicator";
+  indicator.textContent = "Thinking";
+  const dot = document.createElement("span");
+  dot.className = "ai-typing-dot";
+  dot.setAttribute("aria-hidden", "true");
+  indicator.appendChild(dot);
+  textNode.appendChild(indicator);
+  row.appendChild(textNode);
+  chat.appendChild(row);
+  setAiClearButtonState(true);
+  updateAiLimitUI();
+  scrollChatRowIntoView(row);
+  return row;
+}
+
+function removeAiTypingMessage(row) {
+  if (row?.parentNode) row.remove();
+}
+
+async function revealAiResponse(row, messageText, isHtml) {
+  if (!row) return;
+  const safeOutput = applyAiOutputSafetyFilter(messageText, isHtml);
+  const displayText = safeOutput.text;
+  const displayIsHtml = safeOutput.isHtml;
+  const textNode = row.querySelector(".chat-text");
+  if (!textNode) return;
+
+  row.classList.remove("ai-typing-message");
+  row.setAttribute("aria-label", "AI response");
+  textNode.dataset.rawText = displayText;
+
+  const previewText = getAiTypingPreview(displayText, displayIsHtml);
+  const content = document.createElement("span");
+  content.className = "ai-typewriter-content";
+  const cursor = document.createElement("span");
+  cursor.className = "ai-typewriter-cursor";
+  cursor.setAttribute("aria-hidden", "true");
+  textNode.replaceChildren(content, cursor);
+
+  const typingText = `AI: ${previewText}`;
+  const delay = Math.max(22, Math.min(48, 5200 / Math.max(1, typingText.length)));
+  for (let index = 1; index <= typingText.length; index += 1) {
+    if (!row.isConnected) return;
+    content.textContent = typingText.slice(0, index);
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+
+  if (!row.isConnected) return;
+  setChatText(textNode, `AI: ${displayText}`, displayIsHtml);
 }
 
 function renderChatMessage(role, messageText, isHtml, chatId, fieldName) {
@@ -17555,7 +17755,12 @@ function renderChatMessage(role, messageText, isHtml, chatId, fieldName) {
   chat.appendChild(row);
   setAiClearButtonState(true);
   updateAiLimitUI();
-  chat.scrollTop = chat.scrollHeight;
+  if (role === "user") {
+    chat.scrollTop = chat.scrollHeight;
+  } else {
+    scrollChatRowIntoView(row);
+  }
+  return row;
 }
 
 async function editChatMessage(chatId, fieldName, textNode, role) {
@@ -17910,15 +18115,19 @@ async function aiChat(){
 
   aiChatSubmitting = true;
   if (aiTalkBtn) aiTalkBtn.disabled = true;
+  aiInput.value = "";
+  const userRow = renderChatMessage("user", input, false, null, null);
+  const typingRow = renderAiTypingMessage();
+  const typingStartedAt = Date.now();
 
   try {
     await ensureAiUsageCurrent(user.uid);
     const dailyLimit = getCurrentAiDailyLimit();
     const quotaResult = await reserveAiQuota(user.uid, dailyLimit);
     if (!quotaResult.ok) {
+      removeAiTypingMessage(typingRow);
       renderChatMessage("ai", buildDailyLimitCountdownMessage("Daily AI limit reached for now"), false, null, null);
       updateAiLimitUI();
-      aiInput.value = "";
       return;
     }
 
@@ -17948,20 +18157,31 @@ async function aiChat(){
       const chatId = await storeAiChat(user.uid, input, response, responseIsHtml);
       if (!chatId) {
         await rollbackAiQuota(user.uid);
+        removeAiTypingMessage(typingRow);
+        renderChatMessage("ai", "I could not save that response. Please try again.", false, null, null);
         return;
       }
 
-      renderChatPair({
-        id: chatId,
-        userMessage: input,
-        aiResponse: response,
-        aiResponseIsHtml: responseIsHtml
-      });
+      const savedUserTextNode = userRow?.querySelector(".chat-text");
+      const savedUserEditButton = userRow?.querySelector(".chat-edit-btn");
+      if (savedUserTextNode && savedUserEditButton) {
+        savedUserEditButton.onclick = () => editChatMessage(chatId, "userMessage", savedUserTextNode, "user");
+      }
+
+      const remainingTypingMs = Math.max(0, 1400 - (Date.now() - typingStartedAt));
+      if (remainingTypingMs) {
+        await new Promise((resolve) => setTimeout(resolve, remainingTypingMs));
+      }
+      await revealAiResponse(typingRow, response, responseIsHtml);
+      aiSessionState.memoryPairs.push({ user: input, ai: response });
+      if (aiSessionState.memoryPairs.length > 24) {
+        aiSessionState.memoryPairs.splice(0, aiSessionState.memoryPairs.length - 24);
+      }
       updateAiLimitUI();
       updateClearDataButtonState();
-      aiInput.value="";
     } catch (err) {
       await rollbackAiQuota(user.uid);
+      removeAiTypingMessage(typingRow);
       renderChatMessage("ai", "I hit a quick issue processing that. Please try once more.", false, null, null);
       notifyFirestoreError(err);
     }
@@ -21213,9 +21433,25 @@ const dailyChallenges = [
   "Do a 5-minute stretching routine before sleep."
 ];
 
+function isChallengeTimeAppropriate(challengeText = "", now = getServerNowDate()) {
+  const text = String(challengeText || "").toLowerCase();
+  if (!text) return true;
+
+  // A challenge with a same-day deadline should not remain active after that deadline.
+  if (/\bbefore noon\b/.test(text)) return now.getUTCHours() < 12;
+  return true;
+}
+
+function getTimeAwareChallengePool(excludeText = "") {
+  const eligible = dailyChallenges.filter((entry) => (
+    String(entry || "") !== String(excludeText || "")
+    && isChallengeTimeAppropriate(entry)
+  ));
+  return eligible.length ? eligible : dailyChallenges.filter((entry) => String(entry || "") !== String(excludeText || ""));
+}
+
 function pickFreshDailyChallengeText(excludeText = "") {
-  const filtered = dailyChallenges.filter((entry) => String(entry || "") !== String(excludeText || ""));
-  const pool = filtered.length ? filtered : dailyChallenges;
+  const pool = getTimeAwareChallengePool(excludeText);
   const index = Math.floor(Math.random() * pool.length);
   return pool[index] || pickChallengeForDate(getTodayKey());
 }
@@ -21317,8 +21553,11 @@ async function loadDailyChallenge(userId) {
     if (challengeSettingsSnap.exists()) {
       const settings = challengeSettingsSnap.data();
       if (settings.dateKey === todayKey) {
-        challenge = settings.challenge || challenge;
-        completed = !!settings.completed;
+        const savedChallenge = String(settings.challenge || "");
+        if (isChallengeTimeAppropriate(savedChallenge)) {
+          challenge = savedChallenge || challenge;
+          completed = !!settings.completed;
+        }
       }
     }
 

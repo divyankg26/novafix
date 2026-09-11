@@ -212,6 +212,13 @@ textarea:focus-visible{
   background-repeat:no-repeat;
 }
 
+#reminderUnit{
+  box-sizing:border-box;
+  font-size:14px;
+  line-height:1.35;
+  padding:10px 36px 10px 10px;
+}
+
 #reminderUnit option,
 #mood option,
 #gCurrency option{
@@ -476,10 +483,55 @@ textarea:focus-visible{
   background:linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.1));
 }
 
+.ai-typing-message{
+  align-items:center;
+}
+
+.ai-typing-indicator{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  color:rgba(255,255,255,.82);
+  font-size:13px;
+  font-style:italic;
+}
+
+.ai-typing-dot,
+.ai-typewriter-cursor{
+  display:inline-block;
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:var(--accent);
+  box-shadow:0 0 10px rgba(128,44,92,.62);
+  animation:aiTypingDotPulse 760ms ease-in-out infinite;
+  vertical-align:middle;
+}
+
+.ai-typewriter-content{
+  white-space:pre-wrap;
+}
+
+.ai-typewriter-cursor{
+  margin-left:4px;
+}
+
+@keyframes aiTypingDotPulse{
+  0%,100%{
+    opacity:.45;
+    transform:translateY(1px) scale(.72);
+  }
+  50%{
+    opacity:1;
+    transform:translateY(-4px) scale(1.35);
+  }
+}
+
 .chat-text{
   font-size:14px;
   line-height:1.45;
   word-break:break-word;
+  white-space:pre-wrap;
 }
 
 .chat-edit-btn{
