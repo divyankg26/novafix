@@ -166,6 +166,13 @@ const FIRESTORE_SCHEMAS = {
       updatedAt: 'timestamp'
     }
   },
+  wellnessTaskCache: {
+    types: {
+      dateKey: 'string',
+      completedTaskIds: 'array',
+      updatedAt: 'timestamp'
+    }
+  },
   moods: {
     types: {
       mood: 'string',
@@ -1965,6 +1972,7 @@ async function clearAllAccountData() {
     await fsDeleteDoc(doc(db, "users", user.uid, "settings", "sleep")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/settings/sleep` }));
     await fsDeleteDoc(doc(db, "users", user.uid, "settings", "water")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/settings/water` }));
     await fsDeleteDoc(doc(db, "users", user.uid, "settings", "dailyChallenge")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/settings/dailyChallenge` }));
+    await fsDeleteDoc(doc(db, "users", user.uid, "settings", "wellnessTaskCache")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/settings/wellnessTaskCache` }));
     await fsDeleteDoc(doc(db, "users", user.uid, "settings", "weeklyTargets")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/settings/weeklyTargets` }));
     await fsDeleteDoc(doc(db, "users", user.uid, "settings", "habitQuest")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/settings/habitQuest` }));
     await fsDeleteDoc(doc(db, "users", user.uid, "settings", "startupPack")).catch((err) => structuredLog('warn', 'fs.delete.silent', err?.message || String(err), { path: `users/${user?.uid}/settings/startupPack` }));
@@ -2070,6 +2078,7 @@ async function clearAllAccountData() {
     waterDates.length = 0;
     sleepDates.length = 0;
     taskEntries.length = 0;
+    resetLocalWellnessTaskCompletionCache(getTodayKey());
     gratitudeEntries.length = 0;
     challengeDates.length = 0;
     aiRecentPrompts.length = 0;
@@ -5860,8 +5869,9 @@ function calculateWellnessScoreValue() {
   const moodFactor = Number(getMoodStateMeta(moodToday).wellnessFactor) || 0;
   const moodPoints = Math.round(moodFactor * 20);
 
-  const totalTasks = taskEntries.length;
-  const doneTasks = taskEntries.filter((entry) => !!entry.completed).length;
+  const taskScoreCounts = getWellnessTaskScoreCounts();
+  const totalTasks = taskScoreCounts.totalTasks;
+  const doneTasks = taskScoreCounts.doneTasks;
   const taskRatio = totalTasks ? doneTasks / totalTasks : 0;
   const taskPoints = Math.round(taskRatio * 15);
 
@@ -8768,6 +8778,10 @@ const sleepDates=[];
 const musicSessionDates=[];
 const musicSessionDayKeys = new Set();
 const taskEntries=[];
+let wellnessTaskCompletionCache = {
+  dateKey: "",
+  completedTaskIds: []
+};
 const gratitudeEntries=[];
 const rescueEvents=[];
 const habitQuests=[];
@@ -10711,6 +10725,57 @@ function pickRandomQuests(pool, count) {
   return shuffled.slice(0, count);
 }
 
+function getHabitQuestSemanticKey(quest = {}) {
+  const requirement = quest && typeof quest.requirement === "object" && quest.requirement
+    ? quest.requirement
+    : {};
+  let kind = String(requirement.kind || "").trim().toLowerCase();
+
+  if (!kind) {
+    const baseId = String(quest.baseId || quest.id || "").toLowerCase();
+    if (baseId.startsWith("water")) kind = "water";
+    else if (baseId.startsWith("sleep")) kind = "sleep";
+    else if (baseId.startsWith("grat")) kind = "gratitude";
+    else if (baseId.startsWith("mood")) kind = "mood";
+    else if (baseId.startsWith("task")) kind = "tasksall";
+    else if (baseId.startsWith("challenge")) kind = "challenge";
+    else if (baseId.startsWith("rescue")) kind = "rescue";
+    else kind = String(quest.type || "general").trim().toLowerCase();
+  }
+
+  kind = kind.replace(/\s+/g, "");
+  if (["water", "sleep", "gratitude", "rescue", "taskscompleted"].includes(kind)) {
+    const minimum = Number(requirement.min);
+    return `${kind}:${Number.isFinite(minimum) ? minimum : 1}`;
+  }
+  return kind || "general";
+}
+
+function pickUniqueAdaptiveQuestItems(pool, count) {
+  const selected = [];
+  const seenKeys = new Set();
+
+  pickRandomQuests(pool, pool.length).forEach((item) => {
+    const key = getHabitQuestSemanticKey(item);
+    if (seenKeys.has(key) || selected.length >= count) return;
+    seenKeys.add(key);
+    selected.push(item);
+  });
+
+  return selected;
+}
+
+function createHabitQuestEntry(item, todayKey, index, completed = false) {
+  return {
+    id: `${item.id}-${todayKey}-${index + 1}`,
+    baseId: item.id,
+    text: item.text,
+    type: item.type,
+    requirement: item.requirement || null,
+    completed: !!completed
+  };
+}
+
 function generateAdaptiveQuests(todayKey = getTodayKey()) {
   const weekStartKey = getQuestWeekStartKeySunday();
   if (questWeekStartKey !== weekStartKey) {
@@ -10721,14 +10786,8 @@ function generateAdaptiveQuests(todayKey = getTodayKey()) {
     questLastStreakDateKey = "";
   }
 
-  const selected = pickRandomQuests(QUEST_LIBRARY, 4).map((item, index) => ({
-    id: `${item.id}-${todayKey}-${index + 1}`,
-    baseId: item.id,
-    text: item.text,
-    type: item.type,
-    requirement: item.requirement || null,
-    completed: false
-  }));
+  const selected = pickUniqueAdaptiveQuestItems(QUEST_LIBRARY, 4)
+    .map((item, index) => createHabitQuestEntry(item, todayKey, index));
 
   habitQuests.length = 0;
   selected.forEach((quest) => habitQuests.push(quest));
@@ -10903,18 +10962,44 @@ async function loadHabitQuest(userId) {
       normalizeQuestStreakForToday(questDateKey);
 
       if (data.dateKey === questDateKey && Array.isArray(data.quests) && data.quests.length >= 4) {
-        habitQuests.length = 0;
+        const loadedQuests = [];
+        const seenKeys = new Set();
+
         data.quests.forEach((quest) => {
-          const baseId = String(quest.baseId || String(quest.id || "").split("-")[0] || "");
-          habitQuests.push({
+          const normalizedQuest = {
             id: String(quest.id || ""),
-            baseId,
+            baseId: String(quest.baseId || String(quest.id || "").split("-")[0] || ""),
             text: String(quest.text || "Daily quest"),
             type: String(quest.type || "general"),
             requirement: quest.requirement || null,
             completed: !!quest.completed
-          });
+          };
+          const key = getHabitQuestSemanticKey(normalizedQuest);
+          if (seenKeys.has(key) || loadedQuests.length >= 4) return;
+          seenKeys.add(key);
+          loadedQuests.push(normalizedQuest);
         });
+
+        const replacementPool = QUEST_LIBRARY.filter((item) => !seenKeys.has(getHabitQuestSemanticKey(item)));
+        pickUniqueAdaptiveQuestItems(replacementPool, Math.max(0, 4 - loadedQuests.length))
+          .forEach((item, index) => {
+            loadedQuests.push(createHabitQuestEntry(item, questDateKey, loadedQuests.length + index));
+          });
+
+        if (loadedQuests.length >= 4) {
+          habitQuests.length = 0;
+          loadedQuests.slice(0, 4).forEach((quest) => habitQuests.push(quest));
+          if (loadedQuests.length !== data.quests.length || data.quests.some((quest, index) => {
+            return getHabitQuestSemanticKey(quest) !== getHabitQuestSemanticKey(loadedQuests[index]);
+          })) {
+            await saveHabitQuestState(userId);
+          }
+        } else {
+          questXp = 0;
+          questShieldAvailable = false;
+          generateAdaptiveQuests(questDateKey);
+          await saveHabitQuestState(userId);
+        }
       } else {
         questXp = 0;
         questShieldAvailable = false;
@@ -11746,8 +11831,9 @@ async function ensureDailyChallengeCurrent(userId, todayKey = getTodayKey()) {
     const activeBeforeWrite = auth.currentUser;
     if (!activeBeforeWrite || activeBeforeWrite.uid !== userId) return;
 
+    const currentChallenge = String(challengeSnap.data?.challenge || "");
     const currentDateKey = String(challengeSnap.data?.dateKey || "");
-    if (currentDateKey === todayKey) return;
+    if (currentDateKey === todayKey && isChallengeTimeAppropriate(currentChallenge)) return;
 
     await safeSetDoc(challengeRef, {
       challenge: pickChallengeForDate(todayKey),
@@ -12518,6 +12604,7 @@ function scheduleMoodDailyReset(userId) {
 async function resetTaskDayData(userId) {
   const activeUser = auth.currentUser;
   if (!activeUser || activeUser.uid !== userId) return;
+  await resetWellnessTaskCompletionCache(userId, getTodayKey());
   await Promise.allSettled([
     loadTasks(userId),
     ensureDailyUsageCurrent(userId, { skipReminderRefresh: true })
@@ -12565,6 +12652,7 @@ function hasWellnessScoreInputToday(todayKey = getTodayKey()) {
     || hasMoodToday
     || hasGratitudeToday
     || hasTaskActivityToday
+    || (wellnessTaskCompletionCache.dateKey === todayKey && wellnessTaskCompletionCache.completedTaskIds.length > 0)
     || !!dailyChallengeCompleted;
 }
 
@@ -12625,6 +12713,23 @@ function closeWellnessScoreInfoModal(event) {
   if (wellnessScoreInfoModal) wellnessScoreInfoModal.style.display = "none";
 }
 
+function getWellnessSuggestionKey(entryOrText = "") {
+  const category = entryOrText && typeof entryOrText === "object"
+    ? String(entryOrText.category || "").trim().toLowerCase()
+    : "";
+  const text = String(
+    entryOrText && typeof entryOrText === "object" ? entryOrText.text || "" : entryOrText || ""
+  ).toLowerCase();
+  if (/\b(water|hydrate|hydration|glass|cups?|drink)\b/.test(text)) return "water";
+  if (/\b(gratitude|grateful|thankful)\b/.test(text)) return "gratitude";
+  if (/\b(sleep|bedtime|sleep window|wind[- ]down)\b/.test(text)) return "sleep";
+  if (/\b(task|pending|focus sprint|work block)\b/.test(text)) return "tasks";
+  if (/\b(mood|breath|breathing|rescue|calm|walk)\b/.test(text)) return "mood";
+  if (/\bchallenge\b/.test(text)) return "challenge";
+  if (category) return category;
+  return `text:${text.replace(/\s+/g, " ").trim()}`;
+}
+
 function updateWellnessScore() {
   const todayKey = getTodayKey();
 
@@ -12652,8 +12757,9 @@ function updateWellnessScore() {
   const moodFactor = Number(moodMeta.wellnessFactor) || 0;
   const moodPoints = Math.round(moodFactor * 20);
 
-  const totalTasks = taskEntries.length;
-  const doneTasks = taskEntries.filter((entry) => !!entry.completed).length;
+  const taskScoreCounts = getWellnessTaskScoreCounts();
+  const totalTasks = taskScoreCounts.totalTasks;
+  const doneTasks = taskScoreCounts.doneTasks;
   const taskRatio = totalTasks ? doneTasks / totalTasks : 0;
   const taskPoints = Math.round(taskRatio * 15);
 
@@ -12798,12 +12904,12 @@ function updateWellnessScore() {
   rankedActions.sort((a, b) => b.score - a.score || b.urgency - a.urgency || a.text.localeCompare(b.text));
 
   const uniqueActions = [];
-  const seenCategories = new Set();
+  const seenSuggestionKeys = new Set();
   rankedActions.forEach((entry) => {
-    const category = String(entry.category || entry.text || "").toLowerCase();
-    if (seenCategories.has(category)) return;
-    seenCategories.add(category);
-    uniqueActions.push(entry.text);
+    const key = getWellnessSuggestionKey(entry);
+    if (seenSuggestionKeys.has(key)) return;
+    seenSuggestionKeys.add(key);
+    uniqueActions.push({ text: entry.text, key });
   });
 
   const fallbackActions = [
@@ -12814,12 +12920,28 @@ function updateWellnessScore() {
     "Set tonight’s sleep target before you log off."
   ];
 
-  const primaryAction = uniqueActions[0] || "Protect momentum with one quick check-in now.";
-  const secondaryActions = uniqueActions.slice(1, 6);
+  const primaryAction = uniqueActions[0]?.text || "Protect momentum with one quick check-in now.";
+  const secondaryActions = uniqueActions.slice(1, 6).map((entry) => entry.text);
+  const usedSuggestionKeys = new Set(uniqueActions.slice(0, 6).map((entry) => entry.key));
+
+  fallbackActions.forEach((fallback) => {
+    if (secondaryActions.length >= 5) return;
+    const key = getWellnessSuggestionKey(fallback);
+    if (usedSuggestionKeys.has(key)) return;
+    usedSuggestionKeys.add(key);
+    secondaryActions.push(fallback);
+  });
+
+  let fillerIndex = 0;
   while (secondaryActions.length < 5) {
-    const nextFallback = fallbackActions[secondaryActions.length] || "Keep your current streak alive with one small check-in.";
-    if (!secondaryActions.includes(nextFallback)) secondaryActions.push(nextFallback);
-    else secondaryActions.push("Keep your current streak alive with one small check-in.");
+    const filler = fillerIndex === 0
+      ? "Keep your current streak alive with one small check-in."
+      : `Keep your momentum with check-in ${fillerIndex + 1}.`;
+    const key = `filler:${fillerIndex}`;
+    fillerIndex += 1;
+    if (usedSuggestionKeys.has(key)) continue;
+    usedSuggestionKeys.add(key);
+    secondaryActions.push(filler);
   }
 
   if (wellnessDoNowEl) {
@@ -12856,7 +12978,8 @@ function getCrashRiskSnapshot() {
 
   const totalTasks = taskEntries.length;
   const doneTasks = taskEntries.filter((entry) => !!entry.completed).length;
-  const pendingRatio = totalTasks ? Math.max(0, (totalTasks - doneTasks) / totalTasks) : 0;
+  const pendingTasks = Math.max(0, totalTasks - doneTasks);
+  const pendingRatio = totalTasks ? Math.max(0, pendingTasks / totalTasks) : 0;
   const gratitudeToday = gratitudeEntries.some((entry) => dateToKey(entry.time) === todayKey);
   const hasNonTaskLogToday = hasWaterLoggedToday
     || hasSleepLoggedToday
@@ -12916,7 +13039,7 @@ function getCrashRiskSnapshot() {
 
   const taskRisk = Math.round(pendingRatio * 20);
   risk += taskRisk;
-  if (taskRisk >= 10) reasons.push("Too many pending tasks");
+  if (pendingTasks >= 4 && taskRisk >= 10) reasons.push("Too many pending tasks");
 
   if (!gratitudeToday) risk += 6;
   if (!dailyChallengeCompleted) risk += 4;
@@ -14343,11 +14466,11 @@ const AI_CAPABILITIES_BASE = [
 ];
 
 const AI_FALLBACK_BASE = [
-  "Got you 😌 quick move right now: {move}",
-  "Alright — quick move to start: {move}",
-  "I got you. Try this now: {move}",
-  "Here is a quick move to start: {move}",
-  "Quick move to keep momentum: {move}"
+  "Sorry, I didn’t understand that. Could you rephrase it?",
+  "Sorry, I missed what you meant. Please try saying it another way.",
+  "Sorry, I’m not sure what you’re asking yet. Could you rephrase it?",
+  "Sorry, I couldn’t match that to something I can do. Try asking again in a different way.",
+  "Sorry, I didn’t catch that. Please try a clearer version."
 ];
 
 const AI_LOW_EMOTION_BASE = [
@@ -14742,7 +14865,7 @@ function classifyIntent(input) {
     { key: "smalltalk-activity", score: /\b(what are you doing|what are u doing|wyd|wyd rn|what you doing|what you up to)\b/.test(msg) ? 0.97 : 0 },
     {
       key: "date-local",
-      score: /\b(what(?:'s| is)\s+(?:the\s+)?(?:day|date|time)(?:\s+is)?(?:\s+it)?(?:\s+today)?|what\s+day\s+is\s+it|what\s+date\s+is\s+it|what\s+time\s+is\s+it|today(?:'s)?\s+(?:day|date)|which\s+(?:day|date)\s+is\s+it|day\s*\/\s*date\b)\b/.test(msg)
+      score: /\b(what(?:['’]s|s| is)\s+(?:the\s+)?(?:day|date|time)(?:\s+is)?(?:\s+it)?(?:\s+today)?|what\s+day\s+is\s+it|what\s+date\s+is\s+it|what\s+time\s+is\s+it|today(?:['’]s)?\s+(?:day|date)|which\s+(?:day|date)\s+is\s+it|day\s*\/\s*date\b)\b/.test(msg)
         ? 0.995
         : 0
     },
@@ -15247,21 +15370,7 @@ function buildCasualAiResponse(context) {
 }
 
 function buildUltraFallback(snapshot, name) {
-  const plan = buildDeepPlan(snapshot);
-  const goalLine = aiSessionState.userFacts.goal
-    ? `<br>🎯 Goal alignment: <i>${escapeHtml(aiSessionState.userFacts.goal)}</i>`
-    : "";
-  const tpl = pickNonRepeatingVariant(AI_STRATEGIC_RESPONSE_POOL, 'strategic_fallback') || "Hey {name}, here is a practical plan:<br>1) {plan0}<br>2) {plan1}<br>3) {plan2}<br>4) {plan3}{goalLine}";
-  return tpl
-    .replaceAll('{name}', escapeHtml(name))
-    .replaceAll('{plan0}', escapeHtml(plan[0] || ''))
-    .replaceAll('{plan1}', escapeHtml(plan[1] || ''))
-    .replaceAll('{plan2}', escapeHtml(plan[2] || ''))
-    .replaceAll('{plan3}', escapeHtml(plan[3] || ''))
-    .replaceAll('{goalLine}', goalLine)
-    .replaceAll('{outcomeTonight}', escapeHtml(buildImmediateBenefitOutcome(snapshot, plan[0]) || ''))
-    .replaceAll('{tomorrowCheckpoint}', escapeHtml(buildTomorrowCheckpoint(snapshot) || ''))
-    .replaceAll('{why}', buildWhySuggestionLine(true, tpl));
+  return pickNonRepeatingVariant(AI_FALLBACK_POOL, "fallback") || AI_FALLBACK_BASE[0];
 }
 
 function buildKnowledgeAnswer(input) {
@@ -15835,6 +15944,90 @@ function getTodaySleep() {
     const dateKey = dateToKey(sleepDates[index]);
     return dateKey === todayKey ? value : lastSleep;
   }, 0);
+}
+
+function resetLocalWellnessTaskCompletionCache(dateKey = getTodayKey()) {
+  wellnessTaskCompletionCache = {
+    dateKey: String(dateKey || getTodayKey()),
+    completedTaskIds: []
+  };
+}
+
+function getWellnessTaskCacheGhostIds() {
+  const activeTaskIds = new Set(
+    taskEntries
+      .map((entry) => String(entry?.id || "").trim())
+      .filter(Boolean)
+  );
+  return wellnessTaskCompletionCache.completedTaskIds.filter((taskId) => !activeTaskIds.has(taskId));
+}
+
+function getWellnessTaskScoreCounts() {
+  const ghostCompletedCount = getWellnessTaskCacheGhostIds().length;
+  const completedCount = taskEntries.filter((entry) => !!entry.completed).length;
+  return {
+    totalTasks: taskEntries.length + ghostCompletedCount,
+    doneTasks: completedCount + ghostCompletedCount
+  };
+}
+
+async function saveWellnessTaskCompletionCache(userId) {
+  if (!userId || wellnessTaskCompletionCache.dateKey !== getTodayKey()) return;
+
+  await fsSetDoc(doc(db, "users", userId, "settings", "wellnessTaskCache"), {
+    dateKey: wellnessTaskCompletionCache.dateKey,
+    completedTaskIds: [...new Set(wellnessTaskCompletionCache.completedTaskIds)].slice(-200),
+    updatedAt: serverTimestamp()
+  }, "wellnessTaskCache", { merge: true });
+}
+
+async function loadWellnessTaskCompletionCache(userId) {
+  const todayKey = getTodayKey();
+  resetLocalWellnessTaskCompletionCache(todayKey);
+  if (!userId) return;
+
+  try {
+    const snapshot = await fsGetDoc(doc(db, "users", userId, "settings", "wellnessTaskCache"), "wellnessTaskCache");
+    const data = snapshot.exists ? (snapshot.data || {}) : {};
+    const storedDateKey = String(data.dateKey || "");
+    if (storedDateKey === todayKey) {
+      wellnessTaskCompletionCache = {
+        dateKey: todayKey,
+        completedTaskIds: Array.isArray(data.completedTaskIds)
+          ? data.completedTaskIds.map((id) => String(id || "").trim()).filter(Boolean)
+          : []
+      };
+      return;
+    }
+
+    await saveWellnessTaskCompletionCache(userId);
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+}
+
+async function rememberCompletedTaskForWellness(userId, taskId) {
+  const safeTaskId = String(taskId || "").trim();
+  if (!userId || !safeTaskId) return;
+  const todayKey = getTodayKey();
+  if (wellnessTaskCompletionCache.dateKey !== todayKey) resetLocalWellnessTaskCompletionCache(todayKey);
+  if (!wellnessTaskCompletionCache.completedTaskIds.includes(safeTaskId)) {
+    wellnessTaskCompletionCache.completedTaskIds.push(safeTaskId);
+    await saveWellnessTaskCompletionCache(userId);
+  }
+}
+
+async function forgetCompletedTaskForWellness(userId, taskId) {
+  const safeTaskId = String(taskId || "").trim();
+  if (!userId || !safeTaskId) return;
+  wellnessTaskCompletionCache.completedTaskIds = wellnessTaskCompletionCache.completedTaskIds.filter((id) => id !== safeTaskId);
+  await saveWellnessTaskCompletionCache(userId);
+}
+
+async function resetWellnessTaskCompletionCache(userId, dateKey = getTodayKey()) {
+  resetLocalWellnessTaskCompletionCache(dateKey);
+  if (!userId) return;
+  await saveWellnessTaskCompletionCache(userId);
 }
 
 function getWellnessSnapshot() {
@@ -17324,9 +17517,10 @@ async function buildSmartAiResponse(input, user) {
   const personalGoal = aiSessionState.userFacts.goal ? `<br>🎯 Your stated goal: <i>${escapeHtml(aiSessionState.userFacts.goal)}</i>` : "";
 
   if (modePreset.style === "ultra") {
+    const unknownReply = pickNonRepeatingVariant(AI_FALLBACK_POOL, "fallback") || AI_FALLBACK_BASE[0];
     return {
-      response: buildUltraFallback(snapshot, name),
-      isHtml: true
+      response: unknownReply,
+      isHtml: false
     };
   }
 
@@ -17663,7 +17857,7 @@ function scrollChatRowIntoView(row) {
   setTimeout(reveal, 80);
 }
 
-function renderAiTypingMessage() {
+function renderAiTypingMessage(anchorRow = null) {
   clearStatusState(chat);
   const row = document.createElement("div");
   row.className = "chat-message is-ai ai-typing-message";
@@ -17681,7 +17875,11 @@ function renderAiTypingMessage() {
   indicator.appendChild(dot);
   textNode.appendChild(indicator);
   row.appendChild(textNode);
-  chat.appendChild(row);
+  if (anchorRow?.parentNode === chat) {
+    anchorRow.insertAdjacentElement("afterend", row);
+  } else {
+    chat.appendChild(row);
+  }
   setAiClearButtonState(true);
   updateAiLimitUI();
   scrollChatRowIntoView(row);
@@ -17796,6 +17994,19 @@ async function editChatMessage(chatId, fieldName, textNode, role) {
 
   if (!user || !chatId) return;
 
+  const editedRow = textNode.closest(".chat-message");
+  if (editedRow?.parentNode === chat) {
+    let followingRow = editedRow.nextElementSibling;
+    while (followingRow) {
+      const rowToRemove = followingRow;
+      followingRow = followingRow.nextElementSibling;
+      rowToRemove.remove();
+    }
+  }
+
+  const typingRow = renderAiTypingMessage(editedRow);
+  const typingStartedAt = Date.now();
+
   try {
     const snapshot = await getDocs(collection(db, "users", user.uid, "aiChats"));
     const chatEntries = snapshot.docs
@@ -17807,7 +18018,10 @@ async function editChatMessage(chatId, fieldName, textNode, role) {
       });
 
     const editedIndex = chatEntries.findIndex((entry) => entry.id === chatId);
-    if (editedIndex < 0) return;
+    if (editedIndex < 0) {
+      removeAiTypingMessage(typingRow);
+      return;
+    }
 
     const smart = await buildSmartAiResponse(nextText, user);
     const safeEdited = applyAiOutputSafetyFilter(smart.response, smart.isHtml);
@@ -17820,15 +18034,26 @@ async function editChatMessage(chatId, fieldName, textNode, role) {
 
     const entriesAfterEdited = chatEntries.slice(editedIndex + 1);
     if (entriesAfterEdited.length) {
-      await Promise.all(
-        entriesAfterEdited.map((entry) =>
-          deleteDoc(doc(db, "users", user.uid, "aiChats", entry.id))
-        )
-      );
+      await Promise.all(entriesAfterEdited.map((entry) => deleteDoc(doc(db, "users", user.uid, "aiChats", entry.id))));
     }
 
-    await loadAiChats(user.uid);
+    const remainingTypingMs = Math.max(0, 1400 - (Date.now() - typingStartedAt));
+    if (remainingTypingMs) {
+      await new Promise((resolve) => setTimeout(resolve, remainingTypingMs));
+    }
+    await revealAiResponse(typingRow, safeEdited.text, safeEdited.isHtml);
+
+    aiSessionState.memoryPairs = chatEntries
+      .slice(0, editedIndex)
+      .map((entry) => ({ user: String(entry.userMessage || ""), ai: String(entry.aiResponse || "") }));
+    aiSessionState.memoryPairs.push({ user: nextText, ai: String(safeEdited.text || "") });
+    if (aiSessionState.memoryPairs.length > 24) {
+      aiSessionState.memoryPairs.splice(0, aiSessionState.memoryPairs.length - 24);
+    }
+    updateClearDataButtonState();
   } catch (err) {
+    removeAiTypingMessage(typingRow);
+    renderChatMessage("ai", "I hit a quick issue processing that edit. Please try once more.", false, null, null);
     notifyFirestoreError(err);
   }
 }
@@ -18547,6 +18772,13 @@ function renderTask(entry, options = {}) {
         completed: entry.completed,
         completedAt: entry.completed ? serverTimestamp() : null
       }, 'tasks');
+      if (entry.completed) {
+        await rememberCompletedTaskForWellness(user.uid, entry.id);
+      } else {
+        await forgetCompletedTaskForWellness(user.uid, entry.id);
+      }
+      updateWellnessScore();
+      updateCrashPreventionUI();
     } catch (err) {
       notifyFirestoreError(err);
     }
@@ -18583,11 +18815,16 @@ function renderTask(entry, options = {}) {
       return;
     }
     try {
+      if (entry.completed) {
+        await rememberCompletedTaskForWellness(user.uid, entry.id);
+      }
       await fsDeleteDoc(doc(db, "users", user.uid, "tasks", entry.id));
       const listIndex = taskEntries.findIndex((taskItem) => taskItem.id === entry.id);
       if (listIndex >= 0) taskEntries.splice(listIndex, 1);
       renderTaskList();
       updateInsights();
+      updateWellnessScore();
+      updateCrashPreventionUI();
       updateTaskLimitUI();
     } catch (err) {
       notifyFirestoreError(err);
@@ -18607,6 +18844,7 @@ async function loadTasks(userId) {
   taskList.innerHTML = "";
   taskEntries.length = 0;
   try {
+    await loadWellnessTaskCompletionCache(userId);
     const snapshot = await getDocs(collection(db, "users", userId, "tasks"));
     const docs = snapshot.docs
       .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
@@ -18623,6 +18861,22 @@ async function loadTasks(userId) {
       };
       taskEntries.push(normalized);
     });
+
+    const activeTaskIds = new Set(taskEntries.map((entry) => String(entry.id || "").trim()).filter(Boolean));
+    const activeCompletedIds = new Set(
+      taskEntries
+        .filter((entry) => !!entry.completed)
+        .map((entry) => String(entry.id || "").trim())
+        .filter(Boolean)
+    );
+    const reconciledIds = [...new Set(
+      wellnessTaskCompletionCache.completedTaskIds.filter((id) => !activeTaskIds.has(id) || activeCompletedIds.has(id))
+    )];
+    if (reconciledIds.join("|") !== wellnessTaskCompletionCache.completedTaskIds.join("|")) {
+      wellnessTaskCompletionCache.completedTaskIds = reconciledIds;
+      await saveWellnessTaskCompletionCache(userId);
+    }
+
     renderTaskList();
     updateTaskLimitUI();
     updateInsights();
