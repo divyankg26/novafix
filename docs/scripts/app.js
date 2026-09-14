@@ -2820,6 +2820,7 @@ function scheduleGoogleIdentityUsernameAvailabilityCheck() {
 
       if (!exists) {
         showGoogleIdentityError("Username is available.", "#7CFFB2");
+        return;
       }
 
       const activeUid = String(auth.currentUser?.uid || "").trim();
@@ -10689,12 +10690,6 @@ const QUEST_LIBRARY = [
   { id: "challenge_3", text: "Secure your day by completing today’s challenge.", type: "consistency", requirement: { kind: "challenge" } },
   { id: "challenge_4", text: "Check off the daily challenge before day-end.", type: "consistency", requirement: { kind: "challenge" } },
 
-  { id: "rescue1_1", text: "Run one mood crash rescue today.", type: "resilience", requirement: { kind: "rescue", min: 1 } },
-  { id: "rescue1_2", text: "Complete 1 rescue action today.", type: "resilience", requirement: { kind: "rescue", min: 1 } },
-  { id: "rescue2_1", text: "Run two mood crash rescues today.", type: "resilience", requirement: { kind: "rescue", min: 2 } },
-  { id: "rescue2_2", text: "Do 2 rescue interventions today.", type: "resilience", requirement: { kind: "rescue", min: 2 } },
-  { id: "rescue3_1", text: "Run three mood crash rescues today.", type: "resilience", requirement: { kind: "rescue", min: 3 } },
-  { id: "rescue3_2", text: "Complete 3 rescue attempts today.", type: "resilience", requirement: { kind: "rescue", min: 3 } }
 ];
 
 function getQuestWeekStartKeySunday(dateValue = getServerNowDate()) {
@@ -10975,6 +10970,7 @@ async function loadHabitQuest(userId) {
             completed: !!quest.completed
           };
           const key = getHabitQuestSemanticKey(normalizedQuest);
+          if (key.startsWith("rescue:")) return;
           if (seenKeys.has(key) || loadedQuests.length >= 4) return;
           seenKeys.add(key);
           loadedQuests.push(normalizedQuest);
@@ -12558,11 +12554,36 @@ async function resetSleepDayData(userId) {
   if (!activeUser || activeUser.uid !== userId) return;
   sleepInput.value = "";
   sleepResult.innerText = "";
+  bedtimeSettings = { timeText: "", enabled: false };
+  bedtimeReminderLastTriggeredKey = "";
+  bedtimeInputTouchedSinceSync = false;
+  bedtimeAllowUnchangedResubmit = false;
+  clearBedtimeReminderSchedule();
+  closeBedtimeReminderModal(null, true);
+  if (bedtimeTimeInput) bedtimeTimeInput.value = "";
+  setBedtimeInputError("");
+  updateBedtimeSetButtonState();
+
+  try {
+    await fsSetDoc(doc(db, "users", userId, "settings", "sleep"), {
+      bedtimeEnabled: false,
+      bedtimeTime: "",
+      bedtimeMeridiem: "",
+      updatedAt: serverTimestamp(),
+      updatedAtMs: Date.now()
+    }, 'sleep', { merge: true });
+  } catch (err) {
+    notifyFirestoreError(err);
+  }
+
   await loadSleepData(userId);
 }
 
-function scheduleSleepDailyReset(userId) {
+async function scheduleSleepDailyReset(userId) {
   clearSleepDailyResetSchedule();
+  if (!userId) return;
+  await ensureServerClockCurrent(userId);
+  if (!auth.currentUser?.uid || auth.currentUser.uid !== userId) return;
 
   const runReset = async () => {
     const activeUser = auth.currentUser;
@@ -12571,6 +12592,7 @@ function scheduleSleepDailyReset(userId) {
       return;
     }
 
+    await ensureServerClockCurrent(userId);
     await resetSleepDayData(userId);
     scheduleSleepDailyReset(userId);
   };
@@ -19083,8 +19105,14 @@ function updateWaterProgress() {
       break;
     }
   }
-  const percent = waterGoal > 0 ? Math.round((latestTodayValue / waterGoal) * 100) : 0;
-  waterProgress.innerText = `${latestTodayValue}/${waterGoal} (${percent}%)`;
+  if (waterGoal > 0) {
+    const percent = Math.round((latestTodayValue / waterGoal) * 100);
+    waterProgress.innerText = `${latestTodayValue}/${waterGoal} (${percent}%)`;
+  } else {
+    waterProgress.innerText = latestTodayValue > 0
+      ? `${latestTodayValue} glass${latestTodayValue === 1 ? "" : "es"} logged • Set a daily goal to see progress.`
+      : "Set a daily goal to track water progress.";
+  }
   updateWaterClearButtonState();
   updateInsights();
 }
