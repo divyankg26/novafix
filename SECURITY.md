@@ -12,8 +12,8 @@ NovaFix currently supports the following versions:
 | ------- | ------------------ |
 | 12.3    | :white_check_mark: |
 | 12.2    | :warning:          |
-| 12.0.   | :warning:          |
-| < 12.0. | :x:                |
+| 12.0    | :warning:          |
+| < 12.0  | :x:                |
 
 NovaFix supports the latest version with full updates. Older versions may receive limited security fixes or no support.
 
