@@ -1061,7 +1061,6 @@ const NOVAFIX_THEMES = {
 const DEFAULT_THEME = "burgundy";
 let themeSetupUserId = "";
 let themeSetupResolve = null;
-let themeSetupCommittedTheme = "";
 
 function normalizeTheme(theme) {
   const normalized = String(theme || "").trim().toLowerCase();
@@ -1072,15 +1071,13 @@ function getThemeStorageKey(userId) {
   return `novafix_theme_${String(userId || "").trim()}`;
 }
 
-function applyTheme(theme, userId = "", options = {}) {
+function applyTheme(theme, userId = "") {
   const normalized = normalizeTheme(theme) || DEFAULT_THEME;
   document.documentElement.dataset.theme = normalized;
-  if (options.persist !== false) {
-    try {
-      localStorage.setItem("novafix_theme_last", normalized);
-      if (userId) localStorage.setItem(getThemeStorageKey(userId), normalized);
-    } catch (_) {}
-  }
+  try {
+    localStorage.setItem("novafix_theme_last", normalized);
+    if (userId) localStorage.setItem(getThemeStorageKey(userId), normalized);
+  } catch (_) {}
   document.querySelectorAll(".theme-choice").forEach((choice) => {
     choice.classList.toggle("selected", choice.dataset.theme === normalized);
     choice.setAttribute("aria-checked", choice.dataset.theme === normalized ? "true" : "false");
@@ -1127,7 +1124,6 @@ async function selectTheme(theme, options = {}) {
   if (!normalized) return false;
   const userId = String(options.userId || auth.currentUser?.uid || themeSetupUserId || "").trim();
   if (!userId) return false;
-  if (themeSetupResolve) themeSetupCommittedTheme = normalized;
   applyTheme(normalized, userId);
   if (!options.silent) showThemeToast(`${NOVAFIX_THEMES[normalized].label} theme applied.`);
   try {
@@ -1157,9 +1153,6 @@ async function selectTheme(theme, options = {}) {
 function openThemeSetupModal(userId = "") {
   if (!themeSetupModal) return Promise.resolve(false);
   themeSetupUserId = String(userId || auth.currentUser?.uid || "").trim();
-  themeSetupCommittedTheme = normalizeTheme(document.documentElement.dataset.theme)
-    || getStoredTheme(themeSetupUserId)
-    || DEFAULT_THEME;
   themeSetupModal.style.display = "flex";
   ensureAppBackGuardState("theme-setup", true);
   return new Promise((resolve) => {
@@ -1175,35 +1168,10 @@ function bindThemeChoiceEvents(container) {
   });
 }
 
-function supportsDesktopThemePreview() {
-  if (typeof window === "undefined") return false;
-  const hoverCapable = window.matchMedia?.("(hover: hover) and (pointer: fine)")?.matches;
-  const hasTouchInput = Number(navigator.maxTouchPoints || 0) > 0 || "ontouchstart" in window;
-  return !!hoverCapable && !hasTouchInput;
-}
-
-function bindFirstThemePreviewEvents(container) {
-  if (!container) return;
-  container.querySelectorAll(".theme-choice").forEach((choice) => {
-    choice.addEventListener("mouseenter", () => {
-      if (!supportsDesktopThemePreview() || !themeSetupResolve || themeSetupModal?.style?.display !== "flex") return;
-      const previewTheme = normalizeTheme(choice.dataset.theme);
-      if (previewTheme) applyTheme(previewTheme, "", { persist: false });
-    });
-    choice.addEventListener("mouseleave", () => {
-      if (!supportsDesktopThemePreview() || !themeSetupResolve || themeSetupModal?.style?.display !== "flex") return;
-      if (themeSetupCommittedTheme) {
-        applyTheme(themeSetupCommittedTheme, "", { persist: false });
-      }
-    });
-  });
-}
-
 renderThemeChoices(themeSetupOptions);
 renderThemeChoices(accountThemeOptions);
 bindThemeChoiceEvents(themeSetupOptions);
 bindThemeChoiceEvents(accountThemeOptions);
-bindFirstThemePreviewEvents(themeSetupOptions);
 applyTheme(getStoredTheme(""));
 const guideNextBtn = document.getElementById("guideNextBtn");
 const crashAlertBanner = document.getElementById("crashAlertBanner");
@@ -2201,7 +2169,6 @@ try {
           return;
         }
 
-        startAuthenticatedCardLoad(user);
         const googleIdentityReady = await ensureGoogleIdentitySetupIfNeeded(user);
         if (!googleIdentityReady) {
           hideSplash();
@@ -2252,7 +2219,6 @@ try {
         clearWaterGoalResetSchedule();
         clearSleepDailyResetSchedule();
         clearMoodDailyResetSchedule();
-        resetAuthenticatedCardLoadState();
         clearTaskDailyResetSchedule();
         clearBedtimeReminderSchedule();
         closeBedtimeReminderModal(null, true);
@@ -2962,8 +2928,6 @@ async function ensureGoogleIdentitySetupIfNeeded(user) {
 
 const DASHBOARD_CARD_LOAD_TIMEOUT_MS = 5000;
 let dashboardCardLoadTimeoutId = null;
-let authenticatedCardLoadUserId = "";
-let authenticatedCardLoadPromises = null;
 
 function clearDashboardCardLoadTimeout() {
   if (dashboardCardLoadTimeoutId) {
@@ -3045,7 +3009,8 @@ async function initializeAuthenticatedSession(user) {
   clearAuthProgressMessage();
 
   if (signInModal) signInModal.style.display = "none";
-  const initialDataLoadPromises = startAuthenticatedCardLoad(user);
+  dashboard.style.display = "grid";
+  dashboard.classList.add("preload-shell");
   accountBtn.style.display = "none";
 
   const tosAccepted = await ensureTosAccepted(sessionUserId);
@@ -3057,6 +3022,7 @@ async function initializeAuthenticatedSession(user) {
   await ensureThemeSelection(sessionUserId).catch((err) => structuredLog('warn', 'theme.setup', err?.message || String(err)));
 
   dashboard.style.display = "grid";
+  dashboard.classList.add("preload-shell");
   setPageTitle("dashboard");
   accountBtn.style.display = "block";
   authenticatedShellReadyAtMs = Date.now();
@@ -3065,6 +3031,7 @@ async function initializeAuthenticatedSession(user) {
   updateAccountPanel(user);
   signInModal.style.display = "none";
   dashboard.classList.remove("preload-shell");
+  setInitialLoadingStates();
   updateClearDataButtonState();
   // Record last sign-in timestamp on the existing writable `timeSync` settings doc.
   (async function writeLastSignInSafe() {
@@ -3123,6 +3090,25 @@ async function initializeAuthenticatedSession(user) {
     if (!activeUser?.uid || activeUser.uid !== user.uid) return;
     updateAccountPanel(activeUser);
   }).catch((err) => structuredLog('warn', 'session.prep', err?.message || String(err)));
+  const initialDataLoadPromises = [
+    loadDailyChallenge(user.uid),
+    loadDailyUsage(user.uid),
+    loadMoods(user.uid),
+    loadAiUsage(user.uid),
+    loadAiChats(user.uid),
+    loadTasks(user.uid),
+    loadReminders(user.uid),
+    loadWeeklyTargets(user.uid),
+    loadRescueEvents(user.uid),
+    loadHabitQuest(user.uid),
+    loadStartupUsageState(user.uid),
+    loadStartupFeatureState(user.uid),
+    loadWaterData(user.uid),
+    loadSleepData(user.uid),
+    loadMusicSessions(user.uid),
+    loadBedtimeSettings(user.uid),
+    loadGratitude(user.uid)
+  ];
   const shouldShowPendingRequestLoginAlert = consumePendingRequestLoginAlertFlag();
   friendRequestLoginAlertShown = false;
   loadFriendRequests(user.uid, shouldShowPendingRequestLoginAlert);
@@ -9607,52 +9593,6 @@ function setInitialLoadingStates() {
   setLoadingState(moodLogs, "Loading mood logs...");
   setLoadingState(gratitudeLogs, "Loading gratitude notes...");
   if (questListEl) setLoadingState(questListEl, "Preparing today’s habit quests...");
-}
-
-function resetAuthenticatedCardLoadState() {
-  authenticatedCardLoadUserId = "";
-  authenticatedCardLoadPromises = null;
-}
-
-function prepareAuthenticatedDashboardShell(user) {
-  const sessionUserId = String(user?.uid || "").trim();
-  if (!sessionUserId || !dashboard) return;
-  dashboard.style.display = "grid";
-  dashboard.classList.remove("preload-shell");
-  setPageTitle("dashboard");
-  setInitialLoadingStates();
-}
-
-function startAuthenticatedCardLoad(user) {
-  const sessionUserId = String(user?.uid || "").trim();
-  if (!sessionUserId) return [];
-
-  prepareAuthenticatedDashboardShell(user);
-  if (authenticatedCardLoadUserId === sessionUserId && Array.isArray(authenticatedCardLoadPromises)) {
-    return authenticatedCardLoadPromises;
-  }
-
-  authenticatedCardLoadUserId = sessionUserId;
-  authenticatedCardLoadPromises = [
-    loadDailyChallenge(sessionUserId),
-    loadDailyUsage(sessionUserId),
-    loadMoods(sessionUserId),
-    loadAiUsage(sessionUserId),
-    loadAiChats(sessionUserId),
-    loadTasks(sessionUserId),
-    loadReminders(sessionUserId),
-    loadWeeklyTargets(sessionUserId),
-    loadRescueEvents(sessionUserId),
-    loadHabitQuest(sessionUserId),
-    loadStartupUsageState(sessionUserId),
-    loadStartupFeatureState(sessionUserId),
-    loadWaterData(sessionUserId),
-    loadSleepData(sessionUserId),
-    loadMusicSessions(sessionUserId),
-    loadBedtimeSettings(sessionUserId),
-    loadGratitude(sessionUserId)
-  ];
-  return authenticatedCardLoadPromises;
 }
 
 function hasAnyClearableData() {
